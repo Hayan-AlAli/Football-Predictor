@@ -1,0 +1,7 @@
+requests
+python-dotenv
+scikit-learn
+pandas
+joblib
+beautifulsoup4
+lxml

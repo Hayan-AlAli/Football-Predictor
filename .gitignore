@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Machine Learning Models and Data
+*.pkl
+training_data.pkl
+model_*.pkl
+elo_state.pkl
+team_encoder.pkl
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
