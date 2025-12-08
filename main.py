@@ -49,9 +49,19 @@ def main():
                 if selected_match:
                     # Step 5: Prediction
                     prediction = predict_match(selected_match)
-                    print(f"\nPrediction for {selected_match['home_team']} vs {selected_match['away_team']}:")
-                    print(f"Winner: {prediction['winner']}")
-                    print(f"Score: {prediction['score']}")
+                    
+                    home_team = selected_match['home_team']
+                    away_team = selected_match['away_team']
+                    
+                    prob_home = prediction.get('prob_home', 0.0) * 100
+                    prob_draw = prediction.get('prob_draw', 0.0) * 100
+                    prob_away = prediction.get('prob_away', 0.0) * 100
+                    
+                    print(f"\nPrediction for {home_team} vs {away_team}:")
+                    print(f"{home_team}: {prob_home:.1f}%")
+                    print(f"{away_team}: {prob_away:.1f}%")
+                    print(f"Draw: {prob_draw:.1f}%")
+                    print(f"Expected score: {prediction['score']}")
                 else:
                     print("Invalid match number. Please try again.")
 
