@@ -72,14 +72,23 @@ def poisson_probability(k, lamb):
 def calculate_probabilities(home_avg, away_avg, max_goals=10):
     """
     Calculates win/draw/loss probabilities based on Poisson distribution.
+    Also returns the most likely exact score.
     """
     prob_home_win = 0.0
     prob_draw = 0.0
     prob_away_win = 0.0
     
+    max_p = -1.0
+    most_likely_score = (0, 0)
+    
     for h in range(max_goals + 1):
         for a in range(max_goals + 1):
             p = poisson_probability(h, home_avg) * poisson_probability(a, away_avg)
+            
+            if p > max_p:
+                max_p = p
+                most_likely_score = (h, a)
+            
             if h > a:
                 prob_home_win += p
             elif a > h:
@@ -94,7 +103,7 @@ def calculate_probabilities(home_avg, away_avg, max_goals=10):
         prob_draw /= total_prob
         prob_away_win /= total_prob
         
-    return prob_home_win, prob_draw, prob_away_win
+    return prob_home_win, prob_draw, prob_away_win, most_likely_score
 
 def random_prediction(home_team, away_team):
     """Fallback random prediction."""
@@ -165,11 +174,11 @@ def predict_match(match_data):
             pred_away_goals = max(0.0, pred_away_goals)
             
             # Calculate Probabilities
-            prob_home, prob_draw, prob_away = calculate_probabilities(pred_home_goals, pred_away_goals)
+            prob_home, prob_draw, prob_away, likely_score = calculate_probabilities(pred_home_goals, pred_away_goals)
             
-            # Round to nearest integer for display, but keep float for winner logic
-            score_home = round(pred_home_goals)
-            score_away = round(pred_away_goals)
+            # Use most likely score for display
+            score_home = likely_score[0]
+            score_away = likely_score[1]
             
             # Winner based on highest probability
             if prob_home > prob_away and prob_home > prob_draw:
