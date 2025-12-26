@@ -1,0 +1,20 @@
+[
+    {
+        "id": "2025-12-26_manchesterunited_newcastle",
+        "date": "2025-12-26",
+        "time": "20:00",
+        "home_team": "Manchester United",
+        "away_team": "Newcastle",
+        "prediction": {
+            "winner": "Newcastle",
+            "score": "0-1",
+            "home_goals": 1.0,
+            "away_goals": 1.56,
+            "home_elo": 1525,
+            "away_elo": 1502,
+            "prob_home": 0.24270998128013246,
+            "prob_draw": 0.25393145706257403,
+            "prob_away": 0.5033585616572934
+        }
+    }
+]

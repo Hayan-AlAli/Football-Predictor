@@ -1,7 +1,7 @@
 name: Evening Results
 on:
   schedule:
-    - cron: '55 23 * * *' # 23:55 UTC
+    - cron: '30 22 * * *' # 22:30 UTC
   workflow_dispatch:
 
 jobs:
