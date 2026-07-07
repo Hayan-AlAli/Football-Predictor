@@ -1,0 +1,102 @@
+{
+    "Arsenal": {
+        "name": "Arsenal F.C.",
+        "short_name": "ARS",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t3.png"
+    },
+    "Aston Villa": {
+        "name": "Aston Villa F.C.",
+        "short_name": "AVL",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t7.png"
+    },
+    "Bournemouth": {
+        "name": "AFC Bournemouth",
+        "short_name": "BOU",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t91.png"
+    },
+    "Brentford": {
+        "name": "Brentford F.C.",
+        "short_name": "BRE",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t94.png"
+    },
+    "Brighton": {
+        "name": "Brighton & Hove Albion F.C.",
+        "short_name": "BHA",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t36.png"
+    },
+    "Chelsea": {
+        "name": "Chelsea F.C.",
+        "short_name": "CHE",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t8.png"
+    },
+    "Crystal Palace": {
+        "name": "Crystal Palace F.C.",
+        "short_name": "CRY",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t31.png"
+    },
+    "Everton": {
+        "name": "Everton F.C.",
+        "short_name": "EVE",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t11.png"
+    },
+    "Fulham": {
+        "name": "Fulham F.C.",
+        "short_name": "FUL",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t54.png"
+    },
+    "Ipswich Town": {
+        "name": "Ipswich Town F.C.",
+        "short_name": "IPS",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t40.png"
+    },
+    "Leicester City": {
+        "name": "Leicester City F.C.",
+        "short_name": "LEI",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t13.png"
+    },
+    "Liverpool": {
+        "name": "Liverpool F.C.",
+        "short_name": "LIV",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t14.png"
+    },
+    "Manchester City": {
+        "name": "Manchester City F.C.",
+        "short_name": "MCI",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t43.png"
+    },
+    "Manchester United": {
+        "name": "Manchester United F.C.",
+        "short_name": "MUN",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t1.png"
+    },
+    "Newcastle": {
+        "name": "Newcastle United F.C.",
+        "short_name": "NEW",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t4.png"
+    },
+    "Nottingham Forest": {
+        "name": "Nottingham Forest F.C.",
+        "short_name": "NFO",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t17.png"
+    },
+    "Southampton": {
+        "name": "Southampton F.C.",
+        "short_name": "SOU",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t20.png"
+    },
+    "Tottenham": {
+        "name": "Tottenham Hotspur F.C.",
+        "short_name": "TOT",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t6.png"
+    },
+    "West Ham": {
+        "name": "West Ham United F.C.",
+        "short_name": "WHU",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t21.png"
+    },
+    "Wolverhampton": {
+        "name": "Wolverhampton Wanderers F.C.",
+        "short_name": "WOL",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t39.png"
+    }
+}

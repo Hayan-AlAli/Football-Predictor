@@ -3,20 +3,37 @@ import pandas as pd
 import os
 import random
 import utils
-import features
 import math
+import concurrent.futures
+
+_ELO_TIMEOUT = 15
+
+def _fetch_live_elo():
+    try:
+        import soccerdata
+        import datetime
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(lambda: soccerdata.ClubElo().read_by_date(datetime.date.today().strftime('%Y-%m-%d')))
+        ratings = future.result(timeout=_ELO_TIMEOUT)
+        pool.shutdown(wait=False)
+        if ratings is not None and not ratings.empty:
+            lookup = {}
+            for team, row in ratings.iterrows():
+                lookup[utils.normalize_team_name(str(team))] = row['elo']
+            return lookup
+    except Exception:
+        pass
+    return None
 
 # Load models if they exist
 MODEL_PATH_HOME = 'model_home.pkl'
 MODEL_PATH_AWAY = 'model_away.pkl'
 ENCODER_PATH = 'team_encoder.pkl'
-ELO_PATH = 'elo_state.pkl'
 TRAINING_DATA_PATH = 'training_data.pkl'
 
 model_home = None
 model_away = None
 encoder = None
-elo_state = None
 training_df = None
 
 try:
@@ -26,8 +43,7 @@ try:
         model_away = joblib.load(MODEL_PATH_AWAY)
     if os.path.exists(ENCODER_PATH):
         encoder = joblib.load(ENCODER_PATH)
-    if os.path.exists(ELO_PATH):
-        elo_state = joblib.load(ELO_PATH)
+    # ELO state is no longer loaded; ELO must be provided in match_data or fetched dynamically
     if os.path.exists(TRAINING_DATA_PATH):
         training_df = joblib.load(TRAINING_DATA_PATH)
         
@@ -128,31 +144,51 @@ def random_prediction(home_team, away_team):
 
 def predict_match(match_data):
     """
-    Predicts the outcome using AI model if available, else random.
-    match_data: dict with keys 'home_team' and 'away_team'
+    Predicts the outcome using AI model.
+    match_data: dict with keys 'home_team', 'away_team', 'home_elo', 'away_elo'
     """
     home_team = match_data['home_team']
     away_team = match_data['away_team']
     
-    if model_home and model_away and encoder and elo_state and training_df is not None:
+    # Check if we have models
+    if model_home and model_away and encoder and training_df is not None:
         try:
-            # Normalize
             home_team_norm = utils.normalize_team_name(home_team)
             away_team_norm = utils.normalize_team_name(away_team)
-
-            # 1. Team Codes
-            home_code = encoder.transform([home_team_norm])[0]
-            away_code = encoder.transform([away_team_norm])[0]
             
-            # 2. ELO
-            home_elo = elo_state.get_rating(home_team_norm)
-            away_elo = elo_state.get_rating(away_team_norm)
+            # 1. Team Codes
+            try:
+                home_code = encoder.transform([home_team_norm])[0]
+                away_code = encoder.transform([away_team_norm])[0]
+            except:
+                return random_prediction(home_team, away_team)
+            
+            # 2. ELO - try match_data first, then live fetch, then default
+            home_elo = match_data.get('home_elo')
+            away_elo = match_data.get('away_elo')
+            if home_elo is None or away_elo is None:
+                live_elo = _fetch_live_elo()
+                if live_elo:
+                    if home_elo is None:
+                        home_elo = live_elo.get(home_team_norm, 1500)
+                    if away_elo is None:
+                        away_elo = live_elo.get(away_team_norm, 1500)
+                else:
+                    home_elo = home_elo or 1500
+                    away_elo = away_elo or 1500
             
             # 3. Rolling Stats
             h_g, h_xg = get_latest_stats(home_team_norm, training_df)
             a_g, a_xg = get_latest_stats(away_team_norm, training_df)
             
-            # Construct Feature Vector
+            # Use league averages as fallback when rolling stats are 0 (unknown team)
+            if h_g == 0.0 and h_xg == 0.0:
+                h_g = training_df['home_rolling_goals'].mean()
+                h_xg = training_df['home_rolling_xg'].mean()
+            if a_g == 0.0 and a_xg == 0.0:
+                a_g = training_df['away_rolling_goals'].mean()
+                a_xg = training_df['away_rolling_xg'].mean()
+            
             features_dict = {
                 'home_team_code': home_code,
                 'away_team_code': away_code,
@@ -169,34 +205,19 @@ def predict_match(match_data):
             pred_home_goals = model_home.predict(X_pred)[0]
             pred_away_goals = model_away.predict(X_pred)[0]
             
-            # Ensure non-negative
             pred_home_goals = max(0.0, pred_home_goals)
             pred_away_goals = max(0.0, pred_away_goals)
             
-            # Calculate Probabilities
             prob_home, prob_draw, prob_away, likely_score = calculate_probabilities(pred_home_goals, pred_away_goals)
             
-            # Use most likely score for display
-            score_home = likely_score[0]
-            score_away = likely_score[1]
+            score_home = max(0, min(7, round(pred_home_goals)))
+            score_away = max(0, min(7, round(pred_away_goals)))
             
-            # Winner based on highest probability
-            if prob_home > prob_away and prob_home > prob_draw:
+            if prob_home >= prob_away and prob_home >= prob_draw:
                 winner = home_team
-            elif prob_away > prob_home and prob_away > prob_draw:
+            elif prob_away >= prob_home and prob_away >= prob_draw:
                 winner = away_team
             else:
-                 # Check if probabilities are very close or draw is highest
-                if prob_home > prob_away:
-                     winner = home_team # Lean to home if close? No, stick to prob
-                elif prob_away > prob_home:
-                     winner = away_team
-                else:
-                    winner = "Draw"
-            
-            # Override winner if probabilities dictate something else or match expectation logic
-            # Actually, standard is: highest prob wins.
-            if prob_draw >= prob_home and prob_draw >= prob_away:
                 winner = "Draw"
                 
             return {
@@ -212,8 +233,6 @@ def predict_match(match_data):
             }
             
         except Exception as e:
-            # Fallback if team not found in encoder etc
-            # print(f"Prediction Error: {e}")
             return random_prediction(home_team, away_team)
     else:
         return random_prediction(home_team, away_team)

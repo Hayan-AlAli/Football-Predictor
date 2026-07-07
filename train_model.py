@@ -2,49 +2,42 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import LabelEncoder
 import joblib
-import config
 import utils
 import features
-# import api_client - REMOVED
-# from match_manager import filter_and_sort_matches - REMOVED
 
 def train():
-    print("Fetching training data from Scraper...")
-    from fbref_scraper import scrape_data
+    print("Fetching training data from Data Manager...")
+    import data_manager
     
-    # Fetch all fixtures (scraper returns completed and upcoming)
-    completed_matches, _ = scrape_data()
+    # Fetch 5 seasons of history
+    df = data_manager.fetch_training_data(years=5)
     
-    if completed_matches.empty:
-        print("No completed matches found to train on.")
+    if df.empty:
+        print("No matches found to train on.")
         return
 
-    print(f"Training on {len(completed_matches)} matches.")
+    print(f"Training on {len(df)} matches.")
     
-    # Prepare DataFrame for training
-    df = completed_matches.copy()
-    
-    df = df.rename(columns={
-        'Home': 'home_team',
-        'Away': 'away_team',
-        'HomeGoals': 'home_goals',
-        'AwayGoals': 'away_goals',
-        'Date': 'date'
-    })
-    
-    # Ensure goals are numeric
+    # Ensure numeric types
     df['home_goals'] = pd.to_numeric(df['home_goals'])
     df['away_goals'] = pd.to_numeric(df['away_goals'])
+    df['home_xg'] = pd.to_numeric(df['home_xg'])
+    df['away_xg'] = pd.to_numeric(df['away_xg'])
 
-    # Normalize Team Names
+    # Normalize Team Names (Already done in data_manager actually? 
+    # data_manager does NOT normalize team names in the dataframe, only in the ELO lookup.
+    # We should normalize here just to be safe for encoding).
     df['home_team'] = df['home_team'].apply(utils.normalize_team_name)
     df['away_team'] = df['away_team'].apply(utils.normalize_team_name)
 
     # --- Feature Engineering ---
-    print("Engineering features (ELO, Form, xG)...")
+    print("Engineering features (Rolling Stats, Encoded Teams)...")
     
-    # 1. ELO Ratings
-    df, elo_rater = features.add_elo_ratings(df)
+    # 1. ELO Ratings (Already in DF from data_manager)
+    # We don't calculate them manually anymore! 
+    # But we need to save the 'elo_state' for the predictor?
+    # NO. The predictor will use ClubElo directly for "current" ratings.
+    # So we DO NOT need to save 'elo_state.pkl'. We can delete it or just not save it.
     
     # 2. Rolling Stats
     df = features.calculate_rolling_stats(df)
@@ -88,14 +81,12 @@ def train():
     joblib.dump(model_away, 'model_away.pkl')
     joblib.dump(le, 'team_encoder.pkl')
     
-    # Save Feature Engineering State (Current ELOs, Last Match Stats)
-    # We need to save the 'elo_rater' and the raw 'df' (to calculate latest rolling stats)
-    joblib.dump(elo_rater, 'elo_state.pkl')
-    # Save just the minimal needed for rolling stats (last 5 games per team)
-    # Actually, saving the whole training DF is easiest for now to recalculate 'current' form
+    # Save Feature Engineering State
+    # We NO LONGER save elo_state.pkl because we use ClubElo API.
+    # We DO save training_df because we need it for rolling stats (past matches).
     joblib.dump(df, 'training_data.pkl') 
     
-    print("Models and Feature States saved to disk.")
+    print("Models and Training Data saved to disk.")
 
 if __name__ == "__main__":
     train()

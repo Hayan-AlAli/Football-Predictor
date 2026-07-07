@@ -1,12 +1,8 @@
 import argparse
-import pandas as pd
 from datetime import datetime, timezone
-import sys
 
-from fbref_scraper import scrape_data
-from predictor import predict_match
 import utils_data
-import utils
+import data_manager
 
 def run_morning_job():
     print("Starting Morning Job (Prediction)...")
@@ -16,66 +12,25 @@ def run_morning_job():
     current_date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     print(f"Target Date: {current_date_str}")
 
-    # 1. Fetch Data
-    # Scraper returns (completed, upcoming)
-    _, upcoming_df = scrape_data()
+    # 1. Fetch Upcoming Matches (includes ELO)
+    upcoming_df = data_manager.fetch_upcoming_matches()
     
     if upcoming_df.empty:
-        print("No upcoming matches found from scraper.")
+        print("No matches found from data manager.")
         utils_data.save_json([], utils_data.get_prediction_file_path(current_date_str))
         return
 
-    # 2. Filter for Today
-    # We need to match the date string. 
-    # The dataframe 'Date' column is Timestamp.
+    # 2. Generate Predictions for today using shared helper
+    predictions = utils_data.generate_predictions_for_date(current_date_str, upcoming_df)
     
-    # Create a mask for today's matches
-    # Use string comparison to avoid potential timezone headaches with naive timestamps
-    upcoming_df['date_str'] = upcoming_df['Date'].dt.strftime('%Y-%m-%d')
-    days_matches = upcoming_df[upcoming_df['date_str'] == current_date_str].copy()
-    
-    if days_matches.empty:
+    if not predictions:
         print(f"No matches scheduled for today ({current_date_str}).")
         utils_data.save_json([], utils_data.get_prediction_file_path(current_date_str))
         return
 
-    print(f"Found {len(days_matches)} matches for today.")
+    print(f"Found {len(predictions)} matches for today.")
     
-    # 3. Generate Predictions
-    predictions = []
-    
-    for _, row in days_matches.iterrows():
-        home_team = utils.normalize_team_name(row['Home'])
-        away_team = utils.normalize_team_name(row['Away'])
-        match_date = row['Date']
-        
-        # Prepare match dict for predictor
-        match_input = {
-            'home_team': home_team,
-            'away_team': away_team,
-            'date': match_date
-        }
-        
-        # Predict
-        # Note: We rely on the scraper's 'xg' if available, but predictor.py mainly uses history from training_df
-        # The 'match_input' to predict_match just needs names mostly.
-        pred_result = predict_match(match_input)
-        
-        # Feature: Generate ID
-        match_id = utils_data.generate_match_id(match_date, home_team, away_team)
-        
-        # Structure the output
-        match_output = {
-            'id': match_id,
-            'date': current_date_str,
-            'time': row.get('Time', 'Unknown'),
-            'home_team': home_team,
-            'away_team': away_team,
-            'prediction': pred_result
-        }
-        predictions.append(match_output)
-        
-    # 4. Save Predictions
+    # 3. Save Predictions
     output_path = utils_data.get_prediction_file_path(current_date_str)
     utils_data.save_json(predictions, output_path)
     print("Morning job completed successfully.")
@@ -95,52 +50,53 @@ def run_evening_job():
         print(f"No predictions found for {current_date_str}. Nothing to compare.")
         return
 
-    # 2. Fetch Results
-    # This time we care about 'completed_df'
-    completed_df, _ = scrape_data()
+    # 2. Fetch Results (Using Data Manager)
+    completed_matches = data_manager.fetch_latest_results(current_date_str)
     
-    if completed_df.empty:
+    if not completed_matches:
         print("No completed matches found.")
-        # Proceed anyway? If we have predictions but no completed matches, 
-        # it means they haven't finished or scraper failed to find them.
+        return
     
-    # Prepare lookup for completed matches
-    # Key: ID -> Data
-    # We need to reconstruct IDs for completed matches to match them with predictions
+    # Prepare lookup
     results_map = {}
-    if not completed_df.empty:
-        for _, row in completed_df.iterrows():
-            h_team = utils.normalize_team_name(row['Home'])
-            a_team = utils.normalize_team_name(row['Away'])
-            m_date = row['Date']
-            m_id = utils_data.generate_match_id(m_date, h_team, a_team)
-            
-            results_map[m_id] = {
-                'home_goals': int(row['HomeGoals']),
-                'away_goals': int(row['AwayGoals']),
-                'score': f"{int(row['HomeGoals'])}-{int(row['AwayGoals'])}"
-            }
+    for res in completed_matches:
+        key = (res['home_team'], res['away_team'])
+        results_map[key] = {
+            'home_goals': res['home_goals'],
+            'away_goals': res['away_goals'],
+            'score': f"{res['home_goals']}-{res['away_goals']}"
+        }
+    
+    # Build a fuzzy lookup as fallback (handle minor name mismatches)
+    def find_result(pred_home, pred_away):
+        key = (pred_home, pred_away)
+        if key in results_map:
+            return results_map[key]
+        for (r_home, r_away), val in results_map.items():
+            if (pred_home in r_home or r_home in pred_home) and (pred_away in r_away or r_away in pred_away):
+                print(f"Fuzzy match: ({pred_home}, {pred_away}) -> ({r_home}, {r_away})")
+                return val
+        return None
             
     # 3. Compare
     comparison_results = []
     
     for pred in predictions:
-        m_id = pred['id']
         result_entry = {
             'match': pred,
             'actual': None,
-            'status': 'PENDING' # PENDING, CORRECT, INCORRECT, POSTPONED
+            'status': 'PENDING'
         }
         
-        if m_id in results_map:
-            actual = results_map[m_id]
+        actual = find_result(pred['home_team'], pred['away_team'])
+        if actual is not None:
             result_entry['actual'] = actual
             
             # Determine winner
             hg = actual['home_goals']
             ag = actual['away_goals']
             if hg > ag:
-                actual_winner = pred['home_team'] # Using name from pred to assume consistency
+                actual_winner = pred['home_team']
             elif ag > hg:
                 actual_winner = pred['away_team']
             else:
@@ -155,16 +111,19 @@ def run_evening_job():
             else:
                 result_entry['status'] = 'INCORRECT'
         else:
-             print(f"Result not found for {m_id}")
-             # It might be in 'upcoming' if it played late or was postponed, or timezone diff
-             # We just leave it as PENDING/None
+             print(f"Result not found for {pred['home_team']} vs {pred['away_team']}")
              
         comparison_results.append(result_entry)
         
-    # 4. Save Results
+    # 4. Save Results (only if at least one match was actually compared)
+    matched_count = sum(1 for r in comparison_results if r['actual'] is not None)
+    if matched_count == 0:
+        print(f"No actual results matched predictions for {current_date_str}. Nothing to save.")
+        return
+
     output_path = utils_data.get_result_file_path(current_date_str)
     utils_data.save_json(comparison_results, output_path)
-    print("Evening job completed successfully.")
+    print(f"Evening job completed successfully. {matched_count}/{len(comparison_results)} predictions matched.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Automated Football Predictor")

@@ -5,3 +5,9 @@ pandas
 joblib
 beautifulsoup4
 lxml
+fastapi
+uvicorn[standard]
+soccerdata
+html5lib
+pytz
+typing_extensions

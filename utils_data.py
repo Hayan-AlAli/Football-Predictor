@@ -1,12 +1,19 @@
 import os
 import json
-import hashlib
 from datetime import datetime
 import pandas as pd
 
 DATA_DIR = "data"
 PREDICTIONS_DIR = os.path.join(DATA_DIR, "predictions")
 RESULTS_DIR = os.path.join(DATA_DIR, "results")
+
+# Detect read-only filesystem (Vercel serverless) and use /tmp instead
+try:
+    os.makedirs(PREDICTIONS_DIR, exist_ok=True)
+except OSError:
+    DATA_DIR = "/tmp/data"
+    PREDICTIONS_DIR = os.path.join(DATA_DIR, "predictions")
+    RESULTS_DIR = os.path.join(DATA_DIR, "results")
 
 def ensure_directories():
     """Ensures data directories exist."""
@@ -60,3 +67,43 @@ def load_json(path):
     except Exception as e:
         print(f"Error loading JSON from {path}: {e}")
         return None
+
+def generate_predictions_for_date(date_str, upcoming_df):
+    """
+    Given a DataFrame of upcoming matches (from data_manager.fetch_upcoming_matches),
+    generate predictions for all matches on date_str.
+    Returns a list of prediction dicts (without team_info enrichment).
+    """
+    from predictor import predict_match
+    import utils
+
+    if upcoming_df is None or upcoming_df.empty:
+        return []
+
+    upcoming_df = upcoming_df.copy()
+    upcoming_df['date_str'] = upcoming_df['date'].dt.strftime('%Y-%m-%d')
+    days_matches = upcoming_df[upcoming_df['date_str'] == date_str]
+
+    predictions = []
+    for _, row in days_matches.iterrows():
+        home_team = utils.normalize_team_name(row['home_team'])
+        away_team = utils.normalize_team_name(row['away_team'])
+        match_input = {
+            'home_team': home_team,
+            'away_team': away_team,
+            'date': row['date'],
+            'home_elo': row.get('home_elo', 1500),
+            'away_elo': row.get('away_elo', 1500)
+        }
+        pred_result = predict_match(match_input)
+        match_id = generate_match_id(row['date'], home_team, away_team)
+        match_time = row['date'].strftime('%H:%M')
+        predictions.append({
+            'id': match_id,
+            'date': date_str,
+            'time': match_time,
+            'home_team': home_team,
+            'away_team': away_team,
+            'prediction': pred_result
+        })
+    return predictions

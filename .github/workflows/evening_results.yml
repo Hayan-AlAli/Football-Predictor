@@ -11,6 +11,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,7 +26,23 @@ jobs:
       - name: Run Evening Job
         run: python automation.py evening
         
+      - name: Pull latest changes
+        run: |
+          git pull origin main --rebase --autostash
+      
+      - name: Check for result files before commit
+        id: check_results
+        run: |
+          if ls data/results/*.json 1> /dev/null 2>&1; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "Result files found, proceeding with commit."
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "No result files to commit."
+          fi
+      
       - name: Commit and Push
+        if: steps.check_results.outputs.found == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto: Daily Results"

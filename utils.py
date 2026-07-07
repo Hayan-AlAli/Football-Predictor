@@ -1,44 +1,76 @@
 from datetime import datetime
-import pytz
 import config
-
-def get_current_time():
-    """Returns the current aware datetime in UTC."""
-    if config.DEMO_MODE:
-        # Mock date for testing with Free Tier API (which only gives 2023 season)
-        return datetime(2023, 9, 1, tzinfo=pytz.utc)
-    else:
-        return datetime.now(pytz.utc)
-
-def parse_iso8601(date_str):
-    """Parses an ISO 8601 date string to a datetime object."""
-    # API Football returns dates in ISO 8601 format, e.g., "2023-12-01T15:00:00+00:00"
-    return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-
-def format_match_time(date_obj):
-    """Formats a datetime object for display."""
-    return date_obj.strftime("%Y-%m-%d %H:%M")
-
-def is_same_day(date1, date2):
-    """Checks if two datetime objects represent the same calendar day."""
-    return date1.date() == date2.date()
 
 def normalize_team_name(name):
     """
-    Normalizes team names from FBRef/Scraper to match API-Football names.
-    API-Football names are generally shorter / standard.
+    Normalizes team names from various sources (ESPN, Understat, FBRef)
+    to canonical names matching teams.json keys.
     """
     mapping = {
+        # Manchester
         "Manchester Utd": "Manchester United",
+        "Man United": "Manchester United",
+        "Man Utd": "Manchester United",
+        "Man City": "Manchester City",
+        "Manchester City F.C.": "Manchester City",
+        # Newcastle
         "Newcastle Utd": "Newcastle",
+        "Newcastle United": "Newcastle",
+        "Newcastle United F.C.": "Newcastle",
+        # Nottingham Forest
         "Nott'ham Forest": "Nottingham Forest",
-        "Wolverhampton Wanderers": "Wolves",
+        "Forest": "Nottingham Forest",
+        "Nottingham Forest F.C.": "Nottingham Forest",
+        # Wolverhampton
+        "Wolverhampton Wanderers": "Wolverhampton",
+        "Wolverhampton": "Wolverhampton",
+        "Wolves": "Wolverhampton",
+        "Wolverhampton Wanderers F.C.": "Wolverhampton",
+        # West Ham
         "West Ham United": "West Ham",
+        "West Ham United F.C.": "West Ham",
+        # Brighton
         "Brighton & Hove Albion": "Brighton",
+        "Brighton and Hove Albion": "Brighton",
+        "Brighton & Hove Albion F.C.": "Brighton",
+        # Tottenham
         "Tottenham Hotspur": "Tottenham",
-        "Luton Town": "Luton",
+        "Tottenham Hotspur F.C.": "Tottenham",
+        # Leicester (fixed: no circular mapping)
+        "Leicester": "Leicester City",
+        "Leicester City F.C.": "Leicester City",
+        # Bournemouth
+        "AFC Bournemouth": "Bournemouth",
+        # Aston Villa
+        "Aston Villa F.C.": "Aston Villa",
+        # Liverpool
+        "Liverpool F.C.": "Liverpool",
+        # Chelsea
+        "Chelsea F.C.": "Chelsea",
+        # Arsenal
+        "Arsenal F.C.": "Arsenal",
+        # Everton
+        "Everton F.C.": "Everton",
+        # Other standardisations
+        "Ipswich Town": "Ipswich Town",
+        "Ipswich Town F.C.": "Ipswich Town",
+        "Sheffield Utd": "Sheffield United",
         "Leeds United": "Leeds",
-        "Leicester City": "Leicester",
-        "Norwich City": "Norwich"
+        "Leeds": "Leeds United",
+        "Norwich City": "Norwich",
+        "West Brom": "West Bromwich Albion",
+        "West Bromwich": "West Bromwich Albion",
+        "Stoke City": "Stoke",
+        "Swansea City": "Swansea",
+        "Cardiff City": "Cardiff",
+        "Huddersfield Town": "Huddersfield",
+        "Hull City": "Hull",
+        "Derby County": "Derby",
+        "Blackburn Rovers": "Blackburn",
+        "Bolton Wanderers": "Bolton",
+        "Wigan Athletic": "Wigan",
+        "Queens Park Rangers": "QPR",
+        "Luton Town": "Luton",
+        "Sheffield Weds": "Sheffield Wednesday"
     }
     return mapping.get(name, name)
