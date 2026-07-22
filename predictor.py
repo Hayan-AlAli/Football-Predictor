@@ -127,7 +127,7 @@ def calculate_probabilities(home_avg, away_avg, max_goals=10):
         prob_draw /= total_prob
         prob_away_win /= total_prob
 
-    return prob_home_win, prob_draw, prob_away_win, best_home, best_draw, best_away
+    return prob_home_win, prob_draw, prob_away_win, best_home, best_draw, best_away, max_home, max_draw, max_away
 
 def random_prediction(home_team, away_team):
     """Fallback random prediction."""
@@ -219,12 +219,13 @@ def predict_match(match_data):
             pred_home_goals = max(0.0, pred_home_goals)
             pred_away_goals = max(0.0, pred_away_goals)
             
-            prob_home, prob_draw, prob_away, best_home, best_draw, best_away = calculate_probabilities(pred_home_goals, pred_away_goals)
+            prob_home, prob_draw, prob_away, best_home, best_draw, best_away, p_best_home, p_best_draw, p_best_away = calculate_probabilities(pred_home_goals, pred_away_goals)
 
-            if prob_home >= prob_away and prob_home >= prob_draw:
+            # Use the most likely exact score to determine winner
+            if p_best_home >= p_best_draw and p_best_home >= p_best_away:
                 winner = home_team
                 score_home, score_away = best_home
-            elif prob_away >= prob_home and prob_away >= prob_draw:
+            elif p_best_away >= p_best_home and p_best_away >= p_best_draw:
                 winner = away_team
                 score_home, score_away = best_away
             else:
