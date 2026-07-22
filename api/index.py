@@ -109,13 +109,17 @@ def _generate_predictions_for_date_api(date_str):
     except Exception:
         return []
 
-def compute_gameweek(date_val) -> int:
-    if isinstance(date_val, str):
-        date_val = datetime.strptime(date_val, '%Y-%m-%d')
-    year = date_val.year
-    season_start = datetime(year, 8, 1) if date_val.month >= 8 else datetime(year - 1, 8, 1)
-    days = (date_val - season_start).days
-    return max(1, min(38, (days // 7) + 1))
+def compute_gameweeks(dates):
+    if not dates:
+        return {}
+    sorted_dates = sorted(dates)
+    first = datetime.strptime(sorted_dates[0], '%Y-%m-%d')
+    result = {}
+    for d in sorted_dates:
+        dt = datetime.strptime(d, '%Y-%m-%d')
+        gw = ((dt - first).days // 7) + 1
+        result[d] = min(gw, 38)
+    return result
 
 @app.get("/api/matches/all")
 async def get_all_matches_with_predictions():
@@ -124,11 +128,12 @@ async def get_all_matches_with_predictions():
         gameweeks = set()
         if DB_AVAILABLE:
             dates = db.get_available_dates()
+            gw_map = compute_gameweeks(dates)
             for date_str in dates:
                 predictions = db.load_predictions(date_str)
                 if not predictions:
                     continue
-                gw = compute_gameweek(date_str)
+                gw = gw_map.get(date_str, 1)
                 gameweeks.add(gw)
                 for pred in predictions:
                     matches.append({
