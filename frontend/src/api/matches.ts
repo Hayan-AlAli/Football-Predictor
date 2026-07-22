@@ -114,6 +114,11 @@ export async function checkHealth(): Promise<boolean> {
     const data = await fetchAPI<HealthResponse>('/api/health');
     return data && data.status === 'online';
   } catch {
-    return false;
+    try {
+      const data = await fetchAPI<HealthResponse>('/');
+      return data && data.status === 'online';
+    } catch {
+      return false;
+    }
   }
 }

@@ -120,32 +120,23 @@ def compute_gameweek(date_val) -> int:
 @app.get("/api/matches/all")
 async def get_all_matches_with_predictions():
     try:
-        import data_manager
-        from utils_data import generate_predictions_for_date
-        df = data_manager.fetch_upcoming_matches()
-        if df is None or df.empty:
-            return {"matches": [], "gameweeks": []}
-        df['date_str'] = df['date'].dt.strftime('%Y-%m-%d')
-        all_dates = sorted(df['date_str'].unique())
         matches = []
         gameweeks = set()
-        for date_str in all_dates:
-            predictions = []
-            if DB_AVAILABLE:
+        if DB_AVAILABLE:
+            dates = db.get_available_dates()
+            for date_str in dates:
                 predictions = db.load_predictions(date_str)
-            if not predictions:
-                predictions = _generate_predictions_for_date_api(date_str)
-            if not predictions:
-                continue
-            gw = compute_gameweek(date_str)
-            gameweeks.add(gw)
-            for pred in predictions:
-                matches.append({
-                    **pred,
-                    "gameweek": gw,
-                    "home_team_info": _team_info(pred['home_team']),
-                    "away_team_info": _team_info(pred['away_team'])
-                })
+                if not predictions:
+                    continue
+                gw = compute_gameweek(date_str)
+                gameweeks.add(gw)
+                for pred in predictions:
+                    matches.append({
+                        **pred,
+                        "gameweek": gw,
+                        "home_team_info": _team_info(pred['home_team']),
+                        "away_team_info": _team_info(pred['away_team'])
+                    })
         return {"matches": matches, "gameweeks": sorted(gameweeks)}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})

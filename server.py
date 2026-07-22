@@ -232,35 +232,24 @@ def compute_gameweek(date_val) -> int:
 async def get_all_matches_with_predictions():
     """Get all upcoming matches with predictions and computed gameweeks."""
     try:
-        upcoming_df = data_manager.fetch_upcoming_matches()
-        if upcoming_df.empty:
-            return {"matches": [], "gameweeks": []}
-
-        upcoming_df['date_str'] = upcoming_df['date'].dt.strftime('%Y-%m-%d')
-        all_dates = sorted(upcoming_df['date_str'].unique())
-
         matches = []
         gameweeks = set()
 
-        for date_str in all_dates:
-            predictions = []
-            if DB_AVAILABLE:
+        if DB_AVAILABLE:
+            dates = db.get_available_dates()
+            for date_str in dates:
                 predictions = db.load_predictions(date_str)
-            if not predictions:
-                predictions = _generate_predictions_for_date(date_str)
-            if not predictions:
-                continue
-
-            gw = compute_gameweek(date_str)
-            gameweeks.add(gw)
-
-            for pred in predictions:
-                matches.append({
-                    **pred,
-                    "gameweek": gw,
-                    "home_team_info": get_team_info(pred['home_team']),
-                    "away_team_info": get_team_info(pred['away_team'])
-                })
+                if not predictions:
+                    continue
+                gw = compute_gameweek(date_str)
+                gameweeks.add(gw)
+                for pred in predictions:
+                    matches.append({
+                        **pred,
+                        "gameweek": gw,
+                        "home_team_info": get_team_info(pred['home_team']),
+                        "away_team_info": get_team_info(pred['away_team'])
+                    })
 
         return {"matches": matches, "gameweeks": sorted(gameweeks)}
     except Exception as e:
