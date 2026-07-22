@@ -12,7 +12,7 @@ export default function TeamBadge({ team, size = 'medium' }: TeamBadgeProps) {
     const sizeClasses: Record<string, { wrapper: string; img: string }> = {
         small: { wrapper: '36px', img: '28px' },
         medium: { wrapper: '56px', img: '40px' },
-        large: { wrapper: '72px', img: '56px' }
+        large: { wrapper: '80px', img: '60px' }
     };
 
     const dimensions = sizeClasses[size] || sizeClasses.medium;

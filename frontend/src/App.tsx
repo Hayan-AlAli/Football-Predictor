@@ -4,10 +4,9 @@ import Header from './components/Header';
 import MatchList from './components/MatchList';
 import Loader from './components/Loader';
 import { getAllMatches, checkHealth } from './api/matches';
-import type { Match } from './types';
 
 function App() {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
   const [gameweeks, setGameweeks] = useState<number[]>([]);
   const [selectedGameweek, setSelectedGameweek] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,40 +39,56 @@ function App() {
     load();
   }, []);
 
+  const currentIndex = gameweeks.indexOf(selectedGameweek!);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < gameweeks.length - 1;
+
+  const goPrev = () => {
+    if (hasPrev) setSelectedGameweek(gameweeks[currentIndex - 1]);
+  };
+  const goNext = () => {
+    if (hasNext) setSelectedGameweek(gameweeks[currentIndex + 1]);
+  };
+
   const filteredMatches = selectedGameweek
     ? matches.filter(m => m.gameweek === selectedGameweek)
     : [];
 
   return (
     <div className="app">
-      <Header matchCount={filteredMatches.length} />
+      <Header />
 
       <main className="main">
         <div className="container">
-          <div className="section-header">
-            <div className="section-title">
-              <h2>Match Predictions</h2>
-              {selectedGameweek && (
-                <span className="section-subtitle">
-                  Gameweek {selectedGameweek}
-                </span>
-              )}
-            </div>
-
-            {gameweeks.length > 1 && (
-              <div className="gameweek-nav">
-                {gameweeks.map(gw => (
-                  <button
-                    key={gw}
-                    className={`gameweek-btn ${selectedGameweek === gw ? 'gameweek-btn--active' : ''}`}
-                    onClick={() => setSelectedGameweek(gw)}
-                  >
-                    GW{gw}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="pl-hero">
+            <h1 className="pl-title">Premier League</h1>
+            <p className="pl-subtitle">Match Predictions 2026/27</p>
           </div>
+
+          {gameweeks.length > 0 && (
+            <div className="pl-gw-nav">
+              <button
+                className="pl-gw-arrow"
+                onClick={goPrev}
+                disabled={!hasPrev}
+                aria-label="Previous gameweek"
+              >
+                ←
+              </button>
+              <div className="pl-gw-label">
+                <span className="pl-gw-number">Matchweek {selectedGameweek}</span>
+                <span className="pl-gw-count">{filteredMatches.length} matches</span>
+              </div>
+              <button
+                className="pl-gw-arrow"
+                onClick={goNext}
+                disabled={!hasNext}
+                aria-label="Next gameweek"
+              >
+                →
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="error-state fade-in">
@@ -91,7 +106,7 @@ function App() {
               </p>
             </div>
           ) : (
-            <MatchList matches={filteredMatches} groupByDate={true} />
+            <MatchList matches={filteredMatches} />
           )}
         </div>
       </main>
@@ -99,7 +114,7 @@ function App() {
       <footer className="footer">
         <div className="container">
           <p className="footer-text">
-            Football Predictor • Match Predictions • Premier League 2025/26
+            Football Predictor • Premier League 2026/27
           </p>
         </div>
       </footer>
