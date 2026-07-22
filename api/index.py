@@ -122,12 +122,15 @@ def compute_gameweeks(dates):
         seasons.setdefault(sy, []).append(d)
     latest_season = max(seasons.keys())
     season_dates = sorted(seasons[latest_season])
-    first = parsed[season_dates[0]]
     result = {}
+    gw = 0
+    prev = None
     for d in season_dates:
         dt = parsed[d]
-        gw = ((dt - first).days // 7) + 1
-        result[d] = min(gw, 38)
+        if prev is None or (dt - prev).days > 4:
+            gw += 1
+        result[d] = gw
+        prev = dt
     return result
 
 @app.get("/api/matches/all")

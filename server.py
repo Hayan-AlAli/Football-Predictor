@@ -223,12 +223,11 @@ def _season_year(d):
     return d.year if d.month >= 8 else d.year - 1
 
 def compute_gameweeks(dates):
-    """Assign gameweek numbers (1-38) per season, using the season's first date as GW1."""
+    """Assign consecutive gameweek numbers based on match rounds (gap >4 days = new round)."""
     if not dates:
         return {}
 
     parsed = {d: datetime.strptime(d, '%Y-%m-%d') for d in dates}
-
     seasons = {}
     for d, dt in parsed.items():
         sy = _season_year(dt)
@@ -236,13 +235,16 @@ def compute_gameweeks(dates):
 
     latest_season = max(seasons.keys())
     season_dates = sorted(seasons[latest_season])
-    first = parsed[season_dates[0]]
 
     result = {}
+    gw = 0
+    prev = None
     for d in season_dates:
         dt = parsed[d]
-        gw = ((dt - first).days // 7) + 1
-        result[d] = min(gw, 38)
+        if prev is None or (dt - prev).days > 4:
+            gw += 1
+        result[d] = gw
+        prev = dt
     return result
 
 
