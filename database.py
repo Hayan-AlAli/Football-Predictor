@@ -85,11 +85,36 @@ def save_teams(teams_dict):
             """, (name, info.get('short_name', name[:3].upper()), info.get('badge_url')))
 
 
+def _to_native(v):
+    if v is None:
+        return None
+    tn = type(v).__name__
+    if tn in ('float64', 'float32', 'float128'):
+        return float(v)
+    if tn in ('int64', 'int32', 'int16', 'int8', 'uint64', 'uint32', 'uint16', 'uint8'):
+        return int(v)
+    if tn == 'bool_':
+        return bool(v)
+    if isinstance(v, (int, float, str, bool)):
+        return v
+    return str(v)
+
+def _clean_pred(p):
+    return {
+        'prob_home': _to_native(p.get('prob_home')),
+        'prob_draw': _to_native(p.get('prob_draw')),
+        'prob_away': _to_native(p.get('prob_away')),
+        'score': _to_native(p.get('score')),
+        'winner': _to_native(p.get('winner')),
+        'home_goals': _to_native(p.get('home_goals')),
+        'away_goals': _to_native(p.get('away_goals')),
+    }
+
 def save_predictions(predictions):
     with get_db() as conn:
         cur = conn.cursor()
         for pred in predictions:
-            p = pred.get('prediction', {})
+            p = _clean_pred(pred.get('prediction', {}))
             cur.execute("""
                 INSERT INTO predictions (
                     id, match_date, match_time,
@@ -109,16 +134,16 @@ def save_predictions(predictions):
             """, (
                 pred['id'],
                 pred['date'],
-                pred.get('time'),
+                _to_native(pred.get('time')),
                 pred['home_team'],
                 pred['away_team'],
-                p.get('prob_home'),
-                p.get('prob_draw'),
-                p.get('prob_away'),
-                p.get('score'),
-                p.get('winner'),
-                p.get('home_goals'),
-                p.get('away_goals'),
+                p['prob_home'],
+                p['prob_draw'],
+                p['prob_away'],
+                p['score'],
+                p['winner'],
+                p['home_goals'],
+                p['away_goals'],
             ))
 
 
