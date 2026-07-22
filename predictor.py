@@ -88,38 +88,46 @@ def poisson_probability(k, lamb):
 def calculate_probabilities(home_avg, away_avg, max_goals=10):
     """
     Calculates win/draw/loss probabilities based on Poisson distribution.
-    Also returns the most likely exact score.
+    Returns probs and the most likely exact score for each outcome.
     """
     prob_home_win = 0.0
     prob_draw = 0.0
     prob_away_win = 0.0
-    
-    max_p = -1.0
-    most_likely_score = (0, 0)
-    
+
+    best_home = (0, 0)
+    best_draw = (0, 0)
+    best_away = (0, 0)
+    max_home = -1.0
+    max_draw = -1.0
+    max_away = -1.0
+
     for h in range(max_goals + 1):
         for a in range(max_goals + 1):
             p = poisson_probability(h, home_avg) * poisson_probability(a, away_avg)
-            
-            if p > max_p:
-                max_p = p
-                most_likely_score = (h, a)
-            
+
             if h > a:
                 prob_home_win += p
+                if p > max_home:
+                    max_home = p
+                    best_home = (h, a)
             elif a > h:
                 prob_away_win += p
+                if p > max_away:
+                    max_away = p
+                    best_away = (h, a)
             else:
                 prob_draw += p
-                
-    # Normalize (since we truncated at max_goals)
+                if p > max_draw:
+                    max_draw = p
+                    best_draw = (h, a)
+
     total_prob = prob_home_win + prob_draw + prob_away_win
     if total_prob > 0:
         prob_home_win /= total_prob
         prob_draw /= total_prob
         prob_away_win /= total_prob
-        
-    return prob_home_win, prob_draw, prob_away_win, most_likely_score
+
+    return prob_home_win, prob_draw, prob_away_win, best_home, best_draw, best_away
 
 def random_prediction(home_team, away_team):
     """Fallback random prediction."""
@@ -211,21 +219,21 @@ def predict_match(match_data):
             pred_home_goals = max(0.0, pred_home_goals)
             pred_away_goals = max(0.0, pred_away_goals)
             
-            prob_home, prob_draw, prob_away, likely_score = calculate_probabilities(pred_home_goals, pred_away_goals)
-            
-            score_home = max(0, min(7, round(pred_home_goals)))
-            score_away = max(0, min(7, round(pred_away_goals)))
-            
+            prob_home, prob_draw, prob_away, best_home, best_draw, best_away = calculate_probabilities(pred_home_goals, pred_away_goals)
+
             if prob_home >= prob_away and prob_home >= prob_draw:
                 winner = home_team
+                score_home, score_away = best_home
             elif prob_away >= prob_home and prob_away >= prob_draw:
                 winner = away_team
+                score_home, score_away = best_away
             else:
                 winner = "Draw"
-                
+                score_home, score_away = best_draw
+
             return {
                 'winner': winner,
-                'score': f"{int(score_home)}-{int(score_away)}",
+                'score': f"{score_home}-{score_away}",
                 'home_goals': pred_home_goals,
                 'away_goals': pred_away_goals,
                 'home_elo': int(home_elo),
