@@ -54,36 +54,6 @@
   letter-spacing: -0.02em;
 }
 
-.header-stats {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xl);
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: var(--space-xs) var(--space-md);
-  background: var(--color-bg-glass);
-  border-radius: var(--radius-md);
-  border: var(--border-subtle);
-}
-
-.stat-value {
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  color: var(--color-accent-secondary);
-  line-height: 1.2;
-}
-
-.stat-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
 /* ============================================
    CONTAINER
    ============================================ */
@@ -102,39 +72,8 @@
   padding: var(--space-3xl) 0;
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-xl);
-  gap: var(--space-md);
-}
-
-.section-title {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.section-title h2 {
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.section-subtitle {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.section-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
 /* ============================================
-   TABS NAVIGATION
+   MATCH LIST (layout only)
    ============================================ */
 .tabs {
   display: flex;
@@ -176,93 +115,9 @@
 }
 
 /* ============================================
-   MATCH LIST
+   TEAM BADGE (used by TeamBadge component)
    ============================================ */
-.match-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-}
-
-/* ============================================
-   MATCH CARD
-   ============================================ */
-.match-card {
-  padding: var(--space-xl);
-  position: relative;
-  overflow: hidden;
-}
-
-.match-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-lg);
-}
-
-.match-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.match-date {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.match-time {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--color-accent-secondary);
-  padding: var(--space-xs) var(--space-sm);
-  background: rgba(124, 58, 237, 0.12);
-  border: 1px solid rgba(124, 58, 237, 0.2);
-  border-radius: var(--radius-sm);
-}
-
-.match-gameweek {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--color-bg-glass);
-  border-radius: var(--radius-sm);
-}
-
-/* ============================================
-   TEAMS CONTAINER
-   ============================================ */
-.teams-container {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: var(--space-xl);
-  align-items: center;
-  margin-bottom: var(--space-xl);
-}
-
-/* ============================================
-   TEAM DISPLAY
-   ============================================ */
-.team {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.team--home {
-  justify-content: flex-end;
-}
-
-.team--away {
-  justify-content: flex-end;
-  flex-direction: row-reverse;
-}
-
 .team-badge {
-  width: 56px;
-  height: 56px;
   border-radius: var(--radius-md);
   background: var(--color-bg-glass);
   border: var(--border-subtle);
@@ -274,14 +129,7 @@
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
-.match-card:hover .team-badge {
-  transform: scale(1.08);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
 .team-badge img {
-  width: 40px;
-  height: 40px;
   object-fit: contain;
 }
 
@@ -289,45 +137,6 @@
   font-size: var(--font-size-sm);
   font-weight: 700;
   color: var(--color-text-muted);
-}
-
-.team-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.team-name {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.team-elo {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-/* ============================================
-   VS BADGE
-   ============================================ */
-.vs-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: var(--color-bg-glass);
-  border: var(--border-subtle);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  color: var(--color-text-muted);
-  letter-spacing: 0.05em;
 }
 
 /* ============================================
@@ -779,36 +588,6 @@
 }
 
 /* ============================================
-   DATE GROUP
-   ============================================ */
-.date-group {
-  margin-bottom: var(--space-xl);
-}
-
-.date-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-  padding-bottom: var(--space-sm);
-  border-bottom: var(--border-subtle);
-}
-
-.date-label {
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.date-count {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--color-bg-glass);
-  border-radius: var(--radius-full);
-}
-
-/* ============================================
    FOOTER
    ============================================ */
 .footer {
@@ -860,10 +639,6 @@
   .team-badge img {
     width: 32px;
     height: 32px;
-  }
-
-  .header-stats {
-    display: none;
   }
 
   .prob-row {
