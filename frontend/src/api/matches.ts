@@ -55,6 +55,16 @@ export async function getPredictions(date: string | null = null): Promise<Match[
   return data.predictions || [];
 }
 
+interface AllMatchesResponse {
+  matches: Match[];
+  gameweeks: number[];
+}
+
+export async function getAllMatches(): Promise<{ matches: Match[]; gameweeks: number[] }> {
+  const data = await fetchAPI<AllMatchesResponse>('/api/matches/all');
+  return { matches: data.matches || [], gameweeks: data.gameweeks || [] };
+}
+
 interface ResultsResponse {
   results: Match[];
 }

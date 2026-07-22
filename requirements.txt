@@ -11,3 +11,4 @@ soccerdata
 html5lib
 pytz
 typing_extensions
+psycopg2-binary

@@ -14,8 +14,14 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+import database as db
+
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+DB_AVAILABLE = db.DATABASE_URL is not None
+if DB_AVAILABLE:
+    db.init_db()
 
 _team_list = [
     "Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton",
@@ -61,12 +67,86 @@ async def get_predictions(date: Optional[str] = None):
     try:
         if date is None:
             date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        target_date = date
+        if DB_AVAILABLE:
+            predictions = db.load_predictions(target_date)
+        else:
+            import data_manager
+            from utils_data import generate_predictions_for_date
+            df = data_manager.fetch_upcoming_matches()
+            predictions = generate_predictions_for_date(target_date, df)
+        if not predictions:
+            import os as _os
+            import utils_data
+            p = utils_data.get_prediction_file_path(target_date)
+            if _os.path.exists(p):
+                predictions = utils_data.load_json(p) or []
+        if not predictions:
+            import data_manager
+            from utils_data import generate_predictions_for_date
+            df = data_manager.fetch_upcoming_matches()
+            predictions = generate_predictions_for_date(target_date, df)
+            if not predictions and df is not None and not df.empty:
+                df['date_str'] = df['date'].dt.strftime('%Y-%m-%d')
+                for nd in sorted(df['date_str'].unique()):
+                    predictions = generate_predictions_for_date(nd, df)
+                    if predictions:
+                        target_date = nd
+                        break
+            if predictions and DB_AVAILABLE:
+                db.save_predictions(predictions)
+        enriched = [{**pred, "home_team_info": _team_info(pred['home_team']), "away_team_info": _team_info(pred['away_team'])} for pred in predictions]
+        return {"date": target_date, "predictions": enriched}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+def _generate_predictions_for_date_api(date_str):
+    try:
         import data_manager
         from utils_data import generate_predictions_for_date
         df = data_manager.fetch_upcoming_matches()
-        predictions = generate_predictions_for_date(date, df)
-        enriched = [{**pred, "home_team_info": _team_info(pred['home_team']), "away_team_info": _team_info(pred['away_team'])} for pred in predictions]
-        return {"date": date, "predictions": enriched}
+        return generate_predictions_for_date(date_str, df)
+    except Exception:
+        return []
+
+def compute_gameweek(date_val) -> int:
+    if isinstance(date_val, str):
+        date_val = datetime.strptime(date_val, '%Y-%m-%d')
+    year = date_val.year
+    season_start = datetime(year, 8, 1) if date_val.month >= 8 else datetime(year - 1, 8, 1)
+    days = (date_val - season_start).days
+    return max(1, min(38, (days // 7) + 1))
+
+@app.get("/api/matches/all")
+async def get_all_matches_with_predictions():
+    try:
+        import data_manager
+        from utils_data import generate_predictions_for_date
+        df = data_manager.fetch_upcoming_matches()
+        if df is None or df.empty:
+            return {"matches": [], "gameweeks": []}
+        df['date_str'] = df['date'].dt.strftime('%Y-%m-%d')
+        all_dates = sorted(df['date_str'].unique())
+        matches = []
+        gameweeks = set()
+        for date_str in all_dates:
+            predictions = []
+            if DB_AVAILABLE:
+                predictions = db.load_predictions(date_str)
+            if not predictions:
+                predictions = _generate_predictions_for_date_api(date_str)
+            if not predictions:
+                continue
+            gw = compute_gameweek(date_str)
+            gameweeks.add(gw)
+            for pred in predictions:
+                matches.append({
+                    **pred,
+                    "gameweek": gw,
+                    "home_team_info": _team_info(pred['home_team']),
+                    "away_team_info": _team_info(pred['away_team'])
+                })
+        return {"matches": matches, "gameweeks": sorted(gameweeks)}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -74,25 +154,39 @@ async def get_predictions(date: Optional[str] = None):
 async def generate_predictions():
     try:
         today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        target_date = today
         import data_manager
         from utils_data import generate_predictions_for_date
         df = data_manager.fetch_upcoming_matches()
-        predictions = generate_predictions_for_date(today, df)
+        predictions = generate_predictions_for_date(target_date, df)
+        if not predictions and df is not None and not df.empty:
+            df['date_str'] = df['date'].dt.strftime('%Y-%m-%d')
+            for nd in sorted(df['date_str'].unique()):
+                predictions = generate_predictions_for_date(nd, df)
+                if predictions:
+                    target_date = nd
+                    break
+        if predictions and DB_AVAILABLE:
+            db.save_predictions(predictions)
         enriched = [{**pred, "home_team_info": _team_info(pred['home_team']), "away_team_info": _team_info(pred['away_team'])} for pred in predictions]
-        return {"date": today, "predictions": enriched, "generated": True}
+        return {"date": target_date, "predictions": enriched, "generated": True}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/dates/available")
 async def available_dates():
     try:
-        import data_manager
-        df = data_manager.fetch_upcoming_matches()
-        if df is not None and not df.empty:
-            df['date_str'] = df['date'].dt.strftime('%Y-%m-%d')
-            dates = sorted(df['date_str'].unique().tolist(), reverse=True)
-            return {"dates": dates}
-        return {"dates": []}
+        if DB_AVAILABLE:
+            dates = db.get_available_dates()
+        else:
+            import data_manager
+            df = data_manager.fetch_upcoming_matches()
+            if df is not None and not df.empty:
+                df['date_str'] = df['date'].dt.strftime('%Y-%m-%d')
+                dates = sorted(df['date_str'].unique().tolist(), reverse=True)
+            else:
+                dates = []
+        return {"dates": dates}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 

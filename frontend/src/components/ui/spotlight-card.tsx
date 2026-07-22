@@ -11,11 +11,11 @@ interface GlowCardProps {
 }
 
 const glowColorMap = {
-  blue: { base: 220, spread: 200 },
-  purple: { base: 280, spread: 300 },
-  green: { base: 120, spread: 200 },
-  red: { base: 0, spread: 200 },
-  orange: { base: 30, spread: 200 }
+  blue: { hue1: 210, hue2: 240 },
+  purple: { hue1: 270, hue2: 300 },
+  green: { hue1: 110, hue2: 140 },
+  red: { hue1: 0, hue2: 20 },
+  orange: { hue1: 20, hue2: 50 }
 };
 
 const sizeMap = {
@@ -39,7 +39,6 @@ const GlowCard: React.FC<GlowCardProps> = ({
   useEffect(() => {
     const syncPointer = (e: PointerEvent) => {
       const { clientX: x, clientY: y } = e;
-
       if (cardRef.current) {
         cardRef.current.style.setProperty('--x', x.toFixed(2));
         cardRef.current.style.setProperty('--xp', (x / window.innerWidth).toFixed(2));
@@ -47,12 +46,26 @@ const GlowCard: React.FC<GlowCardProps> = ({
         cardRef.current.style.setProperty('--yp', (y / window.innerHeight).toFixed(2));
       }
     };
-
     document.addEventListener('pointermove', syncPointer);
     return () => document.removeEventListener('pointermove', syncPointer);
   }, []);
 
-  const { base, spread } = glowColorMap[glowColor];
+  useEffect(() => {
+    let startTime = performance.now();
+    let rafId: number;
+    const frame = (time: number) => {
+      const t = (time - startTime) / 1000;
+      const auto = (Math.sin(t * 0.4) + 1) / 2;
+      if (cardRef.current) {
+        cardRef.current.style.setProperty('--auto', String(auto));
+      }
+      rafId = requestAnimationFrame(frame);
+    };
+    rafId = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  const { hue1, hue2 } = glowColorMap[glowColor];
 
   const getSizeClasses = () => {
     if (customSize) {
@@ -63,8 +76,8 @@ const GlowCard: React.FC<GlowCardProps> = ({
 
   const getInlineStyles = () => {
     const baseStyles: Record<string, string | number> = {
-      '--base': base,
-      '--spread': spread,
+      '--hue1': hue1,
+      '--hue2': hue2,
       '--radius': '14',
       '--border': '3',
       '--backdrop': 'hsl(0 0% 60% / 0.12)',
@@ -73,7 +86,8 @@ const GlowCard: React.FC<GlowCardProps> = ({
       '--outer': '1',
       '--border-size': 'calc(var(--border, 2) * 1px)',
       '--spotlight-size': 'calc(var(--size, 150) * 1px)',
-      '--hue': 'calc(var(--base) + (var(--xp, 0) * var(--spread, 0)))',
+      '--blend': 'calc(var(--xp, 0.5) * 0.3 + var(--auto, 0.5) * 0.7)',
+      '--hue': 'calc(var(--hue1) + (var(--blend, 0.5) * (var(--hue2) - var(--hue1))))',
       backgroundImage: `radial-gradient(
         var(--spotlight-size) var(--spotlight-size) at
         calc(var(--x, 0) * 1px)

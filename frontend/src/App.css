@@ -85,6 +85,16 @@
 }
 
 /* ============================================
+   CONTAINER
+   ============================================ */
+.container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+/* ============================================
    MAIN CONTENT
    ============================================ */
 .main {
@@ -183,22 +193,6 @@
   overflow: hidden;
 }
 
-.match-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--color-accent-gradient);
-  opacity: 0;
-  transition: opacity var(--transition-base);
-}
-
-.match-card:hover::before {
-  opacity: 1;
-}
-
 .match-header {
   display: flex;
   align-items: center;
@@ -262,7 +256,7 @@
 }
 
 .team--away {
-  justify-content: flex-start;
+  justify-content: flex-end;
   flex-direction: row-reverse;
 }
 
@@ -475,6 +469,44 @@
   font-weight: 600;
   color: var(--color-win);
   font-size: var(--font-size-sm);
+}
+
+/* ============================================
+   GAMEWEEK NAV
+   ============================================ */
+.gameweek-nav {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.gameweek-btn {
+  padding: 0.5rem 0.875rem;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-bg-glass);
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.gameweek-btn:hover {
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.gameweek-btn--active {
+  color: white;
+  background: var(--color-accent-gradient);
+  border-color: transparent;
+  box-shadow: var(--shadow-button);
+}
+
+.gameweek-btn--active:hover {
+  color: white;
 }
 
 /* ============================================

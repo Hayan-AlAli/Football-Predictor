@@ -21,7 +21,7 @@ export default function PredictionBar({ prediction, homeTeam, awayTeam }: Predic
 
     return (
         <div className="prediction-section">
-            <div className="prediction-title">AI Prediction</div>
+            <div className="prediction-title">Prediction</div>
 
             <div className="probability-bars">
                 <div className="prob-row">

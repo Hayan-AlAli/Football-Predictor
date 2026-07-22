@@ -10,7 +10,6 @@ export default function MatchList({ matches, groupByDate = false }: MatchListPro
     if (!matches || matches.length === 0) {
         return (
             <div className="empty-state glass-card">
-                <div className="empty-icon">📅</div>
                 <h3 className="empty-title">No Matches Found</h3>
                 <p className="empty-description">
                     Check back later for upcoming Premier League fixtures and predictions.

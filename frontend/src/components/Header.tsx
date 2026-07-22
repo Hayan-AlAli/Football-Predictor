@@ -7,7 +7,7 @@ export default function Header({ matchCount = 0 }: HeaderProps) {
         <header className="header">
             <div className="container header-content">
                 <div className="logo">
-                    <div className="logo-icon">⚽</div>
+                    <div className="logo-icon">FP</div>
                     <span className="logo-text">Football Predictor</span>
                 </div>
 
@@ -15,10 +15,6 @@ export default function Header({ matchCount = 0 }: HeaderProps) {
                     <div className="stat-item">
                         <div className="stat-value">{matchCount}</div>
                         <div className="stat-label">Matches</div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="stat-value">AI</div>
-                        <div className="stat-label">Powered</div>
                     </div>
                 </div>
             </div>
