@@ -62,12 +62,7 @@ interface AllMatchesResponse {
 
 export async function getAllMatches(): Promise<{ matches: Match[]; gameweeks: number[] }> {
   const data = await fetchAPI<AllMatchesResponse>('/api/matches/all');
-  const matches = (data.matches || []).filter(m => {
-    if (!m.prediction) return false;
-    const { prob_home, prob_draw, prob_away } = m.prediction;
-    return prob_home > 0.4 || prob_draw > 0.4 || prob_away > 0.4;
-  });
-  return { matches, gameweeks: data.gameweeks || [] };
+  return { matches: data.matches || [], gameweeks: data.gameweeks || [] };
 }
 
 interface ResultsResponse {

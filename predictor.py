@@ -156,12 +156,15 @@ def predict_match(match_data):
             home_team_norm = utils.normalize_team_name(home_team)
             away_team_norm = utils.normalize_team_name(away_team)
             
-            # 1. Team Codes
+            # 1. Team Codes — unknown teams get code 0 (within training range)
             try:
                 home_code = encoder.transform([home_team_norm])[0]
+            except:
+                home_code = 0
+            try:
                 away_code = encoder.transform([away_team_norm])[0]
             except:
-                return random_prediction(home_team, away_team)
+                away_code = 0
             
             # 2. ELO - try match_data first, then live fetch, then default
             home_elo = match_data.get('home_elo')
