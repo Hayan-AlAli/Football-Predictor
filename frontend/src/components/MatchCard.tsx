@@ -1,20 +1,51 @@
+import type { Match } from '../types';
 import TeamBadge from './TeamBadge';
 import PredictionBar from './PredictionBar';
+import { GlowCard } from './ui/spotlight-card';
 
-/**
- * MatchCard Component
- * Displays a single match with teams, time, and prediction
- */
-export default function MatchCard({ match, index = 0 }) {
-    // Determine team info based on data structure
+const teamGlowMap: Record<string, 'blue' | 'purple' | 'green' | 'red' | 'orange'> = {
+  'Manchester United': 'red',
+  'Manchester City': 'blue',
+  'Liverpool': 'red',
+  'Arsenal': 'red',
+  'Chelsea': 'blue',
+  'Tottenham': 'purple',
+  'Newcastle United': 'purple',
+  'Aston Villa': 'purple',
+  'Brighton': 'blue',
+  'West Ham': 'blue',
+  'Everton': 'blue',
+  'Wolves': 'orange',
+  'Crystal Palace': 'blue',
+  'Nottingham Forest': 'green',
+  'Fulham': 'green',
+  'Brentford': 'red',
+  'Leicester': 'blue',
+  'Southampton': 'red',
+  'Bournemouth': 'red',
+  'Ipswich': 'blue',
+};
+
+function getGlowColor(teamName: string): 'blue' | 'purple' | 'green' | 'red' | 'orange' {
+  for (const [key, color] of Object.entries(teamGlowMap)) {
+    if (teamName.toLowerCase().includes(key.toLowerCase())) return color;
+  }
+  return 'purple';
+}
+
+interface MatchCardProps {
+  match: Match;
+  index?: number;
+}
+
+export default function MatchCard({ match, index = 0 }: MatchCardProps) {
     const homeTeam = match.home_team_info || match.home_team || {};
     const awayTeam = match.away_team_info || match.away_team || {};
 
     const homeTeamName = typeof homeTeam === 'string' ? homeTeam : homeTeam.name;
     const awayTeamName = typeof awayTeam === 'string' ? awayTeam : awayTeam.name;
 
-    // Format date
-    const formatDate = (dateStr) => {
+    const formatDate = (dateStr?: string) => {
         if (!dateStr) return 'TBD';
         const date = new Date(dateStr);
         return date.toLocaleDateString('en-GB', {
@@ -24,20 +55,24 @@ export default function MatchCard({ match, index = 0 }) {
         });
     };
 
-    // Format time
-    const formatTime = (timeStr) => {
+    const formatTime = (timeStr?: string) => {
         if (!timeStr || timeStr === 'Unknown' || timeStr === 'TBD') return 'TBD';
         return timeStr;
     };
 
     const prediction = match.prediction;
+    const glowColor = getGlowColor(homeTeamName);
 
     return (
+        <GlowCard
+          glowColor={glowColor}
+          customSize
+          className="!aspect-auto !grid-rows-none"
+        >
         <div
-            className={`glass-card match-card fade-in stagger-${(index % 5) + 1}`}
+            className={`glass-card match-card fade-in stagger-${(index % 5) + 1} w-full h-full`}
             id={`match-${match.id}`}
         >
-            {/* Match Header */}
             <div className="match-header">
                 <div className="match-meta">
                     <span className="match-date">{formatDate(match.date)}</span>
@@ -48,9 +83,7 @@ export default function MatchCard({ match, index = 0 }) {
                 )}
             </div>
 
-            {/* Teams */}
             <div className="teams-container">
-                {/* Home Team */}
                 <div className="team team--home">
                     <TeamBadge
                         team={typeof homeTeam === 'string'
@@ -63,10 +96,8 @@ export default function MatchCard({ match, index = 0 }) {
                     </div>
                 </div>
 
-                {/* VS */}
                 <div className="vs-badge">VS</div>
 
-                {/* Away Team */}
                 <div className="team team--away">
                     <TeamBadge
                         team={typeof awayTeam === 'string'
@@ -80,7 +111,6 @@ export default function MatchCard({ match, index = 0 }) {
                 </div>
             </div>
 
-            {/* Prediction */}
             {prediction && (
                 <PredictionBar
                     prediction={prediction}
@@ -89,5 +119,6 @@ export default function MatchCard({ match, index = 0 }) {
                 />
             )}
         </div>
+        </GlowCard>
     );
 }

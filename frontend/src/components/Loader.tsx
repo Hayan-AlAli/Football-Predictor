@@ -1,8 +1,8 @@
-/**
- * Loader Component
- * Displays loading spinner with optional message
- */
-export default function Loader({ message = 'Loading...' }) {
+interface LoaderProps {
+  message?: string;
+}
+
+export default function Loader({ message = 'Loading...' }: LoaderProps) {
     return (
         <div className="loading-container">
             <div className="spinner"></div>

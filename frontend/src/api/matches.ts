@@ -1,0 +1,109 @@
+import type { Match } from '../types';
+
+const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8000';
+
+interface FetchOptions {
+  method?: string;
+}
+
+async function fetchAPI<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: options.method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json() as T;
+  } catch (error) {
+    console.error(`API Error for ${endpoint}:`, error);
+    throw error;
+  }
+}
+
+interface TeamsResponse {
+  teams: { name: string; badge_url: string }[];
+}
+
+export async function getTeams(): Promise<{ name: string; badge_url: string }[]> {
+  const data = await fetchAPI<TeamsResponse>('/api/teams');
+  return data.teams;
+}
+
+interface MatchesResponse {
+  matches: Match[];
+}
+
+export async function getUpcomingMatches(): Promise<Match[]> {
+  const data = await fetchAPI<MatchesResponse>('/api/matches/upcoming');
+  return data.matches || [];
+}
+
+interface PredictionsResponse {
+  predictions: Match[];
+}
+
+export async function getPredictions(date: string | null = null): Promise<Match[]> {
+  const endpoint = date
+    ? `/api/matches/predictions?date=${date}`
+    : '/api/matches/predictions';
+
+  const data = await fetchAPI<PredictionsResponse>(endpoint);
+  return data.predictions || [];
+}
+
+interface ResultsResponse {
+  results: Match[];
+}
+
+export async function getResults(date: string | null = null): Promise<Match[]> {
+  const endpoint = date
+    ? `/api/matches/results?date=${date}`
+    : '/api/matches/results';
+
+  const data = await fetchAPI<ResultsResponse>(endpoint);
+  return data.results || [];
+}
+
+interface DatesResponse {
+  dates: string[];
+}
+
+export async function getAvailableDates(): Promise<string[]> {
+  const data = await fetchAPI<DatesResponse>('/api/dates/available');
+  return data.dates || [];
+}
+
+interface PredictResponse {
+  prob_home: number;
+  prob_draw: number;
+  prob_away: number;
+}
+
+export async function predictMatch(homeTeam: string, awayTeam: string): Promise<PredictResponse> {
+  return await fetchAPI<PredictResponse>(
+    `/api/predict?home_team=${encodeURIComponent(homeTeam)}&away_team=${encodeURIComponent(awayTeam)}`
+  );
+}
+
+export async function generatePredictions(): Promise<PredictionsResponse> {
+  return await fetchAPI<PredictionsResponse>('/api/matches/predictions/generate', {
+    method: 'POST',
+  });
+}
+
+interface HealthResponse {
+  status: string;
+}
+
+export async function checkHealth(): Promise<boolean> {
+  try {
+    const data = await fetchAPI<HealthResponse>('/api/health');
+    return data && data.status === 'online';
+  } catch {
+    return false;
+  }
+}

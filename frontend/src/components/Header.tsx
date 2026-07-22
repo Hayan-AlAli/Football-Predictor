@@ -1,13 +1,13 @@
-/**
- * Header Component
- * App header with logo and stats
- */
-export default function Header({ matchCount = 0 }) {
+interface HeaderProps {
+  matchCount?: number;
+}
+
+export default function Header({ matchCount = 0 }: HeaderProps) {
     return (
         <header className="header">
             <div className="container header-content">
                 <div className="logo">
-                    <span className="logo-icon">⚽</span>
+                    <div className="logo-icon">⚽</div>
                     <span className="logo-text">Football Predictor</span>
                 </div>
 

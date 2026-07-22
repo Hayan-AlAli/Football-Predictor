@@ -1,22 +1,23 @@
 import { useState } from 'react';
+import type { Team } from '../types';
 
-/**
- * TeamBadge Component
- * Displays team badge/logo with fallback to initials
- */
-export default function TeamBadge({ team, size = 'medium' }) {
+interface TeamBadgeProps {
+  team: Team;
+  size?: 'small' | 'medium' | 'large';
+}
+
+export default function TeamBadge({ team, size = 'medium' }: TeamBadgeProps) {
     const [hasError, setHasError] = useState(false);
 
-    const sizeClasses = {
-        small: { wrapper: '40px', img: '32px' },
-        medium: { wrapper: '64px', img: '48px' },
-        large: { wrapper: '80px', img: '64px' }
+    const sizeClasses: Record<string, { wrapper: string; img: string }> = {
+        small: { wrapper: '36px', img: '28px' },
+        medium: { wrapper: '56px', img: '40px' },
+        large: { wrapper: '72px', img: '56px' }
     };
 
     const dimensions = sizeClasses[size] || sizeClasses.medium;
 
-    // Generate initials fallback
-    const getInitials = (name) => {
+    const getInitials = (name: string) => {
         if (!name) return '??';
         return name
             .split(' ')

@@ -3,26 +3,21 @@ import './App.css';
 import Header from './components/Header';
 import MatchList from './components/MatchList';
 import Loader from './components/Loader';
-import WorldCupView from './components/WorldCupView';
-import { getPredictions, getAvailableDates, getUpcomingMatches, checkHealth, getWorldCupPredictions, generatePredictions } from './api/matches';
-
+import { getPredictions, getAvailableDates, getUpcomingMatches, checkHealth, generatePredictions } from './api/matches';
+import type { Match } from './types';
 
 function App() {
-  const [predictions, setPredictions] = useState([]);
-  const [upcomingMatches, setUpcomingMatches] = useState([]);
+  const [predictions, setPredictions] = useState<Match[]>([]);
+  const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingUpcoming, setLoadingUpcoming] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [availableDates, setAvailableDates] = useState([]);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('predictions');
-  const [activeTournament, setActiveTournament] = useState('pl');
-  const [wcData, setWcData] = useState(null);
-  const [loadingWc, setLoadingWc] = useState(false);
 
 
-  // Check API health and load initial data
   useEffect(() => {
     async function initializeApp() {
       setLoading(true);
@@ -52,7 +47,6 @@ function App() {
         }
 
         loadUpcomingMatches();
-
       } catch (err) {
         console.error('Error loading data:', err);
         setError('Failed to load predictions. Please try again.');
@@ -65,7 +59,6 @@ function App() {
     initializeApp();
   }, []);
 
-  // Load upcoming matches
   const loadUpcomingMatches = async () => {
     setLoadingUpcoming(true);
     try {
@@ -78,7 +71,6 @@ function App() {
     }
   };
 
-  // Generate predictions for upcoming matches
   const handleGeneratePredictions = async () => {
     setGenerating(true);
     setError(null);
@@ -101,8 +93,7 @@ function App() {
     }
   };
 
-  // Load predictions when date changes
-  const handleDateChange = async (date) => {
+  const handleDateChange = async (date: string) => {
     setSelectedDate(date);
     setLoading(true);
 
@@ -118,71 +109,15 @@ function App() {
     }
   };
 
-  // Load World Cup predictions
-  const loadWorldCupData = async () => {
-    setLoadingWc(true);
-    try {
-      const data = await getWorldCupPredictions();
-      setWcData(data);
-      setError(null);
-    } catch (err) {
-      console.error('Error loading World Cup predictions:', err);
-      setError('Failed to load World Cup predictions. Showing demo data.');
-      setWcData(getMockWorldCupData());
-    } finally {
-      setLoadingWc(false);
-    }
-  };
-
-  const handleTournamentChange = (tournament) => {
-    setActiveTournament(tournament);
-    if (tournament === 'wc' && !wcData) {
-      loadWorldCupData();
-    }
-  };
-
-  const totalMatches = activeTournament === 'wc' 
-    ? 104 
-    : (activeTab === 'predictions' ? predictions.length : upcomingMatches.length);
+  const totalMatches = activeTab === 'predictions' ? predictions.length : upcomingMatches.length;
 
   return (
     <div className="app">
       <Header matchCount={totalMatches} />
 
-
       <main className="main">
         <div className="container">
-          {/* Tournament Selector */}
-          <div className="tournament-selector glass-card">
-            <button
-              className={`tournament-btn ${activeTournament === 'pl' ? 'tournament-btn--active' : ''}`}
-              onClick={() => handleTournamentChange('pl')}
-            >
-              🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League
-            </button>
-            <button
-              className={`tournament-btn ${activeTournament === 'wc' ? 'tournament-btn--active' : ''}`}
-              onClick={() => handleTournamentChange('wc')}
-            >
-              🏆 World Cup 2026
-            </button>
-          </div>
-
-          {activeTournament === 'wc' ? (
-            loadingWc ? (
-              <Loader message="Simulating World Cup 2026..." />
-            ) : error && !wcData ? (
-              <div className="error-state fade-in">
-                <span className="error-icon">⚠️</span>
-                <span className="error-message">{error}</span>
-              </div>
-            ) : (
-              <WorldCupView data={wcData} />
-            )
-          ) : (
-            <>
-              {/* Tab Navigation */}
-              <div className="tabs">
+          <div className="tabs">
                 <button
                   className={`tab ${activeTab === 'predictions' ? 'tab--active' : ''}`}
                   onClick={() => setActiveTab('predictions')}
@@ -197,7 +132,6 @@ function App() {
                 </button>
               </div>
 
-              {/* Predictions Tab */}
               {activeTab === 'predictions' && (
                 <>
                   <div className="section-header">
@@ -260,10 +194,8 @@ function App() {
                 </>
               )}
 
-              {/* Upcoming Matches Tab */}
               {activeTab === 'upcoming' && (
                 <>
-                  {/* Section Header */}
                   <div className="section-header">
                     <div className="section-title">
                       <h2>Upcoming Fixtures</h2>
@@ -280,7 +212,6 @@ function App() {
                     </button>
                   </div>
 
-                  {/* Content */}
                   {loadingUpcoming ? (
                     <Loader message="Loading upcoming matches..." />
                   ) : (
@@ -291,9 +222,7 @@ function App() {
                   )}
                 </>
               )}
-            </>
-          )}
-        </div>
+          </div>
       </main>
 
       <footer className="footer">
@@ -307,10 +236,7 @@ function App() {
   );
 }
 
-/**
- * Format date for display
- */
-function formatDateDisplay(dateStr) {
+function formatDateDisplay(dateStr: string) {
   if (!dateStr) return '';
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-GB', {
@@ -321,32 +247,4 @@ function formatDateDisplay(dateStr) {
   });
 }
 
-/**
- * Mock World Cup data when API is offline
- */
-function getMockWorldCupData() {
-  return {
-    "generated_at": "2026-06-19 04:00 (DEMO)",
-    "summary": {
-      "champion": "Argentina",
-      "runner_up": "Germany",
-      "third_place": "Spain"
-    },
-    "favorites": [],
-    "group_stage": {
-      "matches": [],
-      "standings": {}
-    },
-    "knockout_stage": {
-      "R32": [],
-      "R16": [],
-      "QF": [],
-      "SF": [],
-      "3rd": {},
-      "Final": {}
-    }
-  };
-}
-
 export default App;
-

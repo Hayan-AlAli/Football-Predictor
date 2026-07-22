@@ -1,15 +1,18 @@
-/**
- * PredictionBar Component
- * Displays probability bars for home win, draw, and away win
- */
-export default function PredictionBar({ prediction, homeTeam, awayTeam }) {
+import type { Prediction } from '../types';
+
+interface PredictionBarProps {
+  prediction: Prediction;
+  homeTeam: string;
+  awayTeam: string;
+}
+
+export default function PredictionBar({ prediction, homeTeam, awayTeam }: PredictionBarProps) {
     if (!prediction) return null;
 
     const probHome = (prediction.prob_home * 100).toFixed(1);
     const probDraw = (prediction.prob_draw * 100).toFixed(1);
     const probAway = (prediction.prob_away * 100).toFixed(1);
 
-    // Determine which probability is highest
     const maxProb = Math.max(prediction.prob_home, prediction.prob_draw, prediction.prob_away);
 
     const isHomeHighest = prediction.prob_home === maxProb;
@@ -21,7 +24,6 @@ export default function PredictionBar({ prediction, homeTeam, awayTeam }) {
             <div className="prediction-title">AI Prediction</div>
 
             <div className="probability-bars">
-                {/* Home Win */}
                 <div className="prob-row">
                     <span className="prob-label" title={homeTeam}>
                         {homeTeam?.length > 10 ? homeTeam.substring(0, 10) + '...' : homeTeam}
@@ -37,7 +39,6 @@ export default function PredictionBar({ prediction, homeTeam, awayTeam }) {
                     </span>
                 </div>
 
-                {/* Draw */}
                 <div className="prob-row">
                     <span className="prob-label">Draw</span>
                     <div className="prob-bar-container">
@@ -51,7 +52,6 @@ export default function PredictionBar({ prediction, homeTeam, awayTeam }) {
                     </span>
                 </div>
 
-                {/* Away Win */}
                 <div className="prob-row">
                     <span className="prob-label" title={awayTeam}>
                         {awayTeam?.length > 10 ? awayTeam.substring(0, 10) + '...' : awayTeam}
@@ -68,7 +68,6 @@ export default function PredictionBar({ prediction, homeTeam, awayTeam }) {
                 </div>
             </div>
 
-            {/* Predicted Score */}
             {prediction.score && (
                 <div className="predicted-score">
                     <span className="predicted-score-label">Expected Score:</span>

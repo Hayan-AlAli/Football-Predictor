@@ -1,10 +1,12 @@
 import MatchCard from './MatchCard';
+import type { Match } from '../types';
 
-/**
- * MatchList Component
- * Displays list of matches, optionally grouped by date
- */
-export default function MatchList({ matches, groupByDate = false }) {
+interface MatchListProps {
+  matches: Match[];
+  groupByDate?: boolean;
+}
+
+export default function MatchList({ matches, groupByDate = false }: MatchListProps) {
     if (!matches || matches.length === 0) {
         return (
             <div className="empty-state glass-card">
@@ -17,9 +19,8 @@ export default function MatchList({ matches, groupByDate = false }) {
         );
     }
 
-    // Group matches by date if requested
     if (groupByDate) {
-        const grouped = matches.reduce((acc, match) => {
+        const grouped = matches.reduce<Record<string, Match[]>>((acc, match) => {
             const date = match.date || 'Unknown';
             if (!acc[date]) {
                 acc[date] = [];
@@ -51,7 +52,6 @@ export default function MatchList({ matches, groupByDate = false }) {
         );
     }
 
-    // Simple list without grouping
     return (
         <div className="match-list">
             {matches.map((match, index) => (
@@ -65,10 +65,7 @@ export default function MatchList({ matches, groupByDate = false }) {
     );
 }
 
-/**
- * Format date for group header
- */
-function formatDateHeader(dateStr) {
+function formatDateHeader(dateStr: string) {
     if (!dateStr || dateStr === 'Unknown') return 'Upcoming';
 
     const date = new Date(dateStr);
@@ -76,7 +73,6 @@ function formatDateHeader(dateStr) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Check if it's today or tomorrow
     if (date.toDateString() === today.toDateString()) {
         return 'Today';
     }
