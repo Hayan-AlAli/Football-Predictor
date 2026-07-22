@@ -218,15 +218,29 @@ def _generate_predictions_for_date(date_str):
         return []
 
 
+def _season_year(d):
+    """Return the start year of the PL season containing this date (Aug-Jul)."""
+    return d.year if d.month >= 8 else d.year - 1
+
 def compute_gameweeks(dates):
-    """Assign gameweek numbers (1-based) based on the earliest date."""
+    """Assign gameweek numbers (1-38) per season, using the season's first date as GW1."""
     if not dates:
         return {}
-    sorted_dates = sorted(dates)
-    first = datetime.strptime(sorted_dates[0], '%Y-%m-%d')
+
+    parsed = {d: datetime.strptime(d, '%Y-%m-%d') for d in dates}
+
+    seasons = {}
+    for d, dt in parsed.items():
+        sy = _season_year(dt)
+        seasons.setdefault(sy, []).append(d)
+
+    latest_season = max(seasons.keys())
+    season_dates = sorted(seasons[latest_season])
+    first = parsed[season_dates[0]]
+
     result = {}
-    for d in sorted_dates:
-        dt = datetime.strptime(d, '%Y-%m-%d')
+    for d in season_dates:
+        dt = parsed[d]
         gw = ((dt - first).days // 7) + 1
         result[d] = min(gw, 38)
     return result
@@ -243,10 +257,12 @@ async def get_all_matches_with_predictions():
             dates = db.get_available_dates()
             gw_map = compute_gameweeks(dates)
             for date_str in dates:
+                if date_str not in gw_map:
+                    continue
                 predictions = db.load_predictions(date_str)
                 if not predictions:
                     continue
-                gw = gw_map.get(date_str, 1)
+                gw = gw_map[date_str]
                 gameweeks.add(gw)
                 for pred in predictions:
                     matches.append({
