@@ -1,6 +1,38 @@
 import type { Match } from '../types';
 import TeamBadge from './TeamBadge';
 import PredictionBar from './PredictionBar';
+import { GlowCard } from './ui/spotlight-card';
+
+const teamGlowMap: Record<string, 'blue' | 'purple' | 'green' | 'red' | 'orange'> = {
+  'Manchester United': 'red',
+  'Manchester City': 'blue',
+  'Liverpool': 'red',
+  'Arsenal': 'red',
+  'Chelsea': 'blue',
+  'Tottenham': 'purple',
+  'Newcastle United': 'purple',
+  'Newcastle': 'purple',
+  'Aston Villa': 'purple',
+  'Brighton': 'blue',
+  'West Ham': 'blue',
+  'Everton': 'blue',
+  'Wolves': 'orange',
+  'Crystal Palace': 'blue',
+  'Nottingham Forest': 'green',
+  'Fulham': 'green',
+  'Brentford': 'red',
+  'Leicester': 'blue',
+  'Southampton': 'red',
+  'Bournemouth': 'red',
+  'Ipswich': 'blue',
+};
+
+function getGlowColor(teamName: string): 'blue' | 'purple' | 'green' | 'red' | 'orange' {
+  for (const [key, color] of Object.entries(teamGlowMap)) {
+    if (teamName.toLowerCase().includes(key.toLowerCase())) return color;
+  }
+  return 'purple';
+}
 
 interface MatchCardProps {
   match: Match;
@@ -21,8 +53,10 @@ export default function MatchCard({ match }: MatchCardProps) {
     };
 
     const prediction = match.prediction;
+    const glowColor = getGlowColor(homeTeamName);
 
     return (
+        <GlowCard glowColor={glowColor} customSize className="!aspect-auto !grid-rows-none">
         <div className="pl-match-card" id={`match-${match.id}`}>
             <div className="pl-match-teams">
                 <div className="pl-team pl-team--home">
@@ -61,5 +95,6 @@ export default function MatchCard({ match }: MatchCardProps) {
                 />
             )}
         </div>
+        </GlowCard>
     );
 }
