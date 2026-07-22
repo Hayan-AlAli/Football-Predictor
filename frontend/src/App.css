@@ -423,23 +423,25 @@
   border: 1px solid hsl(var(--team-hue, 270) 60% 50% / 0.15);
   border-radius: var(--radius-lg);
   padding: var(--space-lg) var(--space-xl);
-  transition: border-color var(--transition-base), box-shadow var(--transition-base);
-  box-shadow: 0 0 0 0 hsl(var(--team-hue, 270) 80% 60% / 0);
-  animation: pl-glow 3s ease-in-out infinite alternate;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.pl-match-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    500px circle at 50% 0%,
+    hsl(var(--team-hue, 270) 80% 60% / 0.04),
+    transparent 50%
+  );
+  pointer-events: none;
 }
 
 .pl-match-card:hover {
   border-color: hsl(var(--team-hue, 270) 70% 55% / 0.35);
-  box-shadow: 0 0 20px hsl(var(--team-hue, 270) 80% 60% / 0.15);
-}
-
-@keyframes pl-glow {
-  0% {
-    box-shadow: 0 0 8px hsl(var(--team-hue, 270) 80% 60% / 0.06);
-  }
-  100% {
-    box-shadow: 0 0 16px hsl(var(--team-hue, 270) 80% 60% / 0.14);
-  }
+  box-shadow: 0 0 24px hsl(var(--team-hue, 270) 80% 60% / 0.12);
 }
 
 .pl-match-teams {
