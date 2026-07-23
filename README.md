@@ -9,7 +9,6 @@ A full-stack application that predicts Premier League match outcomes using Machi
 - **Live data pipeline**: Fetches fixtures and results from ESPN/Understat/ClubElo via `soccerdata`
 - **Automated daily jobs**: Morning prediction generation + evening result comparison
 - **PostgreSQL persistence**: Optional database for teams, predictions, and historical tracking
-- **World Cup 2026 simulator**: Full tournament prediction with group stage + knockout bracket
 - **REST API**: FastAPI backend consumed by the React frontend
 - **Vercel-ready**: Serverless-friendly `api/index.py` entry point
 
@@ -60,7 +59,6 @@ python -m backend.automation evening
 │   ├── config.py              # Environment configuration
 │   ├── train_model.py         # Model training pipeline
 │   ├── automation.py          # Cron-style daily jobs (morning/evening)
-│   ├── predict_worldcup.py    # World Cup 2026 tournament simulator
 │   └── scripts/               # CLI utility scripts
 │       ├── predict_matchweek.py
 │       ├── fetch_and_save_matches.py
@@ -70,8 +68,7 @@ python -m backend.automation evening
 ├── data/
 │   ├── teams.json             # Premier League team metadata + badge URLs
 │   ├── predictions/           # Generated predictions (JSON)
-│   ├── results/               # Comparison results (JSON)
-│   └── worldcup_predictions.json
+│   └── results/               # Comparison results (JSON)
 ├── frontend/                  # React + Vite + Tailwind CSS frontend
 ├── requirements.txt
 ├── vercel.json
@@ -91,7 +88,6 @@ python -m backend.automation evening
 | `GET /api/matches/results?date=` | Result comparisons |
 | `POST /api/predict?home_team=&away_team=` | Predict a single match |
 | `GET /api/dates/available` | Available prediction dates |
-| `GET /api/worldcup/predictions` | World Cup 2026 predictions |
 
 ## Configuration
 

@@ -325,24 +325,6 @@ async def get_available_dates():
         raise HTTPException(status_code=500, detail=f"Error listing dates: {str(e)}")
 
 
-@app.get("/api/worldcup/predictions")
-async def get_worldcup_predictions():
-    try:
-        wc_path = os.path.join("data", "worldcup_predictions.json")
-
-        if not os.path.exists(wc_path):
-            from backend import predict_worldcup
-            predict_worldcup.generate_and_save_predictions(wc_path)
-
-        data = utils_data.load_json(wc_path)
-        if not data:
-            raise HTTPException(status_code=404, detail="World Cup predictions could not be loaded")
-
-        return data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading World Cup predictions: {str(e)}")
-
-
 if __name__ == "__main__":
     import uvicorn
     import sys
