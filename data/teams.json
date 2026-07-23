@@ -98,5 +98,25 @@
         "name": "Wolverhampton Wanderers F.C.",
         "short_name": "WOL",
         "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t39.png"
+    },
+    "Coventry City": {
+        "name": "Coventry City F.C.",
+        "short_name": "COV",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t5.png"
+    },
+    "Hull": {
+        "name": "Hull City A.F.C.",
+        "short_name": "HUL",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t88.png"
+    },
+    "Leeds": {
+        "name": "Leeds United F.C.",
+        "short_name": "LEE",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t9.png"
+    },
+    "Sunderland": {
+        "name": "Sunderland A.F.C.",
+        "short_name": "SUN",
+        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t56.png"
     }
 }
