@@ -1,12 +1,9 @@
 import os
 from dotenv import load_dotenv
-
-load_dotenv()
-
-import psycopg2
-from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 from datetime import datetime, timezone
+
+load_dotenv()
 
 DATABASE_URL = os.environ.get("POSTGRES_URL")
 
@@ -17,6 +14,8 @@ _initialized = False
 def get_db():
     if not DATABASE_URL:
         raise RuntimeError("POSTGRES_URL environment variable not set")
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     try:
         yield conn
