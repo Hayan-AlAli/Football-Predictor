@@ -1,6 +1,5 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
+  "buildCommand": "cd frontend && npm install && npm run build && cp -r dist ..",
   "installCommand": "pip install --break-system-packages -r requirements.txt",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
