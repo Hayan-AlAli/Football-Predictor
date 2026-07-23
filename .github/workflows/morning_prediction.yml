@@ -1,7 +1,7 @@
 name: Morning Prediction
 on:
   schedule:
-    - cron: '0 6 * * *' # 06:00 UTC
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,23 +14,32 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-        
+
       - name: Run Morning Job
-        run: python automation.py morning
-        
-      - name: Pull latest changes
+        run: python -m backend.automation morning
+
+      - name: Check for prediction file
+        id: check_preds
         run: |
-          git pull origin main --rebase --autostash
+          today=$(date -u +%Y-%m-%d)
+          if ls data/predictions/$today.json 1> /dev/null 2>&1; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "Predictions found for $today"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "No matches today — skipping commit"
+          fi
 
       - name: Commit and Push
+        if: steps.check_preds.outputs.found == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto: Daily Predictions"

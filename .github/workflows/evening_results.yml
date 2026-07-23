@@ -1,7 +1,7 @@
 name: Evening Results
 on:
   schedule:
-    - cron: '30 22 * * *' # 22:30 UTC
+    - cron: '30 22 * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,23 +14,19 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-        
+
       - name: Run Evening Job
-        run: python automation.py evening
-        
-      - name: Pull latest changes
-        run: |
-          git pull origin main --rebase --autostash
-      
-      - name: Check for result files before commit
+        run: python -m backend.automation evening
+
+      - name: Check for result files
         id: check_results
         run: |
           if ls data/results/*.json 1> /dev/null 2>&1; then
@@ -40,7 +36,7 @@ jobs:
             echo "found=false" >> $GITHUB_OUTPUT
             echo "No result files to commit."
           fi
-      
+
       - name: Commit and Push
         if: steps.check_results.outputs.found == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5

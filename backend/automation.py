@@ -16,14 +16,12 @@ def run_morning_job():
 
     if upcoming_df.empty:
         print("No matches found from data manager.")
-        utils_data.save_json([], utils_data.get_prediction_file_path(current_date_str))
         return
 
     predictions = utils_data.generate_predictions_for_date(current_date_str, upcoming_df)
 
     if not predictions:
         print(f"No matches scheduled for today ({current_date_str}).")
-        utils_data.save_json([], utils_data.get_prediction_file_path(current_date_str))
         return
 
     print(f"Found {len(predictions)} matches for today.")
