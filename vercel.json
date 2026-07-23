@@ -1,6 +1,11 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build && cp -r dist ..",
+  "buildCommand": "cd frontend && npm install && npm run build && cp -r dist ../public",
   "installCommand": "pip install --break-system-packages -r requirements.txt",
+  "functions": {
+    "api/index.py": {
+      "runtime": "python3.10"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }

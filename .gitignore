@@ -29,4 +29,5 @@ node_modules/
 
 # Build output
 frontend/dist/
+public/
 .vercel
