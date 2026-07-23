@@ -1,6 +1,14 @@
-import database as db
-import utils_data
-import predictor
+import sys
+import os
+
+_root = os.path.join(os.path.dirname(__file__), '..', '..')
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
+from backend import database as db
+from backend import utils_data
+from backend import predictor
+
 
 def regenerate():
     if not db.DATABASE_URL:
@@ -42,6 +50,7 @@ def regenerate():
         print(f"  {date_str}: {len(updated)} predictions updated")
 
     print(f"\nDone. {total} predictions regenerated.")
+
 
 if __name__ == "__main__":
     regenerate()

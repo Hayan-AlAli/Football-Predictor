@@ -12,6 +12,7 @@ DATABASE_URL = os.environ.get("POSTGRES_URL")
 
 _initialized = False
 
+
 @contextmanager
 def get_db():
     if not DATABASE_URL:
@@ -25,6 +26,7 @@ def get_db():
         raise
     finally:
         conn.close()
+
 
 def init_db():
     global _initialized
@@ -99,6 +101,7 @@ def _to_native(v):
         return v
     return str(v)
 
+
 def _clean_pred(p):
     return {
         'prob_home': _to_native(p.get('prob_home')),
@@ -109,6 +112,7 @@ def _clean_pred(p):
         'home_goals': _to_native(p.get('home_goals')),
         'away_goals': _to_native(p.get('away_goals')),
     }
+
 
 def save_predictions(predictions):
     with get_db() as conn:

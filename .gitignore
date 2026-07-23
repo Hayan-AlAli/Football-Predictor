@@ -5,7 +5,7 @@ __pycache__/
 # Environment variables
 .env
 
-# Machine Learning Models (too large for Vercel, rebuild on deploy)
+# Machine Learning Models
 *.pkl
 training_data.pkl
 model_*.pkl

@@ -1,10 +1,3 @@
-"""
-FIFA World Cup 2026 - Complete Tournament Prediction Engine
-============================================================
-Uses: Historical H2H records, FIFA Rankings (ELO-based), Recent Form,
-      Manager experience, Squad strength, Home advantage, and Poisson model.
-"""
-
 import math
 import random
 import json
@@ -19,10 +12,6 @@ try:
 except AttributeError:
     pass
 
-
-# ============================================================================
-# DATA: FIFA Rankings (June 11, 2026 - Official FIFA/Coca-Cola Rankings)
-# ============================================================================
 FIFA_RANKINGS = {
     "Argentina": (1, 1877.27), "Spain": (2, 1874.71), "France": (3, 1870.70),
     "England": (4, 1828.02), "Portugal": (5, 1767.85), "Brazil": (6, 1765.86),
@@ -42,9 +31,6 @@ FIFA_RANKINGS = {
     "Curacao": (82, 1280.00), "Haiti": (83, 1275.00), "New Zealand": (85, 1265.00),
 }
 
-# ============================================================================
-# DATA: Squad Strength (0-100 composite from top players, depth, key stars)
-# ============================================================================
 SQUAD_STRENGTH = {
     "Argentina": 95, "Spain": 94, "France": 96, "England": 93, "Portugal": 92,
     "Brazil": 91, "Morocco": 82, "Netherlands": 88, "Belgium": 85, "Germany": 90,
@@ -58,9 +44,6 @@ SQUAD_STRENGTH = {
     "Cape Verde": 58, "Bolivia": 55, "Curacao": 48, "Haiti": 45, "New Zealand": 52,
 }
 
-# ============================================================================
-# DATA: Manager Experience Score (0-100: major tournament experience + win rate)
-# ============================================================================
 MANAGER_STATS = {
     "Argentina": {"name": "Lionel Scaloni", "score": 97, "major_trophies": 3},
     "Spain": {"name": "Luis de la Fuente", "score": 93, "major_trophies": 2},
@@ -112,9 +95,6 @@ MANAGER_STATS = {
     "New Zealand": {"name": "Darren Bazeley", "score": 48, "major_trophies": 0},
 }
 
-# ============================================================================
-# DATA: Recent Form (last 10 international matches - W/D/L + goals)
-# ============================================================================
 RECENT_FORM = {
     "Argentina": {"w": 8, "d": 1, "l": 1, "gf": 22, "ga": 6},
     "Spain": {"w": 8, "d": 2, "l": 0, "gf": 20, "ga": 4},
@@ -165,9 +145,6 @@ RECENT_FORM = {
     "New Zealand": {"w": 3, "d": 2, "l": 5, "gf": 8, "ga": 13},
 }
 
-# ============================================================================
-# DATA: Historical World Cup Pedigree (0-100 based on all-time WC performance)
-# ============================================================================
 WC_PEDIGREE = {
     "Brazil": 100, "Germany": 95, "Argentina": 95, "France": 90, "Spain": 85,
     "England": 80, "Uruguay": 85, "Netherlands": 82, "Croatia": 75, "Portugal": 72,
@@ -181,12 +158,8 @@ WC_PEDIGREE = {
     "South Africa": 35, "Curacao": 5, "DR Congo": 20, "Uzbekistan": 18,
 }
 
-# Host nations get a boost
 HOST_NATIONS = {"United States", "Mexico", "Canada"}
 
-# ============================================================================
-# COMPLETED RESULTS (Matchday 1 & 2 - Through June 18)
-# ============================================================================
 COMPLETED_RESULTS = [
     {"date": "June 11", "group": "A", "home": "Mexico", "away": "South Africa", "home_goals": 2, "away_goals": 0},
     {"date": "June 12", "group": "A", "home": "South Korea", "away": "Czechia", "home_goals": 2, "away_goals": 1},
@@ -215,9 +188,6 @@ COMPLETED_RESULTS = [
     {"date": "June 18", "group": "A", "home": "Czechia", "away": "South Africa", "home_goals": 1, "away_goals": 1},
 ]
 
-# ============================================================================
-# GROUP DEFINITIONS
-# ============================================================================
 GROUPS = {
     "A": ["Mexico", "South Africa", "South Korea", "Czechia"],
     "B": ["Canada", "Switzerland", "Qatar", "Bosnia and Herzegovina"],
@@ -233,9 +203,7 @@ GROUPS = {
     "L": ["England", "Croatia", "Ghana", "Panama"],
 }
 
-# Remaining group stage fixtures (Matchday 2 remaining + Matchday 3)
 REMAINING_GROUP_MATCHES = [
-    # Matchday 2 remaining
     {"date": "June 18", "group": "A", "home": "Mexico", "away": "South Korea"},
     {"date": "June 18", "group": "B", "home": "Switzerland", "away": "Canada"},
     {"date": "June 18", "group": "B", "home": "Bosnia and Herzegovina", "away": "Qatar"},
@@ -259,7 +227,6 @@ REMAINING_GROUP_MATCHES = [
     {"date": "June 23", "group": "K", "home": "Uzbekistan", "away": "Portugal"},
     {"date": "June 23", "group": "L", "home": "Croatia", "away": "Ghana"},
     {"date": "June 23", "group": "L", "home": "Panama", "away": "England"},
-    # Matchday 3 (all groups, simultaneous kickoffs per group)
     {"date": "June 25", "group": "A", "home": "South Africa", "away": "South Korea"},
     {"date": "June 25", "group": "A", "home": "Czechia", "away": "Mexico"},
     {"date": "June 25", "group": "B", "home": "Bosnia and Herzegovina", "away": "Switzerland"},
@@ -287,55 +254,45 @@ REMAINING_GROUP_MATCHES = [
 ]
 
 
-# ============================================================================
-# PREDICTION ENGINE
-# ============================================================================
-
 def get_team_rating(team):
-    """Composite team rating from multiple factors."""
     rank, elo = FIFA_RANKINGS.get(team, (60, 1350))
     squad = SQUAD_STRENGTH.get(team, 50)
     mgr = MANAGER_STATS.get(team, {"score": 50})["score"]
     pedigree = WC_PEDIGREE.get(team, 20)
     form = RECENT_FORM.get(team, {"w": 3, "d": 3, "l": 4, "gf": 8, "ga": 10})
-    
-    form_pts = (form["w"] * 3 + form["d"]) / 30.0  # Normalized 0-1
+
+    form_pts = (form["w"] * 3 + form["d"]) / 30.0
     gd_ratio = (form["gf"] - form["ga"]) / max(form["gf"] + form["ga"], 1)
-    
-    # Weighted composite (ELO most important)
+
     rating = (
-        elo * 0.30 +          # FIFA ELO rating
-        squad * 5.0 * 0.25 +  # Squad quality
-        mgr * 3.0 * 0.10 +    # Manager factor
-        pedigree * 3.0 * 0.10 + # Historical pedigree
-        form_pts * 500 * 0.15 + # Recent form
-        gd_ratio * 200 * 0.10   # Goal difference quality
+        elo * 0.30 +
+        squad * 5.0 * 0.25 +
+        mgr * 3.0 * 0.10 +
+        pedigree * 3.0 * 0.10 +
+        form_pts * 500 * 0.15 +
+        gd_ratio * 200 * 0.10
     )
-    
+
     return rating
 
 
 def poisson_prob(k, lam):
-    """Poisson probability P(X=k) given lambda."""
     if lam <= 0:
         return 1.0 if k == 0 else 0.0
     return (lam ** k * math.exp(-lam)) / math.factorial(k)
 
 
 def _make_rng(home_team, away_team, match_date=None):
-    """Seeded RNG so same matchup gets consistent but varied predictions."""
     if match_date is None:
         match_date = date.today().isoformat()
     seed_str = f"{home_team}|{away_team}|{match_date}"
-    seed = abs(hash(seed_str)) % (2**31)
+    seed = abs(hash(seed_str)) % (2 ** 31)
     return random.Random(seed)
 
 
 def _sample_poisson_goals(lam, rng, max_goals=10):
-    """Sample from Poisson distribution using seeded RNG."""
     if lam <= 0:
         return 0
-    # Inverse transform sampling
     p = rng.random()
     k = 0
     cdf = math.exp(-lam)
@@ -346,54 +303,42 @@ def _sample_poisson_goals(lam, rng, max_goals=10):
 
 
 def predict_wc_match(home_team, away_team, neutral=True, match_date=None):
-    """
-    Predict a single match using composite ratings + Poisson model.
-    Uses seeded randomness for varied but reproducible "brave" predictions.
-    Returns dict with score, probabilities, winner.
-    """
     home_rating = get_team_rating(home_team)
     away_rating = get_team_rating(away_team)
-    
-    # Home advantage (reduced for neutral venues, boosted for host nations)
+
     home_boost = 0.0
     if not neutral:
         home_boost = 50
     if home_team in HOST_NATIONS:
-        home_boost = 35  # Crowd support even at neutral WC venues in their country
-    
+        home_boost = 35
+
     home_rating += home_boost
-    
-    # Expected goals based on rating difference
+
     rating_diff = (home_rating - away_rating) / 400.0
-    
-    # Base expected goals
+
     home_form = RECENT_FORM.get(home_team, {"gf": 10, "ga": 10, "w": 4, "d": 3, "l": 3})
     away_form = RECENT_FORM.get(away_team, {"gf": 10, "ga": 10, "w": 4, "d": 3, "l": 3})
-    
+
     home_attack = home_form["gf"] / 10.0
     away_attack = away_form["gf"] / 10.0
     home_defense = away_form["ga"] / 10.0
     away_defense = home_form["ga"] / 10.0
-    
-    # BALANCED MODEL: moderate base, moderate rating sensitivity
+
     base_home = 1.35 * (1 + 0.7 * math.tanh(rating_diff))
     base_away = 1.35 * (1 - 0.7 * math.tanh(rating_diff))
-    
-    # Adjust with attack/defense factors (balanced weight)
+
     exp_home = base_home * (0.4 + 0.35 * home_attack + 0.25 * home_defense)
     exp_away = base_away * (0.4 + 0.35 * away_attack + 0.25 * away_defense)
-    
-    # Cap for reasonable blowout potential
+
     exp_home = max(0.1, min(6.0, exp_home))
     exp_away = max(0.1, min(6.0, exp_away))
-    
-    # Full Poisson distribution to find most likely score
+
     prob_home_win = 0.0
     prob_draw = 0.0
     prob_away_win = 0.0
     max_p = -1
     best_score = (0, 0)
-    
+
     for h in range(12):
         for a in range(12):
             p = poisson_prob(h, exp_home) * poisson_prob(a, exp_away)
@@ -406,22 +351,22 @@ def predict_wc_match(home_team, away_team, neutral=True, match_date=None):
                 prob_away_win += p
             else:
                 prob_draw += p
-    
+
     total = prob_home_win + prob_draw + prob_away_win
     if total > 0:
         prob_home_win /= total
         prob_draw /= total
         prob_away_win /= total
-    
+
     home_goals, away_goals = best_score
-    
+
     if home_goals > away_goals:
         winner = home_team
     elif away_goals > home_goals:
         winner = away_team
     else:
         winner = "Draw"
-    
+
     return {
         "home": home_team,
         "away": away_team,
@@ -438,12 +383,7 @@ def predict_wc_match(home_team, away_team, neutral=True, match_date=None):
     }
 
 
-# ============================================================================
-# GROUP STAGE SIMULATION
-# ============================================================================
-
 def _incorporate_wc_results_into_form():
-    """Update RECENT_FORM with actual World Cup results so form reflects tournament performance."""
     for match in COMPLETED_RESULTS:
         for team, gf, ga in [(match["home"], match["home_goals"], match["away_goals"]),
                               (match["away"], match["away_goals"], match["home_goals"])]:
@@ -461,11 +401,8 @@ def _incorporate_wc_results_into_form():
 
 
 def simulate_group_stage():
-    """Simulate entire group stage using completed results + predictions."""
-    # Update form with actual tournament results first
     _incorporate_wc_results_into_form()
-    
-    # Initialize standings
+
     standings = {}
     for group, teams in GROUPS.items():
         for team in teams:
@@ -473,14 +410,13 @@ def simulate_group_stage():
                 "group": group, "pts": 0, "w": 0, "d": 0, "l": 0,
                 "gf": 0, "ga": 0, "gd": 0, "played": 0
             }
-    
+
     all_match_results = []
-    
-    # Process completed results
+
     for match in COMPLETED_RESULTS:
         h, a = match["home"], match["away"]
         hg, ag = match["home_goals"], match["away_goals"]
-        
+
         standings[h]["played"] += 1
         standings[a]["played"] += 1
         standings[h]["gf"] += hg
@@ -489,31 +425,36 @@ def simulate_group_stage():
         standings[a]["ga"] += hg
         standings[h]["gd"] = standings[h]["gf"] - standings[h]["ga"]
         standings[a]["gd"] = standings[a]["gf"] - standings[a]["ga"]
-        
+
         if hg > ag:
-            standings[h]["pts"] += 3; standings[h]["w"] += 1; standings[a]["l"] += 1
+            standings[h]["pts"] += 3
+            standings[h]["w"] += 1
+            standings[a]["l"] += 1
             winner = h
         elif hg < ag:
-            standings[a]["pts"] += 3; standings[a]["w"] += 1; standings[h]["l"] += 1
+            standings[a]["pts"] += 3
+            standings[a]["w"] += 1
+            standings[h]["l"] += 1
             winner = a
         else:
-            standings[h]["pts"] += 1; standings[a]["pts"] += 1
-            standings[h]["d"] += 1; standings[a]["d"] += 1
+            standings[h]["pts"] += 1
+            standings[a]["pts"] += 1
+            standings[h]["d"] += 1
+            standings[a]["d"] += 1
             winner = "Draw"
-        
+
         all_match_results.append({
             "date": match["date"], "group": match["group"],
             "home": h, "away": a, "score": f"{hg}-{ag}",
             "winner": winner, "status": "COMPLETED",
             "prob_home": "-", "prob_draw": "-", "prob_away": "-",
         })
-    
-    # Predict remaining matches
+
     for match in REMAINING_GROUP_MATCHES:
         pred = predict_wc_match(match["home"], match["away"], neutral=True, match_date=match["date"])
         h, a = match["home"], match["away"]
         hg, ag = pred["home_goals"], pred["away_goals"]
-        
+
         standings[h]["played"] += 1
         standings[a]["played"] += 1
         standings[h]["gf"] += hg
@@ -522,45 +463,49 @@ def simulate_group_stage():
         standings[a]["ga"] += hg
         standings[h]["gd"] = standings[h]["gf"] - standings[h]["ga"]
         standings[a]["gd"] = standings[a]["gf"] - standings[a]["ga"]
-        
+
         if hg > ag:
-            standings[h]["pts"] += 3; standings[h]["w"] += 1; standings[a]["l"] += 1
+            standings[h]["pts"] += 3
+            standings[h]["w"] += 1
+            standings[a]["l"] += 1
         elif hg < ag:
-            standings[a]["pts"] += 3; standings[a]["w"] += 1; standings[h]["l"] += 1
+            standings[a]["pts"] += 3
+            standings[a]["w"] += 1
+            standings[h]["l"] += 1
         else:
-            standings[h]["pts"] += 1; standings[a]["pts"] += 1
-            standings[h]["d"] += 1; standings[a]["d"] += 1
-        
+            standings[h]["pts"] += 1
+            standings[a]["pts"] += 1
+            standings[h]["d"] += 1
+            standings[a]["d"] += 1
+
         all_match_results.append({
             "date": match["date"], "group": match["group"],
             "home": h, "away": a, "score": pred["score"],
             "winner": pred["winner"], "status": "PREDICTED",
-            "prob_home": f"{pred['prob_home']*100:.0f}%",
-            "prob_draw": f"{pred['prob_draw']*100:.0f}%",
-            "prob_away": f"{pred['prob_away']*100:.0f}%",
+            "prob_home": f"{pred['prob_home'] * 100:.0f}%",
+            "prob_draw": f"{pred['prob_draw'] * 100:.0f}%",
+            "prob_away": f"{pred['prob_away'] * 100:.0f}%",
             "confidence": pred["confidence"],
         })
-    
+
     return standings, all_match_results
 
 
 def get_group_standings(standings):
-    """Get sorted standings per group."""
     group_tables = defaultdict(list)
     for team, stats in standings.items():
         group_tables[stats["group"]].append((team, stats))
-    
+
     for group in group_tables:
         group_tables[group].sort(key=lambda x: (-x[1]["pts"], -x[1]["gd"], -x[1]["gf"]))
-    
+
     return dict(group_tables)
 
 
 def get_qualified_teams(group_tables):
-    """Determine Round of 32 qualifiers: top 2 per group + 8 best 3rd place."""
-    auto_qualified = []  # 24 teams (2 per group)
+    auto_qualified = []
     third_placed = []
-    
+
     for group in sorted(group_tables.keys()):
         teams = group_tables[group]
         if len(teams) >= 1:
@@ -569,23 +514,16 @@ def get_qualified_teams(group_tables):
             auto_qualified.append((teams[1][0], group, 2))
         if len(teams) >= 3:
             third_placed.append((teams[2][0], group, teams[2][1]))
-    
-    # Sort 3rd placed by pts, gd, gf
+
     third_placed.sort(key=lambda x: (-x[2]["pts"], -x[2]["gd"], -x[2]["gf"]))
     best_thirds = [(t[0], t[1], 3) for t in third_placed[:8]]
-    
+
     return auto_qualified, best_thirds
 
 
-# ============================================================================
-# KNOCKOUT STAGE SIMULATION
-# ============================================================================
-
 def predict_knockout_match(team_a, team_b, stage="KO"):
-    """Predict knockout match (must have a winner). If the most likely score
-    is a draw, the higher-rated team wins 1-0 in extra time."""
     pred = predict_wc_match(team_a, team_b, neutral=True, match_date=stage)
-    
+
     if pred["winner"] == "Draw":
         r_a = get_team_rating(team_a)
         r_b = get_team_rating(team_b)
@@ -601,22 +539,17 @@ def predict_knockout_match(team_a, team_b, stage="KO"):
         pred["extra_time"] = True
     else:
         pred["extra_time"] = False
-    
+
     return pred
 
 
 def simulate_knockout_stage(group_tables):
-    """Simulate full knockout bracket from R32 to Final."""
     auto, thirds = get_qualified_teams(group_tables)
-    
-    # Build R32 bracket
-    # FIFA bracket: Group winners vs 3rd place / Group runners vs other group runners
-    # Simplified bracket mapping for 48-team format
+
     group_winners = {pos[1]: pos[0] for pos in auto if pos[2] == 1}
     group_runners = {pos[1]: pos[0] for pos in auto if pos[2] == 2}
     third_teams = [t[0] for t in thirds]
-    
-    # R32 matchups (simplified FIFA bracket structure)
+
     r32_matchups = [
         (group_winners.get("A", "TBD"), group_runners.get("C", "TBD")),
         (group_winners.get("B", "TBD"), third_teams[0] if len(third_teams) > 0 else "TBD"),
@@ -635,10 +568,9 @@ def simulate_knockout_stage(group_tables):
         (group_runners.get("H", "TBD"), group_runners.get("J", "TBD")),
         (group_runners.get("L", "TBD"), third_teams[7] if len(third_teams) > 7 else "TBD"),
     ]
-    
+
     knockout_results = {"R32": [], "R16": [], "QF": [], "SF": [], "3rd": None, "Final": None}
-    
-    # Round of 32
+
     r16_winners = []
     for team_a, team_b in r32_matchups:
         if "TBD" in (team_a, team_b):
@@ -647,16 +579,14 @@ def simulate_knockout_stage(group_tables):
         pred = predict_knockout_match(team_a, team_b, "R32")
         knockout_results["R32"].append(pred)
         r16_winners.append(pred["winner"])
-    
-    # Round of 16
+
     qf_winners = []
     for i in range(0, len(r16_winners), 2):
         if i + 1 < len(r16_winners):
             pred = predict_knockout_match(r16_winners[i], r16_winners[i + 1], "R16")
             knockout_results["R16"].append(pred)
             qf_winners.append(pred["winner"])
-    
-    # Quarter Finals
+
     sf_winners = []
     sf_losers = []
     for i in range(0, len(qf_winners), 2):
@@ -666,8 +596,7 @@ def simulate_knockout_stage(group_tables):
             sf_winners.append(pred["winner"])
             loser = qf_winners[i] if pred["winner"] == qf_winners[i + 1] else qf_winners[i + 1]
             sf_losers.append(loser)
-    
-    # Semi Finals
+
     final_teams = []
     third_place_teams = []
     for i in range(0, len(sf_winners), 2):
@@ -677,178 +606,22 @@ def simulate_knockout_stage(group_tables):
             final_teams.append(pred["winner"])
             loser = sf_winners[i] if pred["winner"] == sf_winners[i + 1] else sf_winners[i + 1]
             third_place_teams.append(loser)
-    
-    # 3rd Place
+
     if len(third_place_teams) >= 2:
         pred = predict_knockout_match(third_place_teams[0], third_place_teams[1], "3rd")
         knockout_results["3rd"] = pred
-    
-    # Final
+
     if len(final_teams) >= 2:
         pred = predict_knockout_match(final_teams[0], final_teams[1], "Final")
         knockout_results["Final"] = pred
-    
+
     return knockout_results
 
 
-# ============================================================================
-# DISPLAY & REPORTING
-# ============================================================================
-
-def print_header(text, char="=", width=120):
-    print(f"\n{char * width}")
-    print(f"  {text}")
-    print(f"{char * width}")
-
-
-def print_group_matches(match_results):
-    """Print all group stage match results/predictions."""
-    print_header("⚽ FIFA WORLD CUP 2026 - GROUP STAGE MATCH PREDICTIONS", "═")
-    print(f"  📅 Tournament: June 11 - July 19, 2026 | 🌎 USA, Mexico & Canada")
-    print(f"  🤖 Prediction Model: Composite (FIFA ELO + Squad Strength + Manager + Form + Pedigree + Poisson)")
-    print("═" * 120)
-    
-    # Group by group
-    current_group = None
-    for m in match_results:
-        if m["group"] != current_group:
-            current_group = m["group"]
-            print(f"\n{'─' * 120}")
-            teams = ", ".join(GROUPS[current_group])
-            print(f"  📋 GROUP {current_group}: {teams}")
-            print(f"{'─' * 120}")
-            print(f"  {'Date':<10} {'Status':<11} {'Home':>22}  {'Score':^7}  {'Away':<22} │ {'H%':>5} {'D%':>5} {'A%':>5} │ Winner")
-            print(f"  {'─'*10} {'─'*11} {'─'*22}  {'─'*7}  {'─'*22} │ {'─'*5} {'─'*5} {'─'*5} │ {'─'*22}")
-        
-        status_icon = "✅" if m["status"] == "COMPLETED" else "🔮"
-        status_text = "RESULT" if m["status"] == "COMPLETED" else "PREDICTED"
-        
-        ph = m.get("prob_home", "-")
-        pd_ = m.get("prob_draw", "-")
-        pa = m.get("prob_away", "-")
-        
-        winner_display = m["winner"]
-        if m["winner"] == "Draw":
-            winner_display = "🤝 Draw"
-        
-        print(f"  {m['date']:<10} {status_icon} {status_text:<8} {m['home']:>22}  {m['score']:^7}  {m['away']:<22} │ {ph:>5} {pd_:>5} {pa:>5} │ {winner_display}")
-
-
-def print_group_standings(group_tables):
-    """Print final group standings."""
-    print_header("📊 PREDICTED FINAL GROUP STANDINGS", "═")
-    print(f"  ✅ = Qualified (Top 2 auto-qualify, 8 best 3rd-place teams also advance)")
-    print("═" * 120)
-    
-    for group in sorted(group_tables.keys()):
-        print(f"\n  {'─' * 85}")
-        print(f"  📋 GROUP {group}")
-        print(f"  {'Pos':<5} {'Team':<25} {'P':>3} {'W':>3} {'D':>3} {'L':>3} {'GF':>4} {'GA':>4} {'GD':>4} {'Pts':>5}  Status")
-        print(f"  {'─' * 85}")
-        
-        for i, (team, stats) in enumerate(group_tables[group]):
-            pos = i + 1
-            status = "✅ Qualified" if pos <= 2 else "⏳ 3rd (TBD)" if pos == 3 else "❌ Eliminated"
-            pts_display = f"[{stats['pts']}]"
-            
-            print(f"  {pos:<5} {team:<25} {stats['played']:>3} {stats['w']:>3} {stats['d']:>3} {stats['l']:>3} {stats['gf']:>4} {stats['ga']:>4} {stats['gd']:>+4} {pts_display:>5}  {status}")
-
-
-def print_knockout_stage(knockout_results):
-    """Print knockout stage predictions."""
-    round_names = {
-        "R32": "🏟️  ROUND OF 32",
-        "R16": "🏟️  ROUND OF 16", 
-        "QF": "🏆 QUARTER FINALS",
-        "SF": "⭐ SEMI FINALS",
-    }
-    
-    for stage, name in round_names.items():
-        matches = knockout_results.get(stage, [])
-        if not matches:
-            continue
-        
-        print_header(name, "═")
-        print(f"  {'Match':<5} {'Home':>22}  {'Score':^7}  {'Away':<22} │ {'H%':>5} {'D%':>5} {'A%':>5} │ Winner")
-        print(f"  {'─'*5} {'─'*22}  {'─'*7}  {'─'*22} │ {'─'*5} {'─'*5} {'─'*5} │ {'─'*22}")
-        
-        for i, m in enumerate(matches, 1):
-            et = " (ET/Pen)" if m.get("extra_time") else ""
-            print(f"  M{i:<4} {m['home']:>22}  {m['score']:^7}  {m['away']:<22} │ {m['prob_home']*100:4.0f}% {m['prob_draw']*100:4.0f}% {m['prob_away']*100:4.0f}% │ 🏆 {m['winner']}{et}")
-    
-    # 3rd Place
-    if knockout_results.get("3rd"):
-        m = knockout_results["3rd"]
-        print_header("🥉 THIRD PLACE PLAY-OFF", "═")
-        et = " (ET/Pen)" if m.get("extra_time") else ""
-        print(f"  {m['home']:>22}  {m['score']:^7}  {m['away']:<22}  →  🥉 {m['winner']}{et}")
-    
-    # Final
-    if knockout_results.get("Final"):
-        m = knockout_results["Final"]
-        print_header("🏆🏆🏆 FIFA WORLD CUP 2026 FINAL 🏆🏆🏆", "★")
-        et = " (ET/Pen)" if m.get("extra_time") else ""
-        print(f"\n  {'':>20}{m['home']:>22}  {m['score']:^7}  {m['away']:<22}")
-        print(f"\n  {'':>20}Home Win: {m['prob_home']*100:.1f}%  |  Draw: {m['prob_draw']*100:.1f}%  |  Away Win: {m['prob_away']*100:.1f}%")
-        print(f"\n  {'':>25}{'🏆 ' * 5}")
-        print(f"  {'':>15}🏆 WORLD CHAMPION 2026: {m['winner'].upper()} 🏆{et}")
-        print(f"  {'':>25}{'🏆 ' * 5}")
-
-
-def print_prediction_factors():
-    """Print the factors used in prediction."""
-    print_header("📊 PREDICTION MODEL FACTORS & WEIGHTS", "═")
-    print("""
-  This prediction uses a composite model with the following weighted factors:
-
-  ┌─────────────────────────────────┬────────┬──────────────────────────────────────────────────┐
-  │ Factor                          │ Weight │ Description                                      │
-  ├─────────────────────────────────┼────────┼──────────────────────────────────────────────────┤
-  │ FIFA ELO Rating (June 2026)     │  30%   │ Official FIFA/Coca-Cola World Rankings           │
-  │ Squad Strength                  │  25%   │ Player quality, depth, star power (0-100)        │
-  │ Recent Form (Last 10 matches)   │  15%   │ Win rate + goal difference in recent games       │
-  │ Manager Experience              │  10%   │ Tournament pedigree, tactical ability (0-100)    │
-  │ World Cup Pedigree              │  10%   │ Historical WC performance across all editions    │
-  │ Goal Quality Ratio              │  10%   │ Attacking output vs defensive record             │
-  ├─────────────────────────────────┼────────┼──────────────────────────────────────────────────┤
-  │ Score Prediction                │  ---   │ Poisson Distribution Model                       │
-  │ Home Advantage                  │  ---   │ +35 rating boost for host nations (USA/MEX/CAN)  │
-  └─────────────────────────────────┴────────┴──────────────────────────────────────────────────┘
-    """)
-
-
-def print_top_favorites():
-    """Print pre-tournament power ranking."""
-    print_header("🌟 PRE-TOURNAMENT POWER RANKINGS (Top 20)", "═")
-    
-    ratings = [(team, get_team_rating(team)) for team in FIFA_RANKINGS.keys()]
-    ratings.sort(key=lambda x: -x[1])
-    
-    print(f"  {'Rank':<6} {'Team':<25} {'Rating':>8} │ {'FIFA #':>6} {'Squad':>6} {'Mgr':>5} {'Form':>5} {'Pedigree':>8}")
-    print(f"  {'─'*6} {'─'*25} {'─'*8} │ {'─'*6} {'─'*6} {'─'*5} {'─'*5} {'─'*8}")
-    
-    for i, (team, rating) in enumerate(ratings[:20], 1):
-        rank = FIFA_RANKINGS[team][0]
-        squad = SQUAD_STRENGTH.get(team, 50)
-        mgr = MANAGER_STATS.get(team, {"score": 50})["score"]
-        form = RECENT_FORM.get(team, {"w": 3})
-        ped = WC_PEDIGREE.get(team, 20)
-        form_str = f"{form['w']}W{form['d']}D{form['l']}L"
-        
-        bar = "█" * int(rating / 50) + "░" * max(0, 20 - int(rating / 50))
-        print(f"  {i:<6} {team:<25} {rating:>7.0f}  │ #{rank:>4} {squad:>5}/100 {mgr:>4} {form_str:>5} {ped:>7}/100  {bar}")
-
-
-# ============================================================================
-# MAIN EXECUTION
-# ============================================================================
-
 def generate_and_save_predictions(output_path="data/worldcup_predictions.json"):
-    """Simulates the entire World Cup and exports the results to a structured JSON file."""
-    # 1. Favorites / Power Rankings
     ratings = [(team, get_team_rating(team)) for team in FIFA_RANKINGS.keys()]
     ratings.sort(key=lambda x: -x[1])
-    
+
     favorites_list = []
     for team, rating in ratings:
         rank, elo = FIFA_RANKINGS[team]
@@ -867,14 +640,11 @@ def generate_and_save_predictions(output_path="data/worldcup_predictions.json"):
             "form": f"{form['w']}W-{form['d']}D-{form['l']}L",
             "pedigree": ped
         })
-        
-    # 2. Simulate Group Stage
+
     standings, all_matches = simulate_group_stage()
-    
-    # Sort standings into group_tables
+
     group_tables = get_group_standings(standings)
-    
-    # Format group tables for JSON
+
     standings_json = {}
     for group, teams in group_tables.items():
         standings_json[group] = []
@@ -890,14 +660,12 @@ def generate_and_save_predictions(output_path="data/worldcup_predictions.json"):
                 "gd": stats["gd"],
                 "pts": stats["pts"]
             })
-            
-    # 3. Simulate Knockout Stage
+
     knockout_results = simulate_knockout_stage(group_tables)
-    
-    # 4. Summary
+
     final = knockout_results.get("Final")
     third = knockout_results.get("3rd")
-    
+
     summary = {}
     if final:
         champion = final["winner"]
@@ -906,8 +674,7 @@ def generate_and_save_predictions(output_path="data/worldcup_predictions.json"):
         summary["runner_up"] = runner
     if third:
         summary["third_place"] = third["winner"]
-        
-    # Combine everything
+
     data = {
         "favorites": favorites_list,
         "group_stage": {
@@ -918,75 +685,129 @@ def generate_and_save_predictions(output_path="data/worldcup_predictions.json"):
         "summary": summary,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
-    
-    # Ensure directory exists
+
     dir_name = os.path.dirname(output_path)
     if dir_name:
         os.makedirs(dir_name, exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
-    
+
     print(f"World Cup predictions written to {output_path}")
     return data
 
 
 def main():
-    print("\n" + "🏆" * 40)
+    print("\n" + "=" * 40)
     print("  FIFA WORLD CUP 2026 - COMPLETE TOURNAMENT PREDICTION")
-    print("  Canada • Mexico • United States  |  June 11 - July 19, 2026")
-    print("  48 Teams • 104 Matches • 16 Host Cities")
-    print("🏆" * 40)
-    
-    # Show model info
-    print_prediction_factors()
-    
-    # Power Rankings
-    print_top_favorites()
-    
-    # Generate, simulate, and save predictions (single pass — no double-simulation)
+    print("  Canada \u2022 Mexico \u2022 United States  |  June 11 - July 19, 2026")
+    print("  48 Teams \u2022 104 Matches \u2022 16 Host Cities")
+    print("=" * 40)
+
     data = generate_and_save_predictions()
-    
-    # Extract results from the generated data
+
     all_matches = data["group_stage"]["matches"]
-    
-    # Reconstruct group_tables in the format expected by print functions
+
     group_tables = {}
     for group, teams_list in data["group_stage"]["standings"].items():
         group_tables[group] = [(t["team"], t) for t in teams_list]
-    
+
     knockout_results = data["knockout_stage"]
-    
-    # Print all group matches
+
     print_group_matches(all_matches)
-    
-    # Print standings
     print_group_standings(group_tables)
-    
-    # Knockout Stage
-    print_header("⚡ KNOCKOUT STAGE PREDICTIONS", "★")
+
+    print("\n" + "=" * 40)
+    print("  KNOCKOUT STAGE PREDICTIONS")
     print("  Top 2 from each group + 8 best 3rd-placed teams advance to Round of 32")
+    print("=" * 40)
     print_knockout_stage(knockout_results)
-    
-    # Summary
-    print_header("📋 TOURNAMENT SUMMARY", "═")
-    
+
+    print("\n" + "=" * 40)
+    print("  TOURNAMENT SUMMARY")
+    print("=" * 40)
+
     final = knockout_results.get("Final")
     third = knockout_results.get("3rd")
-    
+
     if final:
         champion = final["winner"]
         runner = final["home"] if final["winner"] == final["away"] else final["away"]
-        print(f"\n  🥇 CHAMPION:    {champion}")
-        print(f"  🥈 RUNNER-UP:   {runner}")
+        print(f"\n  CHAMPION:    {champion}")
+        print(f"  RUNNER-UP:   {runner}")
     if third:
-        print(f"  🥉 THIRD PLACE: {third['winner']}")
-    
-    print(f"\n  📊 Model used {len(COMPLETED_RESULTS)} actual results + predicted {len(REMAINING_GROUP_MATCHES)} remaining group matches")
-    print(f"  📅 Predictions generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    print(f"\n{'═' * 120}")
-    print(f"  ⚠️  DISCLAIMER: These are statistical predictions based on historical data,")
-    print(f"  rankings, and mathematical models. Football is unpredictable - upsets happen!")
-    print(f"{'═' * 120}\n")
+        print(f"  THIRD PLACE: {third['winner']}")
+
+    print(f"\n  Predictions generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    print("=" * 40)
+
+
+def print_group_matches(match_results):
+    print("\n" + "=" * 80)
+    print("  GROUP STAGE MATCHES")
+    print("=" * 80)
+
+    current_group = None
+    for m in match_results:
+        if m["group"] != current_group:
+            current_group = m["group"]
+            teams = ", ".join(GROUPS[current_group])
+            print(f"\n  GROUP {current_group}: {teams}")
+            print(f"  {'Date':<10} {'Status':<10} {'Home':>20} {'Score':^7} {'Away':<20}  Winner")
+            print(f"  {'-' * 68}")
+
+        status_text = "RESULT" if m["status"] == "COMPLETED" else "PREDICTED"
+        print(f"  {m['date']:<10} {status_text:<10} {m['home']:>20} {m['score']:^7} {m['away']:<20}  {m['winner']}")
+
+
+def print_group_standings(group_tables):
+    print("\n" + "=" * 80)
+    print("  GROUP STANDINGS")
+    print("=" * 80)
+
+    for group in sorted(group_tables.keys()):
+        print(f"\n  GROUP {group}")
+        print(f"  {'Pos':<5} {'Team':<22} {'P':>3} {'W':>3} {'D':>3} {'L':>3} {'GF':>4} {'GA':>4} {'GD':>4} {'Pts':>5}")
+        print(f"  {'-' * 60}")
+
+        for i, (team, stats) in enumerate(group_tables[group]):
+            pos = i + 1
+            pts_display = f"[{stats['pts']}]"
+            print(f"  {pos:<5} {team:<22} {stats['played']:>3} {stats['w']:>3} {stats['d']:>3} {stats['l']:>3} {stats['gf']:>4} {stats['ga']:>4} {stats['gd']:>+4} {pts_display:>5}")
+
+
+def print_knockout_stage(knockout_results):
+    round_names = {
+        "R32": "ROUND OF 32",
+        "R16": "ROUND OF 16",
+        "QF": "QUARTER FINALS",
+        "SF": "SEMI FINALS",
+    }
+
+    for stage, name in round_names.items():
+        matches = knockout_results.get(stage, [])
+        if not matches:
+            continue
+
+        print(f"\n  {name}")
+        print(f"  {'Match':<5} {'Home':>20} {'Score':^7} {'Away':<20}  Winner")
+        print(f"  {'-' * 60}")
+
+        for i, m in enumerate(matches, 1):
+            et = " (ET/Pen)" if m.get("extra_time") else ""
+            print(f"  M{i:<4} {m['home']:>20} {m['score']:^7} {m['away']:<20}  {m['winner']}{et}")
+
+    if knockout_results.get("3rd"):
+        m = knockout_results["3rd"]
+        et = " (ET/Pen)" if m.get("extra_time") else ""
+        print(f"\n  THIRD PLACE PLAY-OFF")
+        print(f"  {m['home']:>20} {m['score']:^7} {m['away']:<20}  ->  {m['winner']}{et}")
+
+    if knockout_results.get("Final"):
+        m = knockout_results["Final"]
+        et = " (ET/Pen)" if m.get("extra_time") else ""
+        print(f"\n  FINAL")
+        print(f"  {m['home']:>20} {m['score']:^7} {m['away']:<20}")
+        print(f"  CHAMPION: {m['winner']}{et}")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,13 @@
-import os
 import sys
-from datetime import datetime
+import os
 
-import database as db
-import utils_data
+_root = os.path.join(os.path.dirname(__file__), '..', '..')
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
+from backend import database as db
+from backend import utils_data
+
 
 def migrate_teams():
     teams = utils_data.load_json("data/teams.json")
@@ -12,6 +16,7 @@ def migrate_teams():
         return
     db.save_teams(teams)
     print(f"Migrated {len(teams)} teams")
+
 
 def migrate_predictions():
     pred_dir = utils_data.PREDICTIONS_DIR
@@ -29,6 +34,7 @@ def migrate_predictions():
             count += len(predictions)
             print(f"  Migrated {len(predictions)} predictions from {filename}")
     print(f"Total predictions migrated: {count}")
+
 
 if __name__ == "__main__":
     if not db.DATABASE_URL:

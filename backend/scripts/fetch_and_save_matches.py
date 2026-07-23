@@ -1,11 +1,15 @@
-import os
 import sys
-from datetime import datetime
+import os
 
-import database as db
-import data_manager
-import utils_data
-import utils
+_root = os.path.join(os.path.dirname(__file__), '..', '..')
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
+from backend import database as db
+from backend import data_manager
+from backend import utils_data
+from backend import utils
+
 
 def fetch_and_save():
     print("Fetching upcoming matches from ESPN...")
@@ -35,6 +39,7 @@ def fetch_and_save():
         print(f"  Saved to database")
 
     print(f"\nDone. {total} total predictions saved to database.")
+
 
 if __name__ == "__main__":
     if not db.DATABASE_URL:
