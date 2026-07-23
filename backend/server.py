@@ -60,6 +60,15 @@ async def root():
     }
 
 
+@app.get("/api/health")
+async def health():
+    return {
+        "status": "online",
+        "message": "Football Predictor API",
+        "version": "1.0.0"
+    }
+
+
 @app.get("/api/teams")
 async def get_teams():
     return {"teams": list(PREMIER_LEAGUE_TEAMS.values())}
