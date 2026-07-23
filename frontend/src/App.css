@@ -418,30 +418,8 @@
    PL MATCH CARD
    ============================================ */
 .pl-match-card {
-  position: relative;
-  background: var(--color-bg-glass);
-  border: 1px solid hsl(var(--team-hue, 270) 60% 50% / 0.15);
   border-radius: var(--radius-lg);
   padding: var(--space-lg) var(--space-xl);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.pl-match-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(
-    500px circle at 50% 0%,
-    hsl(var(--team-hue, 270) 80% 60% / 0.04),
-    transparent 50%
-  );
-  pointer-events: none;
-}
-
-.pl-match-card:hover {
-  border-color: hsl(var(--team-hue, 270) 70% 55% / 0.35);
-  box-shadow: 0 0 24px hsl(var(--team-hue, 270) 80% 60% / 0.12);
 }
 
 .pl-match-teams {

@@ -1,36 +1,37 @@
 import type { Match } from '../types';
 import TeamBadge from './TeamBadge';
 import PredictionBar from './PredictionBar';
+import { GlowCard } from './ui/spotlight-card';
 
-const teamHues: Record<string, number> = {
-  'Manchester United': 0,
-  'Liverpool': 0,
-  'Arsenal': 0,
-  'Brentford': 0,
-  'Southampton': 0,
-  'Bournemouth': 0,
-  'Manchester City': 220,
-  'Chelsea': 220,
-  'Brighton': 220,
-  'West Ham': 220,
-  'Everton': 220,
-  'Crystal Palace': 220,
-  'Leicester': 220,
-  'Ipswich': 220,
-  'Tottenham': 280,
-  'Newcastle United': 280,
-  'Newcastle': 280,
-  'Aston Villa': 280,
-  'Wolves': 30,
-  'Nottingham Forest': 120,
-  'Fulham': 120,
+const teamGlowMap: Record<string, 'blue' | 'purple' | 'green' | 'red' | 'orange'> = {
+  'Manchester United': 'red',
+  'Manchester City': 'blue',
+  'Liverpool': 'red',
+  'Arsenal': 'red',
+  'Chelsea': 'blue',
+  'Tottenham': 'purple',
+  'Newcastle United': 'purple',
+  'Newcastle': 'purple',
+  'Aston Villa': 'purple',
+  'Brighton': 'blue',
+  'West Ham': 'blue',
+  'Everton': 'blue',
+  'Wolves': 'orange',
+  'Crystal Palace': 'blue',
+  'Nottingham Forest': 'green',
+  'Fulham': 'green',
+  'Brentford': 'red',
+  'Leicester': 'blue',
+  'Southampton': 'red',
+  'Bournemouth': 'red',
+  'Ipswich': 'blue',
 };
 
-function getHue(teamName: string): number {
-  for (const [key, h] of Object.entries(teamHues)) {
-    if (teamName.toLowerCase().includes(key.toLowerCase())) return h;
+function getGlowColor(teamName: string): 'blue' | 'purple' | 'green' | 'red' | 'orange' {
+  for (const [key, color] of Object.entries(teamGlowMap)) {
+    if (teamName.toLowerCase().includes(key.toLowerCase())) return color;
   }
-  return 270;
+  return 'purple';
 }
 
 interface MatchCardProps {
@@ -52,46 +53,48 @@ export default function MatchCard({ match }: MatchCardProps) {
     };
 
     const prediction = match.prediction;
-    const hue = getHue(homeTeamName);
+    const glowColor = getGlowColor(homeTeamName);
 
     return (
-        <div className="pl-match-card" id={`match-${match.id}`} style={{ '--team-hue': hue } as React.CSSProperties}>
-            <div className="pl-match-teams">
-                <div className="pl-team pl-team--home">
-                    <TeamBadge team={typeof homeTeam === 'string' ? { name: homeTeam, badge_url: null } : homeTeam} size="large" />
-                    <span className="pl-team-name">{homeShort}</span>
+        <GlowCard glowColor={glowColor} customSize className="!aspect-auto !grid-rows-none">
+            <div className="pl-match-card" id={`match-${match.id}`}>
+                <div className="pl-match-teams">
+                    <div className="pl-team pl-team--home">
+                        <TeamBadge team={typeof homeTeam === 'string' ? { name: homeTeam, badge_url: null } : homeTeam} size="large" />
+                        <span className="pl-team-name">{homeShort}</span>
+                    </div>
+
+                    <div className="pl-match-center">
+                        {prediction?.score ? (
+                            <>
+                                <div className="pl-score">{prediction.score}</div>
+                                <div className="pl-time">{formatTime(match.time)}</div>
+                            </>
+                        ) : (
+                            <div className="pl-time pl-time--kickoff">{formatTime(match.time) || 'Kick Off'}</div>
+                        )}
+                    </div>
+
+                    <div className="pl-team pl-team--away">
+                        <TeamBadge team={typeof awayTeam === 'string' ? { name: awayTeam, badge_url: null } : awayTeam} size="large" />
+                        <span className="pl-team-name">{awayShort}</span>
+                    </div>
                 </div>
 
-                <div className="pl-match-center">
-                    {prediction?.score ? (
-                        <>
-                            <div className="pl-score">{prediction.score}</div>
-                            <div className="pl-time">{formatTime(match.time)}</div>
-                        </>
-                    ) : (
-                        <div className="pl-time pl-time--kickoff">{formatTime(match.time) || 'Kick Off'}</div>
-                    )}
+                <div className="pl-match-full-names">
+                    <span>{homeTeamName}</span>
+                    <span>vs</span>
+                    <span>{awayTeamName}</span>
                 </div>
 
-                <div className="pl-team pl-team--away">
-                    <TeamBadge team={typeof awayTeam === 'string' ? { name: awayTeam, badge_url: null } : awayTeam} size="large" />
-                    <span className="pl-team-name">{awayShort}</span>
-                </div>
+                {prediction && (
+                    <PredictionBar
+                        prediction={prediction}
+                        homeTeam={homeTeamName}
+                        awayTeam={awayTeamName}
+                    />
+                )}
             </div>
-
-            <div className="pl-match-full-names">
-                <span>{homeTeamName}</span>
-                <span>vs</span>
-                <span>{awayTeamName}</span>
-            </div>
-
-            {prediction && (
-                <PredictionBar
-                    prediction={prediction}
-                    homeTeam={homeTeamName}
-                    awayTeam={awayTeamName}
-                />
-            )}
-        </div>
+        </GlowCard>
     );
 }
