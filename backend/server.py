@@ -27,14 +27,11 @@ app.add_middleware(
 TEAMS_DATA_PATH = os.path.join("data", "teams.json")
 
 DB_AVAILABLE = db.DATABASE_URL is not None
+PREMIER_LEAGUE_TEAMS = utils_data.load_json(TEAMS_DATA_PATH) or {}
+
 if DB_AVAILABLE:
     db.init_db()
-    PREMIER_LEAGUE_TEAMS = db.get_teams()
-    if not PREMIER_LEAGUE_TEAMS:
-        PREMIER_LEAGUE_TEAMS = utils_data.load_json(TEAMS_DATA_PATH) or {}
-        db.save_teams(PREMIER_LEAGUE_TEAMS)
-else:
-    PREMIER_LEAGUE_TEAMS = utils_data.load_json(TEAMS_DATA_PATH) or {}
+    db.save_teams(PREMIER_LEAGUE_TEAMS)
 
 
 def get_team_info(team_name: str) -> dict:
