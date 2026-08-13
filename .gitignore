@@ -24,6 +24,9 @@ env/
 # opencode skills
 .opencode/
 
+# impeccable design artifacts
+.impeccable/
+
 # Node
 node_modules/
 

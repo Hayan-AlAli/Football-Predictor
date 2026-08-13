@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 load_dotenv()
 
-DATABASE_URL = os.environ.get("POSTGRES_URL")
+DATABASE_URL = os.environ.get("POSTGRES_URL") or None
 
 _initialized = False
 
@@ -157,6 +157,14 @@ def load_predictions(date_str):
             "SELECT * FROM predictions WHERE match_date = %s ORDER BY match_time",
             (date_str,)
         )
+        rows = cur.fetchall()
+        return [_row_to_prediction(r) for r in rows]
+
+
+def load_all_predictions():
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM predictions ORDER BY match_date, match_time")
         rows = cur.fetchall()
         return [_row_to_prediction(r) for r in rows]
 

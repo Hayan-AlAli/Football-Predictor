@@ -1,4 +1,4 @@
-import type { Match } from '../types';
+import type { Match, ResultEntry } from '../types';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8000';
 
@@ -75,6 +75,16 @@ export async function getResults(date: string | null = null): Promise<Match[]> {
     : '/api/matches/results';
 
   const data = await fetchAPI<ResultsResponse>(endpoint);
+  return data.results || [];
+}
+
+interface ResultEntriesResponse {
+  results: ResultEntry[];
+}
+
+/** The evening press's recorded verdicts for a date (status CORRECT / INCORRECT / PENDING). */
+export async function getResultEntries(date: string): Promise<ResultEntry[]> {
+  const data = await fetchAPI<ResultEntriesResponse>(`/api/matches/results?date=${date}`);
   return data.results || [];
 }
 

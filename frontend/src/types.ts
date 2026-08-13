@@ -10,6 +10,10 @@ export interface Prediction {
   prob_away: number;
   score?: string;
   winner?: string;
+  home_goals?: number;
+  away_goals?: number;
+  home_elo?: number;
+  away_elo?: number;
 }
 
 export interface Match {
@@ -26,4 +30,13 @@ export interface Match {
   score?: string;
 }
 
-
+/** One entry of a recorded results file (written by the evening job). */
+export interface ResultEntry {
+  match: Match;
+  actual?: {
+    home_goals: number;
+    away_goals: number;
+    score?: string;
+  } | null;
+  status: 'CORRECT' | 'INCORRECT' | 'PENDING';
+}

@@ -239,23 +239,19 @@ async def get_all_matches_with_predictions():
         gameweeks = set()
 
         if DB_AVAILABLE:
-            dates = db.get_available_dates()
-            gw_map = compute_gameweeks(dates)
-            for date_str in dates:
-                if date_str not in gw_map:
+            all_preds = db.load_all_predictions()
+            gw_map = compute_gameweeks([p['date'] for p in all_preds])
+            for pred in all_preds:
+                gw = gw_map.get(pred['date'])
+                if gw is None:
                     continue
-                predictions = db.load_predictions(date_str)
-                if not predictions:
-                    continue
-                gw = gw_map[date_str]
                 gameweeks.add(gw)
-                for pred in predictions:
-                    matches.append({
-                        **pred,
-                        "gameweek": gw,
-                        "home_team_info": get_team_info(pred['home_team']),
-                        "away_team_info": get_team_info(pred['away_team'])
-                    })
+                matches.append({
+                    **pred,
+                    "gameweek": gw,
+                    "home_team_info": get_team_info(pred['home_team']),
+                    "away_team_info": get_team_info(pred['away_team'])
+                })
 
         return {"matches": matches, "gameweeks": sorted(gameweeks)}
     except Exception as e:
