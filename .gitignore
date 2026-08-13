@@ -12,6 +12,12 @@ model_*.pkl
 elo_state.pkl
 team_encoder.pkl
 
+# The four model files Vercel needs to run predictions
+!model_home.pkl
+!model_away.pkl
+!team_encoder.pkl
+!training_data.pkl
+
 # Virtual Environments
 venv/
 .venv/
