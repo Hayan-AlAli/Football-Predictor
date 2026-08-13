@@ -207,29 +207,8 @@ def _season_year(d):
     return d.year if d.month >= 8 else d.year - 1
 
 
-def compute_gameweeks(dates):
-    if not dates:
-        return {}
-
-    parsed = {d: datetime.strptime(d, '%Y-%m-%d') for d in dates}
-    seasons = {}
-    for d, dt in parsed.items():
-        sy = _season_year(dt)
-        seasons.setdefault(sy, []).append(d)
-
-    latest_season = max(seasons.keys())
-    season_dates = sorted(seasons[latest_season])
-
-    result = {}
-    gw = 0
-    prev = None
-    for d in season_dates:
-        dt = parsed[d]
-        if prev is None or (dt - prev).days > 4:
-            gw += 1
-        result[d] = gw
-        prev = dt
-    return result
+def _latest_season_year(all_preds):
+    return max(_season_year(datetime.strptime(p['date'], '%Y-%m-%d')) for p in all_preds)
 
 
 @app.get("/api/matches/all")
@@ -240,11 +219,15 @@ async def get_all_matches_with_predictions():
 
         if DB_AVAILABLE:
             all_preds = db.load_all_predictions()
-            gw_map = compute_gameweeks([p['date'] for p in all_preds])
-            for pred in all_preds:
-                gw = gw_map.get(pred['date'])
-                if gw is None:
-                    continue
+            latest_year = _latest_season_year(all_preds)
+            ordered = [
+                p for p in all_preds
+                if _season_year(datetime.strptime(p['date'], '%Y-%m-%d')) == latest_year
+            ]
+            ordered.sort(key=lambda p: (p['date'], p.get('time') or ''))
+
+            for idx, pred in enumerate(ordered):
+                gw = (idx // 10) + 1
                 gameweeks.add(gw)
                 matches.append({
                     **pred,
