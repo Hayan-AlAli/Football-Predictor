@@ -4,6 +4,7 @@ import datetime
 from backend import utils
 import logging
 import concurrent.futures
+from backend import predictor
 
 _SOCCERDATA_TIMEOUT = 45
 
@@ -164,8 +165,8 @@ def fetch_upcoming_matches():
             h_team = utils.normalize_team_name(row['home_team'])
             a_team = utils.normalize_team_name(row['away_team'])
 
-            h_elos.append(elo_lookup.get(h_team, 1500))
-            a_elos.append(elo_lookup.get(a_team, 1500))
+            h_elos.append(predictor._resolve_elo(elo_lookup, h_team))
+            a_elos.append(predictor._resolve_elo(elo_lookup, a_team))
 
         upcoming['home_elo'] = h_elos
         upcoming['away_elo'] = a_elos
