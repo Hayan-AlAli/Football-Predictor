@@ -2,6 +2,7 @@ import joblib
 import pandas as pd
 import os
 import random
+import re
 from backend import utils
 import math
 import concurrent.futures
@@ -30,6 +31,33 @@ def _fetch_live_elo():
     except Exception:
         pass
     return None
+
+
+def _tokens(name):
+    return set(re.findall(r'[a-z0-9]+', (name or '').lower()))
+
+
+def _resolve_elo(lookup, team_name):
+    if not lookup:
+        return 1500
+    exact = utils.normalize_team_name(team_name)
+    if exact in lookup:
+        return lookup[exact]
+
+    team_tokens = _tokens(exact)
+    if not team_tokens:
+        return 1500
+
+    best = (0, 1500)
+    for key, val in lookup.items():
+        key_tokens = _tokens(key)
+        if not key_tokens:
+            continue
+        if team_tokens.issuperset(key_tokens) or key_tokens.issuperset(team_tokens):
+            shared = len(team_tokens & key_tokens)
+            if shared > best[0]:
+                best = (shared, val)
+    return best[1]
 
 
 model_home = None
@@ -168,9 +196,9 @@ def predict_match(match_data):
                 live_elo = _fetch_live_elo()
                 if live_elo:
                     if home_elo is None:
-                        home_elo = live_elo.get(home_team_norm, 1500)
+                        home_elo = _resolve_elo(live_elo, home_team_norm)
                     if away_elo is None:
-                        away_elo = live_elo.get(away_team_norm, 1500)
+                        away_elo = _resolve_elo(live_elo, away_team_norm)
                 else:
                     home_elo = home_elo or 1500
                     away_elo = away_elo or 1500

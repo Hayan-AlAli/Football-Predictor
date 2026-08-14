@@ -54,8 +54,18 @@ def init_db():
                 winner TEXT,
                 home_goals DOUBLE PRECISION,
                 away_goals DOUBLE PRECISION,
+                home_elo DOUBLE PRECISION,
+                away_elo DOUBLE PRECISION,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             );
+        """)
+        cur.execute("""
+            ALTER TABLE predictions
+            ADD COLUMN IF NOT EXISTS home_elo DOUBLE PRECISION
+        """)
+        cur.execute("""
+            ALTER TABLE predictions
+            ADD COLUMN IF NOT EXISTS away_elo DOUBLE PRECISION
         """)
         cur.execute("""
             CREATE INDEX IF NOT EXISTS idx_predictions_date
@@ -110,6 +120,8 @@ def _clean_pred(p):
         'winner': _to_native(p.get('winner')),
         'home_goals': _to_native(p.get('home_goals')),
         'away_goals': _to_native(p.get('away_goals')),
+        'home_elo': _to_native(p.get('home_elo')),
+        'away_elo': _to_native(p.get('away_elo')),
     }
 
 
@@ -123,8 +135,9 @@ def save_predictions(predictions):
                     id, match_date, match_time,
                     home_team, away_team,
                     prob_home, prob_draw, prob_away,
-                    score, winner, home_goals, away_goals
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    score, winner, home_goals, away_goals,
+                    home_elo, away_elo
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     match_time = EXCLUDED.match_time,
                     prob_home = EXCLUDED.prob_home,
@@ -133,7 +146,9 @@ def save_predictions(predictions):
                     score = EXCLUDED.score,
                     winner = EXCLUDED.winner,
                     home_goals = EXCLUDED.home_goals,
-                    away_goals = EXCLUDED.away_goals
+                    away_goals = EXCLUDED.away_goals,
+                    home_elo = EXCLUDED.home_elo,
+                    away_elo = EXCLUDED.away_elo
             """, (
                 pred['id'],
                 pred['date'],
@@ -147,6 +162,8 @@ def save_predictions(predictions):
                 p['winner'],
                 p['home_goals'],
                 p['away_goals'],
+                p['home_elo'],
+                p['away_elo'],
             ))
 
 
@@ -184,6 +201,8 @@ def _row_to_prediction(row):
             'winner': row.get('winner'),
             'home_goals': row.get('home_goals'),
             'away_goals': row.get('away_goals'),
+            'home_elo': row.get('home_elo'),
+            'away_elo': row.get('away_elo'),
         }
     }
 

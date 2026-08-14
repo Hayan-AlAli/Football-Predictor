@@ -19,6 +19,9 @@ def regenerate():
     dates = db.get_available_dates()
     print(f"Found {len(dates)} dates with predictions")
 
+    print("Fetching live club Elo...")
+    live_elo = predictor._fetch_live_elo() or {}
+
     total = 0
     for date_str in dates:
         predictions = db.load_predictions(date_str)
@@ -31,8 +34,8 @@ def regenerate():
                 'home_team': pred['home_team'],
                 'away_team': pred['away_team'],
                 'date': pred['date'],
-                'home_elo': 1500,
-                'away_elo': 1500,
+                'home_elo': predictor._resolve_elo(live_elo, pred['home_team']),
+                'away_elo': predictor._resolve_elo(live_elo, pred['away_team']),
             }
             result = predictor.predict_match(match_input)
 
