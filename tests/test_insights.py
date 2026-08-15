@@ -204,3 +204,58 @@ def test_calibration_empty(tmp_path):
     res = compute_calibration(pred_dir, res_dir)
     assert res["entries"] == 0 and res["brier"] is None and res["accuracy"] is None
     assert res["bins"] == [] and res["rolling"] == []
+from backend.insights import head_to_head, team_profile
+
+H2H_DF = pd.DataFrame([
+    {"date": pd.Timestamp("2024-08-17"), "home_team": "Arsenal", "away_team": "Chelsea",
+     "home_goals": 2, "away_goals": 1, "home_elo": 1900, "away_elo": 1800},
+    {"date": "2025-01-04", "home_team": "Chelsea", "away_team": "Arsenal",
+     "home_goals": 0, "away_goals": 0, "home_elo": 1810, "away_elo": 1910},
+    {"date": "2025-05-03", "home_team": "Chelsea", "away_team": "Arsenal",
+     "home_goals": 2, "away_goals": 3, "home_elo": 1850, "away_elo": 1930},
+    # May 2025 still belongs to season year 2024 (2024-25)
+    {"date": "2025-08-16", "home_team": "Arsenal", "away_team": "Chelsea",
+     "home_goals": 1, "away_goals": 1, "home_elo": 1950, "away_elo": 1860},
+    {"date": "2025-09-13", "home_team": "Arsenal", "away_team": "Everton",
+     "home_goals": 4, "away_goals": 0, "home_elo": 1960, "away_elo": 1700},
+])
+
+
+def test_team_profile_seasons_and_form():
+    p = team_profile(H2H_DF, "Arsenal")
+    assert p is not None
+    assert p["team"] == "Arsenal"
+    seasons = {s["season_year"]: s for s in p["seasons"]}
+    assert seasons[2024]["points"] == 7              # W, D, W
+    assert seasons[2024]["played"] == 3
+    assert seasons[2025]["points"] == 4              # D, W
+    assert seasons[2025]["gf"] == 5
+    assert p["seasons"][0]["season_year"] == 2025    # newest first
+    form = p["form"]
+    assert [f["result"] for f in form] == ["W", "D", "W", "D", "W"]
+    assert form[0]["date"] < form[-1]["date"]        # oldest -> newest
+    assert len(form) == 5
+    elo = p["elo_history"]
+    assert elo[0] == {"date": "2024-08-17", "elo": 1900}
+    assert elo[-1]["elo"] == 1960
+
+
+def test_team_profile_unknown_team():
+    assert team_profile(H2H_DF, "Norwich City") is None
+
+
+def test_head_to_head_summary_and_meetings():
+    h = head_to_head(H2H_DF, "Arsenal", "Chelsea")
+    assert h is not None
+    assert h["summary"]["meetings"] == 4
+    assert h["summary"]["team_a_wins"] == 2
+    assert h["summary"]["draws"] == 2
+    assert h["summary"]["team_b_wins"] == 0
+    assert h["summary"]["team_a_for"] == 6
+    assert h["summary"]["team_a_against"] == 4
+    assert h["meetings"][0]["date"] >= h["meetings"][-1]["date"]   # newest first
+    assert h["meetings"][0]["winner"] == "Draw"
+
+
+def test_head_to_head_unknown_pair():
+    assert head_to_head(H2H_DF, "Arsenal", "Norwich City") is None

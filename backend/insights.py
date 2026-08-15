@@ -290,3 +290,143 @@ def compute_calibration(predictions_dir=None, results_dir=None):
         "bins": bins,
         "rolling": rolling,
     }
+def _norm_df(df):
+    out = df.copy()
+    out["date"] = pd.to_datetime(out["date"])
+    out["home_team"] = out["home_team"].apply(utils.normalize_team_name)
+    out["away_team"] = out["away_team"].apply(utils.normalize_team_name)
+    out["season_year"] = _season_col(out)
+    return out
+
+
+def _canonical_name(df, norm):
+    for c in df["home_team"]:
+        if c == norm:
+            return c
+    for c in df["away_team"]:
+        if c == norm:
+            return c
+    return norm
+
+
+def team_profile(training_df, team_name):
+    df = _norm_df(training_df)
+    norm = utils.normalize_team_name(team_name)
+    involved = df[(df["home_team"] == norm) | (df["away_team"] == norm)]
+    if involved.empty:
+        return None
+    name = _canonical_name(df, norm)
+
+    seasons = []
+    for sy in sorted(involved["season_year"].unique(), reverse=True):
+        sdf = involved[involved["season_year"] == sy]
+        wins = draws = losses = 0
+        gf = ga = 0
+        for _, r in sdf.iterrows():
+            if r["home_team"] == norm:
+                scored, conceded = r["home_goals"], r["away_goals"]
+            else:
+                scored, conceded = r["away_goals"], r["home_goals"]
+            gf += int(scored)
+            ga += int(conceded)
+            if scored > conceded:
+                wins += 1
+            elif scored == conceded:
+                draws += 1
+            else:
+                losses += 1
+        seasons.append({
+            "season_year": int(sy),
+            "played": len(sdf),
+            "wins": wins,
+            "draws": draws,
+            "losses": losses,
+            "gf": gf,
+            "ga": ga,
+            "points": wins * 3 + draws,
+        })
+
+    form = []
+    for _, r in involved.sort_values("date").iterrows():
+        if r["home_team"] == norm:
+            scored, conceded = r["home_goals"], r["away_goals"]
+        else:
+            scored, conceded = r["away_goals"], r["home_goals"]
+        result = "W" if scored > conceded else ("D" if scored == conceded else "L")
+        form.append({
+            "date": r["date"].strftime("%Y-%m-%d"),
+            "result": result,
+            "home_team": r["home_team"],
+            "away_team": r["away_team"],
+            "home_goals": int(r["home_goals"]),
+            "away_goals": int(r["away_goals"]),
+        })
+    form = form[-6:]
+
+    elo_history = []
+    seen = set()
+    for _, r in involved.sort_values("date").iterrows():
+        d = r["date"].strftime("%Y-%m-%d")
+        if d in seen:
+            continue
+        seen.add(d)
+        elo = r["home_elo"] if r["home_team"] == norm else r["away_elo"]
+        elo_history.append({"date": d, "elo": int(float(elo))})
+
+    return {"team": name, "seasons": seasons, "form": form, "elo_history": elo_history}
+
+
+def head_to_head(training_df, team_a, team_b):
+    df = _norm_df(training_df)
+    a = utils.normalize_team_name(team_a)
+    b = utils.normalize_team_name(team_b)
+    if a == b:
+        return None
+    meetings = df[
+        ((df["home_team"] == a) & (df["away_team"] == b))
+        | ((df["home_team"] == b) & (df["away_team"] == a))
+    ]
+    if meetings.empty:
+        return None
+
+    a_wins = draws = b_wins = 0
+    a_for = a_against = 0
+    rows = []
+    for _, r in meetings.sort_values("date", ascending=False).iterrows():
+        if r["home_team"] == a:
+            a_score, b_score = r["home_goals"], r["away_goals"]
+        else:
+            b_score, a_score = r["home_goals"], r["away_goals"]
+        a_for += int(a_score)
+        a_against += int(b_score)
+        if a_score > b_score:
+            a_wins += 1
+            winner = a
+        elif a_score == b_score:
+            draws += 1
+            winner = "Draw"
+        else:
+            b_wins += 1
+            winner = b
+        rows.append({
+            "date": r["date"].strftime("%Y-%m-%d"),
+            "home_team": r["home_team"],
+            "away_team": r["away_team"],
+            "home_goals": int(r["home_goals"]),
+            "away_goals": int(r["away_goals"]),
+            "winner": winner,
+        })
+
+    return {
+        "team_a": _canonical_name(df, a),
+        "team_b": _canonical_name(df, b),
+        "summary": {
+            "meetings": len(rows),
+            "team_a_wins": a_wins,
+            "draws": draws,
+            "team_b_wins": b_wins,
+            "team_a_for": a_for,
+            "team_a_against": a_against,
+        },
+        "meetings": rows,
+    }
