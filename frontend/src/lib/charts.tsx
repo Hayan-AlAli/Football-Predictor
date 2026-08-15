@@ -84,8 +84,8 @@ export function CalibrationCurve({
       ))}
       <text x={padX} y={height - 4} className="fill-ink-faint font-mono text-[9px]">0%</text>
       <text x={x(1) - 10} y={height - 4} className="fill-ink-faint font-mono text-[9px]">100%</text>
-      <text x={2} y={y(0) + 3} className="fill-ink-faint font-mono text-[9px]">100%</text>
-      <text x={2} y={y(1) - 2} className="fill-ink-faint font-mono text-[9px]">0%</text>
+      <text x={2} y={y(0) + 3} className="fill-ink-faint font-mono text-[9px]">0%</text>
+      <text x={2} y={y(1) - 2} className="fill-ink-faint font-mono text-[9px]">100%</text>
     </svg>
   );
 }
