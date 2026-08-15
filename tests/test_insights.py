@@ -49,3 +49,20 @@ def test_build_standings_filters_season():
     by_name = {r["team"]: r for r in rows}
     assert by_name["Arsenal"]["played"] == 1
     assert by_name["Arsenal"]["points"] == 3
+
+
+def test_build_standings_normalizes_team_names():
+    df = pd.DataFrame([
+        # same club under two spellings — must count as ONE team
+        {"date": pd.Timestamp("2024-08-17"), "home_team": "Manchester Utd", "away_team": "Chelsea",
+         "home_goals": 2, "away_goals": 0},
+        {"date": pd.Timestamp("2024-08-24"), "home_team": "Chelsea", "away_team": "Manchester United",
+         "home_goals": 1, "away_goals": 1},
+    ])
+    rows = build_standings(df, 2024)
+    by_name = {r["team"]: r for r in rows}
+    assert "Manchester Utd" not in by_name
+    assert by_name["Manchester United"]["played"] == 2
+    assert by_name["Manchester United"]["points"] == 4
+    assert by_name["Manchester United"]["gf"] == 3
+    assert by_name["Manchester United"]["ga"] == 1

@@ -19,6 +19,9 @@ def _season_col(df):
 
 def build_standings(training_df, season_year):
     df = training_df[_season_col(training_df) == season_year]
+    df = df.copy()
+    df["home_team"] = df["home_team"].apply(utils.normalize_team_name)
+    df["away_team"] = df["away_team"].apply(utils.normalize_team_name)
     if df.empty:
         return []
     teams = sorted(set(df["home_team"]) | set(df["away_team"]))
