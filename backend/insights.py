@@ -128,6 +128,12 @@ def simulate_season(standings, fixture_rows, n_sims=10000, seed=42):
     return {"projected": projected, "n_sims": n_sims, "fixtures_remaining": len(rows)}
 
 
+def _safe_elo(value):
+    if pd.isna(value) or not value:
+        return 1500.0
+    return float(value)
+
+
 def generate_forecast(n_sims=10000, seed=42):
     today = datetime.now(timezone.utc)
     today_str = today.strftime("%Y-%m-%d")
@@ -143,8 +149,8 @@ def generate_forecast(n_sims=10000, seed=42):
                 fixtures.append({
                     "home": row["home_team"],
                     "away": row["away_team"],
-                    "home_elo": float(row.get("home_elo") or 1500),
-                    "away_elo": float(row.get("away_elo") or 1500),
+                    "home_elo": _safe_elo(row.get("home_elo")),
+                    "away_elo": _safe_elo(row.get("away_elo")),
                 })
 
     df = predictor.training_df

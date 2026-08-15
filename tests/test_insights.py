@@ -133,3 +133,24 @@ def test_write_forecast_file_roundtrip(tmp_path):
     assert path is not None
     loaded = utils_data.load_json(path)
     assert loaded == payload
+
+
+from backend import data_manager
+from backend import predictor
+
+
+def test_generate_forecast_handles_nan_elo(monkeypatch):
+    train = pd.DataFrame([
+        {"date": pd.Timestamp("2025-08-16"), "home_team": "Arsenal", "away_team": "Chelsea",
+         "home_goals": 2, "away_goals": 1},
+    ])
+    monkeypatch.setattr(predictor, "training_df", train)
+    fixtures = pd.DataFrame([
+        {"date": pd.Timestamp("2026-08-20"), "home_team": "Arsenal", "away_team": "Chelsea",
+         "home_elo": float("nan"), "away_elo": float("nan")},
+    ])
+    monkeypatch.setattr(data_manager, "fetch_upcoming_matches", lambda: fixtures)
+    res = generate_forecast()
+    assert res is not None
+    assert isinstance(res["projected"], list)
+    assert res["fixtures_remaining"] == 1
