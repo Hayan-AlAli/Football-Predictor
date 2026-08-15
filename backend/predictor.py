@@ -224,6 +224,9 @@ def predict_match(match_data):
                 'away_rolling_xg': a_xg
             }
 
+            league_avg_goals = float(training_df['home_rolling_goals'].mean())
+            league_avg_xg = float(training_df['home_rolling_xg'].mean())
+
             X_pred = pd.DataFrame([features_dict])
 
             pred_home_goals = model_home.predict(X_pred)[0]
@@ -253,7 +256,18 @@ def predict_match(match_data):
                 'away_elo': int(away_elo),
                 'prob_home': prob_home,
                 'prob_draw': prob_draw,
-                'prob_away': prob_away
+                'prob_away': prob_away,
+                'features': {
+                    'home_elo': int(home_elo),
+                    'away_elo': int(away_elo),
+                    'elo_gap': int(home_elo - away_elo),
+                    'home_rolling_goals': round(h_g, 3),
+                    'away_rolling_goals': round(a_g, 3),
+                    'home_rolling_xg': round(h_xg, 3),
+                    'away_rolling_xg': round(a_xg, 3),
+                    'league_avg_goals': round(league_avg_goals, 3),
+                    'league_avg_xg': round(league_avg_xg, 3),
+                }
             }
 
         except Exception as e:
