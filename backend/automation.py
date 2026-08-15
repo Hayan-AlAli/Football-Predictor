@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from backend import utils_data
 from backend import data_manager
+from backend import insights
 
 
 def run_morning_job():
@@ -28,6 +29,10 @@ def run_morning_job():
 
     output_path = utils_data.get_prediction_file_path(current_date_str)
     utils_data.save_json(predictions, output_path)
+
+    forecast_path = insights.write_forecast_file()
+    if forecast_path:
+        print(f"Forecast cache written to {forecast_path}")
     print("Morning job completed successfully.")
 
 

@@ -43,4 +43,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto: Daily Predictions"
-          file_pattern: 'data/predictions/*.json'
+          file_pattern: 'data/predictions/*.json data/forecast/*.json'
