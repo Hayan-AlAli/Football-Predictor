@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import TeamBadge from './TeamBadge';
+import FeatureReveal from './FeatureReveal';
 import { teamShort } from '../lib/teams';
 import { percent, scoreline, printDate, strongestCall } from '../lib/format';
 import { ledgerVariants, stampVariants, getReducedMotionVariants } from '../lib/motion';
@@ -134,6 +135,7 @@ export default function LedgerRow({ match, index }: LedgerRowProps) {
                   No prediction has been recorded for this fixture. The press only prints what it has set.
                 </p>
               ) : (
+                <>
                 <div className="grid gap-5 pt-4 sm:grid-cols-3">
                   {/* Goal expectation */}
                   <div>
@@ -209,6 +211,8 @@ export default function LedgerRow({ match, index }: LedgerRowProps) {
                     </div>
                   </div>
                 </div>
+                <FeatureReveal match={match} />
+                </>
               )}
 
               {pred && (
