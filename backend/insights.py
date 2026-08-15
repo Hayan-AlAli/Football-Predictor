@@ -430,3 +430,35 @@ def head_to_head(training_df, team_a, team_b):
         },
         "meetings": rows,
     }
+
+
+def upcoming_fixtures(team_name):
+    norm = utils.normalize_team_name(team_name)
+    try:
+        upcoming = data_manager.fetch_upcoming_matches()
+    except Exception:
+        return []
+    if upcoming is None or upcoming.empty:
+        return []
+    out = []
+    for _, row in upcoming.iterrows():
+        h = utils.normalize_team_name(row["home_team"])
+        a = utils.normalize_team_name(row["away_team"])
+        if norm not in (h, a):
+            continue
+        pred = predictor.predict_match({
+            "home_team": h,
+            "away_team": a,
+            "date": row["date"],
+            "home_elo": float(row.get("home_elo") or 1500),
+            "away_elo": float(row.get("away_elo") or 1500),
+        })
+        out.append({
+            "id": utils_data.generate_match_id(row["date"], h, a),
+            "date": row["date"].strftime("%Y-%m-%d"),
+            "time": row["date"].strftime("%H:%M"),
+            "home_team": h,
+            "away_team": a,
+            "prediction": pred,
+        })
+    return out

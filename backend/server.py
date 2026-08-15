@@ -9,6 +9,7 @@ from backend import data_manager
 from backend import utils
 from backend import utils_data
 from backend import database as db
+from backend import insights
 
 app = FastAPI(
     title="Football Predictor API",
@@ -28,6 +29,15 @@ TEAMS_DATA_PATH = os.path.join("data", "teams.json")
 
 DB_AVAILABLE = db.DATABASE_URL is not None
 PREMIER_LEAGUE_TEAMS = utils_data.load_json(TEAMS_DATA_PATH) or {}
+
+
+def predictor_module_training_df():
+    try:
+        from backend import predictor
+        return predictor.training_df
+    except Exception:
+        return None
+
 
 if DB_AVAILABLE:
     db.init_db()
@@ -308,6 +318,45 @@ async def get_available_dates():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing dates: {str(e)}")
+
+
+@app.get("/api/season/forecast")
+async def get_season_forecast():
+    forecast = insights.generate_forecast()
+    if forecast is None:
+        raise HTTPException(status_code=503, detail="Forecast unavailable")
+    return forecast
+
+
+@app.get("/api/calibration")
+async def get_calibration():
+    return insights.compute_calibration()
+
+
+@app.get("/api/teams/{team_name}")
+async def get_team_profile(team_name: str):
+    profile = insights.team_profile(predictor_module_training_df(), team_name)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return {
+        **profile,
+        "upcoming": insights.upcoming_fixtures(profile["team"]),
+        "team_info": {**get_team_info(profile["team"]), "name": profile["team"]},
+    }
+
+
+@app.get("/api/teams/{team_name}/h2h")
+async def get_head_to_head(team_name: str, vs: Optional[str] = None):
+    if not vs:
+        raise HTTPException(status_code=400, detail="Missing vs parameter")
+    h2h = insights.head_to_head(predictor_module_training_df(), team_name, vs)
+    if h2h is None:
+        raise HTTPException(status_code=404, detail="Head-to-head not found")
+    return {
+        **h2h,
+        "team_a_info": get_team_info(h2h["team_a"]),
+        "team_b_info": get_team_info(h2h["team_b"]),
+    }
 
 
 if __name__ == "__main__":
