@@ -10,6 +10,9 @@ const MatchdayPage = lazy(() => import('./pages/MatchdayPage'));
 const MethodPage = lazy(() => import('./pages/MethodPage'));
 const RecordsPage = lazy(() => import('./pages/RecordsPage'));
 const TeamsPage = lazy(() => import('./pages/TeamsPage'));
+const ForecastPage = lazy(() => import('./pages/ForecastPage'));
+const CalibrationPage = lazy(() => import('./pages/CalibrationPage'));
+const TeamDetailPage = lazy(() => import('./pages/TeamDetailPage'));
 
 function Shell() {
   const [selectedGameweek, setSelectedGameweek] = useState<number | null>(null);
@@ -35,6 +38,9 @@ function Shell() {
             <Route path="/method" element={<MethodPage />} />
             <Route path="/records" element={<RecordsPage />} />
             <Route path="/teams" element={<TeamsPage />} />
+            <Route path="/forecast" element={<ForecastPage />} />
+            <Route path="/calibration" element={<CalibrationPage />} />
+            <Route path="/teams/:teamName" element={<TeamDetailPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

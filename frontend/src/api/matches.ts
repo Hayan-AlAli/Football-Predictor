@@ -1,4 +1,4 @@
-import type { Match, ResultEntry } from '../types';
+import type { CalibrationData, ForecastData, H2HData, Match, ResultEntry, TeamProfileData } from '../types';
 
 const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:8000';
 
@@ -131,4 +131,22 @@ export async function checkHealth(): Promise<boolean> {
       return false;
     }
   }
+}
+
+export async function getForecast(): Promise<ForecastData> {
+  return await fetchAPI<ForecastData>('/api/season/forecast');
+}
+
+export async function getCalibration(): Promise<CalibrationData> {
+  return await fetchAPI<CalibrationData>('/api/calibration');
+}
+
+export async function getTeamProfile(name: string): Promise<TeamProfileData> {
+  return await fetchAPI<TeamProfileData>(`/api/teams/${encodeURIComponent(name)}`);
+}
+
+export async function getHeadToHead(team: string, vs: string): Promise<H2HData> {
+  return await fetchAPI<H2HData>(
+    `/api/teams/${encodeURIComponent(team)}/h2h?vs=${encodeURIComponent(vs)}`
+  );
 }

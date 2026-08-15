@@ -8,6 +8,8 @@ const SECTIONS = [
   { to: '/method', label: 'METHOD', folio: () => '2' },
   { to: '/records', label: 'RECORDS', folio: () => '3' },
   { to: '/teams', label: 'TEAMS INDEX', folio: () => '4' },
+  { to: '/forecast', label: 'FORECAST', folio: () => '5' },
+  { to: '/calibration', label: 'CALIBRATION', folio: () => '6' },
 ] as const;
 
 interface RunningHeadProps {
