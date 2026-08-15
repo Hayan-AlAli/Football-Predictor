@@ -208,3 +208,85 @@ def write_forecast_file(forecast=None, out_dir=None):
     path = os.path.join(dir_path, f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.json")
     utils_data.save_json(forecast, path)
     return path
+
+
+BIN_EDGES = [(0.0, 0.35), (0.35, 0.45), (0.45, 0.55), (0.55, 0.65), (0.65, 0.75), (0.75, 1.01)]
+
+
+def _called_probability(pred, home_team, away_team):
+    winner = (pred.get("winner") or "").strip()
+    if winner.lower() == "draw":
+        return float(pred.get("prob_draw") or 0.0)
+    if winner and winner.lower() == home_team.lower():
+        return float(pred.get("prob_home") or 0.0)
+    if winner and winner.lower() == away_team.lower():
+        return float(pred.get("prob_away") or 0.0)
+    probs = [pred.get("prob_home", 0.0), pred.get("prob_draw", 0.0), pred.get("prob_away", 0.0)]
+    return float(max(probs))
+
+
+def compute_calibration(predictions_dir=None, results_dir=None):
+    res_dir = results_dir or utils_data.RESULTS_DIR
+
+    entries = []
+    if os.path.isdir(res_dir):
+        for fname in sorted(os.listdir(res_dir)):
+            if not fname.endswith(".json"):
+                continue
+            payload = utils_data.load_json(os.path.join(res_dir, fname)) or []
+            for entry in payload:
+                if entry.get("status") not in ("CORRECT", "INCORRECT"):
+                    continue
+                if not entry.get("actual"):
+                    continue
+                match = entry.get("match") or {}
+                pred = match.get("prediction") or {}
+                if not pred.get("prob_home"):
+                    continue
+                p = _called_probability(pred, match.get("home_team", ""), match.get("away_team", ""))
+                entries.append({
+                    "date": match.get("date") or fname.replace(".json", ""),
+                    "p": p,
+                    "correct": entry["status"] == "CORRECT",
+                })
+
+    n = len(entries)
+    if n == 0:
+        return {"entries": 0, "brier": None, "accuracy": None, "bins": [], "rolling": []}
+
+    brier = sum((1 - e["p"]) ** 2 if e["correct"] else e["p"] ** 2 for e in entries) / n
+    correct = sum(1 for e in entries if e["correct"])
+
+    bins = []
+    for lo, hi in BIN_EDGES:
+        group = [e for e in entries if lo <= e["p"] < hi]
+        if not group:
+            continue
+        label = "0-0.35" if lo == 0.0 else ("0.75-1" if hi >= 1.01 else f"{lo:.2f}-{hi:.2f}")
+        bins.append({
+            "label": label,
+            "count": len(group),
+            "predicted": round(sum(e["p"] for e in group) / len(group), 3),
+            "actual": round(sum(1 for e in group if e["correct"]) / len(group), 3),
+        })
+
+    ordered = sorted(entries, key=lambda e: e["date"])
+    rolling = []
+    for i in range(0, n, 10):
+        chunk = ordered[i:i + 10]
+        decided = len(chunk)
+        c = sum(1 for e in chunk if e["correct"])
+        rolling.append({
+            "gameweek": (i // 10) + 1,
+            "decided": decided,
+            "correct": c,
+            "accuracy": round(c / decided, 3),
+        })
+
+    return {
+        "entries": n,
+        "brier": round(brier, 4),
+        "accuracy": round(correct / n, 4),
+        "bins": bins,
+        "rolling": rolling,
+    }

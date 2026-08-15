@@ -154,3 +154,53 @@ def test_generate_forecast_handles_nan_elo(monkeypatch):
     assert res is not None
     assert isinstance(res["projected"], list)
     assert res["fixtures_remaining"] == 1
+
+
+import json
+from backend.insights import compute_calibration
+
+
+def _write_cal_fixture(tmp_path, pred_dates, results_dates):
+    pred_dir = tmp_path / "predictions"
+    res_dir = tmp_path / "results"
+    pred_dir.mkdir()
+    res_dir.mkdir()
+    for d in pred_dates:
+        (pred_dir / f"{d}.json").write_text(json.dumps(pred_dates[d]))
+    for d in results_dates:
+        (res_dir / f"{d}.json").write_text(json.dumps(results_dates[d]))
+    return str(pred_dir), str(res_dir)
+
+
+def test_calibration_hand_computed_brier(tmp_path):
+    pred_dates = {
+        "2026-01-03": [{"date": "2026-01-03", "home_team": "Arsenal", "away_team": "Chelsea",
+                        "prediction": {"prob_home": 0.8, "prob_draw": 0.1, "prob_away": 0.1, "winner": "Arsenal"}}],
+        "2026-01-17": [{"date": "2026-01-17", "home_team": "Liverpool", "away_team": "Everton",
+                        "prediction": {"prob_home": 0.6, "prob_draw": 0.2, "prob_away": 0.2, "winner": "Liverpool"}}],
+    }
+    results_dates = {
+        "2026-01-03": [{"match": pred_dates["2026-01-03"][0],
+                        "actual": {"home_goals": 2, "away_goals": 1, "winner": "Arsenal"},
+                        "status": "CORRECT"}],
+        "2026-01-17": [{"match": pred_dates["2026-01-17"][0],
+                        "actual": {"home_goals": 1, "away_goals": 1, "winner": "Draw"},
+                        "status": "INCORRECT"}],
+    }
+    pred_dir, res_dir = _write_cal_fixture(tmp_path, pred_dates, results_dates)
+    res = compute_calibration(pred_dir, res_dir)
+    assert res["entries"] == 2
+    assert res["accuracy"] == 0.5
+    assert abs(res["brier"] - (0.04 + 0.36) / 2) < 1e-9      # (1-0.8)^2 and 0.6^2
+    assert len(res["bins"]) == 2
+    bin_80 = next(b for b in res["bins"] if b["label"] == "0.75-1")
+    assert bin_80["count"] == 1 and bin_80["predicted"] == 0.8 and bin_80["actual"] == 1.0
+    assert len(res["rolling"]) == 1
+    assert res["rolling"][0] == {"gameweek": 1, "decided": 2, "correct": 1, "accuracy": 0.5}
+
+
+def test_calibration_empty(tmp_path):
+    pred_dir, res_dir = _write_cal_fixture(tmp_path, {}, {})
+    res = compute_calibration(pred_dir, res_dir)
+    assert res["entries"] == 0 and res["brier"] is None and res["accuracy"] is None
+    assert res["bins"] == [] and res["rolling"] == []
