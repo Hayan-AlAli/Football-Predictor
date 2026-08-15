@@ -121,7 +121,7 @@ export default function TeamsPage() {
               </nav>
 
               {groups.map(([letter, list]) => (
-                <section key={letter} id={`letter-${letter}`} className="mt-6 scroll-mt-24">
+                <section key={letter} id={`letter-${letter}`} className="mt-6 scroll-mt-24" style={{ contentVisibility: 'auto' }}>
                   <h2 className="rule-double pt-3 font-mono text-xl font-semibold text-rubric">{letter}</h2>
                   <motion.div variants={staggerV} initial="hidden" animate="show">
                     {list.map((club) => {

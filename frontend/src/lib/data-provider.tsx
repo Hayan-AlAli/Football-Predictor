@@ -6,16 +6,51 @@ import { DataContext } from './data-context';
 import type { DataState } from './data-context';
 import { seasonFromMatches } from './data-utils';
 
+const CACHE_KEY = 'fp-data-cache';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry {
+  timestamp: number;
+  data: { matches: Match[]; gameweeks: number[]; teams: DataState['teams'] };
+}
+
+function getCachedData(): CacheEntry | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const entry: CacheEntry = JSON.parse(raw);
+    if (Date.now() - entry.timestamp > CACHE_TTL) {
+      sessionStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedData(data: CacheEntry['data']): void {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data }));
+  } catch {
+    // sessionStorage may be full or disabled — ignore silently
+  }
+}
+
 type FetchResult =
   | { status: 'offline' }
   | { status: 'online'; matches: Match[]; gameweeks: number[]; teams: DataState['teams'] };
 
-async function fetchAll(): Promise<FetchResult> {
+async function fetchAll(useCache = true): Promise<FetchResult> {
+  if (useCache) {
+    const cached = getCachedData();
+    if (cached) return { status: 'online', ...cached.data };
+  }
+
   const isOnline = await checkHealth();
   if (!isOnline) return { status: 'offline' };
   const [all, teamData] = await Promise.allSettled([getAllMatches(), getTeams()]);
-  return {
-    status: 'online',
+  const data = {
     matches: all.status === 'fulfilled' ? all.value.matches : [],
     gameweeks: all.status === 'fulfilled' ? all.value.gameweeks : [],
     teams:
@@ -23,6 +58,8 @@ async function fetchAll(): Promise<FetchResult> {
         ? teamData.value.map((t) => ({ name: t.name, short_name: '', badge_url: t.badge_url ?? null }))
         : [],
   };
+  setCachedData(data);
+  return { status: 'online', ...data };
 }
 
 /** Loads the ledger once for the whole book; reload() re-presses it. */
@@ -54,15 +91,19 @@ export default function DataProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(() => {
     setStatus('loading');
     (async () => {
-      const res = await fetchAll();
-      if (res.status === 'offline') {
+      try {
+        const res = await fetchAll(false);
+        if (res.status === 'offline') {
+          setStatus('offline');
+          return;
+        }
+        setMatches(res.matches);
+        setGameweeks(res.gameweeks);
+        setTeams(res.teams);
+        setStatus('online');
+      } catch {
         setStatus('offline');
-        return;
       }
-      setMatches(res.matches);
-      setGameweeks(res.gameweeks);
-      setTeams(res.teams);
-      setStatus('online');
     })();
   }, []);
 

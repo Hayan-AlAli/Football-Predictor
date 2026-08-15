@@ -33,12 +33,12 @@ export default function RunningHead({ gameweek }: RunningHeadProps) {
       className="sticky top-0 z-40 bg-paper/92 backdrop-blur-sm border-b border-paper-line"
     >
       <div className="mx-auto max-w-5xl px-4">
-        <div className="flex items-center justify-between py-2.5">
-          <NavLink to="/" className="group flex items-center gap-2.5 no-underline">
+        <div className="flex items-center justify-between gap-4 py-2.5">
+          <NavLink to="/" className="group flex min-w-0 items-center gap-2.5 no-underline">
             <span className="stamp group-hover:bg-ink transition-colors" aria-hidden="true">
               FP
             </span>
-            <span className="font-sans text-[0.8125rem] font-extrabold uppercase tracking-caps text-ink group-hover:text-rubric transition-colors">
+            <span className="truncate font-sans text-[0.8125rem] font-extrabold uppercase tracking-caps text-ink group-hover:text-rubric transition-colors">
               The Matchday Almanack
             </span>
           </NavLink>
@@ -55,7 +55,7 @@ export default function RunningHead({ gameweek }: RunningHeadProps) {
                 to={s.to}
                 end={s.to === '/'}
                 className={({ isActive }) =>
-                  `whitespace-nowrap font-mono text-[0.75rem] uppercase tracking-wider-caps py-0.5 no-underline transition-colors ${
+                  `whitespace-nowrap font-mono text-[0.75rem] uppercase tracking-wider-caps py-3 no-underline transition-colors min-h-[44px] flex items-center ${
                     isActive
                       ? 'text-rubric border-b-2 border-rubric font-semibold'
                       : 'text-ink-soft border-b-2 border-transparent hover:text-ink'

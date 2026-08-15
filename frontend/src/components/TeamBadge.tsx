@@ -28,7 +28,7 @@ export default function TeamBadge({ team, info, size = 'md', className = '' }: T
       >
         <img
           src={badge}
-          alt=""
+          alt={`${teamShort(info ?? team)} badge`}
           loading="lazy"
           className="h-full w-full object-contain"
           onError={() => setFailed(true)}

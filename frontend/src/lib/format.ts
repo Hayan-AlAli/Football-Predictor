@@ -3,7 +3,7 @@ import type { Match } from '../types';
 /** Probability 0..1 → printed percentage figure, no decimals for the page. */
 export function percent(p: number | undefined | null, decimals = 0): string {
   if (p == null || Number.isNaN(p)) return '—';
-  const v = p * 100;
+  const v = Math.min(1, Math.max(0, p)) * 100;
   if (decimals > 0) return v.toFixed(decimals);
   const r = Math.round(v);
   if (r === 0 && v > 0) return '<1%';
@@ -14,7 +14,9 @@ export function percent(p: number | undefined | null, decimals = 0): string {
 /** Expected scoreline "2 – 1" from the backend's "2-1" or components. */
 export function scoreline(score: string | undefined | null): string {
   if (!score) return '—';
-  return score.replace(/\s*-\s*/g, ' – ');
+  const trimmed = score.trim();
+  if (!trimmed) return '—';
+  return trimmed.replace(/\s*-\s*/g, ' – ');
 }
 
 /** Backend dates are "YYYY-MM-DD"; print them like a fixture list. */

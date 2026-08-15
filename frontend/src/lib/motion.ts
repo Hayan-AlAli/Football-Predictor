@@ -97,7 +97,12 @@ export const staggerContainer: Variants = {
 };
 
 // Reduced motion: the book stands still
+const reducedCache = new Map<Variants, Variants>();
+
 export const getReducedMotionVariants = (variants: Variants): Variants => {
+  const cached = reducedCache.get(variants);
+  if (cached) return cached;
+
   const reduced: Variants = {};
   for (const [key, value] of Object.entries(variants)) {
     if (typeof value === 'object' && value !== null && 'transition' in value) {
@@ -106,5 +111,6 @@ export const getReducedMotionVariants = (variants: Variants): Variants => {
       reduced[key] = value;
     }
   }
+  reducedCache.set(variants, reduced);
   return reduced;
 };

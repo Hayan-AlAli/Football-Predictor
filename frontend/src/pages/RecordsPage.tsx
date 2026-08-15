@@ -122,7 +122,7 @@ export default function RecordsPage() {
 
               {/* The verdict ledger */}
               {grouped.map(([gw, group]) => (
-                <section key={gw} className="mt-4">
+                <section key={gw} className="mt-4" style={{ contentVisibility: 'auto' }}>
                   <h2 className="rule-double pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
                     <span className="font-mono text-rubric">Matchweek {gw}</span>
                   </h2>
@@ -139,35 +139,39 @@ export default function RecordsPage() {
                           variants={rowV}
                           initial="hidden"
                           animate="show"
-                          className="grid grid-cols-[auto_1fr] items-center gap-x-3 border-t border-paper-line py-3.5 sm:grid-cols-[1fr_auto_auto_auto]"
+                          className="border-t border-paper-line py-3.5"
                         >
-                          <span className="flex items-center gap-2 font-sans text-sm font-bold uppercase tracking-caps text-ink sm:justify-start">
-                            <TeamBadge team={m.home_team} info={m.home_team_info} size="sm" />
-                            {teamShort(home)}
-                            <span className="font-mono font-normal lowercase text-ink-faint">vs</span>
-                            {teamShort(away)}
-                            <TeamBadge team={m.away_team} info={m.away_team_info} size="sm" />
-                          </span>
-                          <span className="flex items-center gap-2 justify-self-end sm:justify-self-auto font-mono text-xs text-ink-soft tnum">
-                            <span className="hidden sm:inline uppercase tracking-wider-caps text-[0.625rem] text-ink-faint">Called</span>
-                            {pred ? `${pred.winner === 'Draw' ? 'Draw' : teamShort(pred.winner ?? '')} ${scoreline(pred.score)}` : '—'}
-                          </span>
-                          <span className="justify-self-end font-mono text-xs font-semibold text-ink tnum">
-                            {actualScore ?? <span className="text-ink-faint">—</span>}
-                          </span>
-                          <span className="justify-self-end">
-                            {entry.status === 'CORRECT' && (
-                              <span className="stamp" style={{ background: 'var(--ledger)' }}>
-                                ✓ Correct
-                              </span>
-                            )}
-                            {entry.status === 'INCORRECT' && (
-                              <span className="stamp">✗ Incorrect</span>
-                            )}
-                            {entry.status === 'PENDING' && (
-                              <span className="chip">Pending</span>
-                            )}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="flex items-center gap-1.5 font-sans text-sm font-bold uppercase tracking-caps text-ink">
+                              <TeamBadge team={m.home_team} info={m.home_team_info} size="sm" />
+                              {teamShort(home)}
+                              <span className="font-mono font-normal lowercase text-ink-faint">vs</span>
+                              {teamShort(away)}
+                              <TeamBadge team={m.away_team} info={m.away_team_info} size="sm" />
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <span className="flex items-center gap-2 font-mono text-xs text-ink-soft tnum">
+                              <span className="hidden sm:inline uppercase tracking-wider-caps text-[0.625rem] text-ink-faint">Called</span>
+                              {pred ? `${pred.winner === 'Draw' ? 'Draw' : teamShort(pred.winner ?? '')} ${scoreline(pred.score)}` : '—'}
+                            </span>
+                            <span className="font-mono text-xs font-semibold text-ink tnum">
+                              {actualScore ?? <span className="text-ink-faint">—</span>}
+                            </span>
+                            <span>
+                              {entry.status === 'CORRECT' && (
+                                <span className="stamp" style={{ background: 'var(--ledger)' }}>
+                                  ✓ Correct
+                                </span>
+                              )}
+                              {entry.status === 'INCORRECT' && (
+                                <span className="stamp">✗ Incorrect</span>
+                              )}
+                              {entry.status === 'PENDING' && (
+                                <span className="chip">Pending</span>
+                              )}
+                            </span>
+                          </div>
                         </motion.div>
                       );
                     })}

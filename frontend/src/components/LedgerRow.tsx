@@ -54,8 +54,8 @@ export default function LedgerRow({ match, index }: LedgerRowProps) {
         </span>
 
         {/* Home — right aligned */}
-        <span className="flex items-center justify-end gap-2">
-          <span className="font-sans text-sm sm:text-base font-bold uppercase tracking-caps text-ink">
+        <span className="flex min-w-0 items-center justify-end gap-2">
+          <span className="truncate font-sans text-sm sm:text-base font-bold uppercase tracking-caps text-ink">
             {teamShort(home)}
           </span>
           <TeamBadge team={match.home_team} info={match.home_team_info} size="md" />
@@ -75,14 +75,15 @@ export default function LedgerRow({ match, index }: LedgerRowProps) {
             <span className="font-mono text-xs text-ink-faint">NO PREDICTION</span>
           )}
           <span className="font-mono text-xl sm:text-2xl font-semibold text-ink leading-none tnum">
+            <span className="sr-only">Expected score: </span>
             {pred?.score ? scoreline(pred.score) : '–'}
           </span>
         </span>
 
         {/* Away — left aligned */}
-        <span className="flex items-center justify-start gap-2">
+        <span className="flex min-w-0 items-center justify-start gap-2">
           <TeamBadge team={match.away_team} info={match.away_team_info} size="md" />
-          <span className="font-sans text-sm sm:text-base font-bold uppercase tracking-caps text-ink">
+          <span className="truncate font-sans text-sm sm:text-base font-bold uppercase tracking-caps text-ink">
             {teamShort(away)}
           </span>
         </span>
@@ -112,13 +113,14 @@ export default function LedgerRow({ match, index }: LedgerRowProps) {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
+            aria-live="polite"
           >
             <div className="plate mb-5 p-4 sm:p-5">
               <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-paper-line pb-3">
                 <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">
                   Fold-out plate · Matchweek {match.gameweek}
                 </span>
-                <span className="font-sans text-sm font-semibold uppercase tracking-caps text-ink">
+                <span className="min-w-0 truncate font-sans text-sm font-semibold uppercase tracking-caps text-ink">
                   {homeName} <span className="font-mono font-normal text-ink-faint">vs</span> {awayName}
                 </span>
                 <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-soft">
@@ -188,7 +190,7 @@ export default function LedgerRow({ match, index }: LedgerRowProps) {
                         { key: 'A', label: `AWAY — ${teamShort(away)}`, v: pred.prob_away },
                       ].map((row) => (
                         <div key={row.key} className="flex items-center gap-2">
-                          <span className="w-40 shrink-0 font-mono text-[0.625rem] uppercase tracking-widest text-ink-soft">
+                          <span className="w-40 shrink-0 truncate font-mono text-[0.625rem] uppercase tracking-widest text-ink-soft">
                             {row.label}
                           </span>
                           <span className="h-2 flex-1 bg-paper-white border border-paper-line overflow-hidden">

@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import DataProvider from './lib/data-provider';
 import { BookContext } from './lib/book';
 import RunningHead from './components/RunningHead';
 import SectionFooter from './components/SectionFooter';
-import MatchdayPage from './pages/MatchdayPage';
-import MethodPage from './pages/MethodPage';
-import RecordsPage from './pages/RecordsPage';
-import TeamsPage from './pages/TeamsPage';
+import Press from './components/Press';
+
+const MatchdayPage = lazy(() => import('./pages/MatchdayPage'));
+const MethodPage = lazy(() => import('./pages/MethodPage'));
+const RecordsPage = lazy(() => import('./pages/RecordsPage'));
+const TeamsPage = lazy(() => import('./pages/TeamsPage'));
 
 function Shell() {
   const [selectedGameweek, setSelectedGameweek] = useState<number | null>(null);
@@ -19,15 +21,23 @@ function Shell() {
 
   return (
     <BookContext.Provider value={{ selectedGameweek, setSelectedGameweek }}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-rubric focus:text-paper focus:px-4 focus:py-2 focus:font-mono focus:text-sm focus:uppercase focus:tracking-wider-caps focus:no-underline"
+      >
+        Skip to content
+      </a>
       <RunningHead gameweek={selectedGameweek ?? undefined} />
-      <main className="flex-1">
-        <Routes>
-          <Route path="/" element={<MatchdayPage />} />
-          <Route path="/method" element={<MethodPage />} />
-          <Route path="/records" element={<RecordsPage />} />
-          <Route path="/teams" element={<TeamsPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+      <main id="main-content" className="flex-1">
+        <Suspense fallback={<Press />}>
+          <Routes>
+            <Route path="/" element={<MatchdayPage />} />
+            <Route path="/method" element={<MethodPage />} />
+            <Route path="/records" element={<RecordsPage />} />
+            <Route path="/teams" element={<TeamsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
       <SectionFooter />
     </BookContext.Provider>

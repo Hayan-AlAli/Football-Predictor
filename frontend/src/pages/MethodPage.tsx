@@ -104,7 +104,7 @@ export default function MethodPage() {
             <span className="font-mono text-rubric">III.</span> The press run
           </h2>
           <p className="mt-3">Each morning the press sets the day's fixtures through six stations:</p>
-          <ol className="mt-4 flex flex-wrap items-center gap-y-3 font-mono text-xs uppercase tracking-wider-caps">
+          <ol className="mt-4 space-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-y-3 sm:gap-x-1 font-mono text-xs uppercase tracking-wider-caps">
             {PIPELINE.map((step, i) => (
               <li key={step} className="flex items-center gap-3">
                 <span className="chip">
@@ -112,7 +112,7 @@ export default function MethodPage() {
                   {step}
                 </span>
                 {i < PIPELINE.length - 1 && (
-                  <span aria-hidden="true" className="text-ink-faint">›</span>
+                  <span aria-hidden="true" className="text-ink-faint hidden sm:inline">›</span>
                 )}
               </li>
             ))}
