@@ -48,3 +48,157 @@ def build_standings(training_df, season_year):
         })
     rows.sort(key=lambda r: (-r["points"], -r["gd"], r["team"]))
     return rows
+
+
+import numpy as np
+
+from backend import data_manager
+from backend import predictor
+
+
+def _poisson_sims(home_lambda, away_lambda, n_sims, seed):
+    rng = np.random.default_rng(seed)
+    return rng.poisson(home_lambda, size=n_sims), rng.poisson(away_lambda, size=n_sims)
+
+
+def simulate_season(standings, fixture_rows, n_sims=10000, seed=42):
+    rows = []
+    for f in fixture_rows:
+        pred = predictor.predict_match({
+            "home_team": utils.normalize_team_name(f["home"]),
+            "away_team": utils.normalize_team_name(f["away"]),
+            "home_elo": f["home_elo"],
+            "away_elo": f["away_elo"],
+        })
+        rows.append((
+            utils.normalize_team_name(f["home"]),
+            utils.normalize_team_name(f["away"]),
+            max(float(pred.get("home_goals") or 0.0), 0.0),
+            max(float(pred.get("away_goals") or 0.0), 0.0),
+        ))
+
+    team_names = sorted({r["team"] for r in standings}
+                        | {h for h, _, _, _ in rows}
+                        | {a for _, a, _, _ in rows})
+    points = {t: np.zeros(n_sims) for t in team_names}
+
+    for idx, (home, away, hl, al) in enumerate(rows):
+        if hl <= 0 and al <= 0:
+            continue
+        hg, ag = _poisson_sims(hl, al, n_sims, seed + 7919 * (idx + 1))
+        pts_h = np.where(hg > ag, 3.0, np.where(hg == ag, 1.0, 0.0))
+        pts_a = np.where(ag > hg, 3.0, np.where(hg == ag, 1.0, 0.0))
+        points[home] += pts_h
+        points[away] += pts_a
+
+    mat = np.vstack([points[t] for t in team_names])          # (n_teams, n_sims)
+    name_order = np.argsort(np.array(team_names), kind="stable")
+    order = name_order[np.argsort(-mat[name_order], axis=0, kind="stable")]
+    positions = np.empty_like(order, dtype=int)
+    for i in range(n_sims):
+        positions[order[:, i], i] = np.arange(len(team_names))
+
+    projected = []
+    for i, t in enumerate(team_names):
+        pos = positions[i] + 1
+        pts = mat[i]
+        title_odds = float(np.mean(pos == 1))
+        top4_part = float(np.mean((pos >= 2) & (pos <= 4)))
+        top6_part = float(np.mean((pos >= 5) & (pos <= 6)))
+        position_odds = {
+            "1": title_odds,
+            "2-4": top4_part,
+            "5-6": top6_part,
+            "7-17": float(np.mean((pos >= 7) & (pos <= 17))),
+            "18-20": float(np.mean(pos >= 18)),
+        }
+        projected.append({
+            "team": t,
+            "median_position": int(np.median(pos)),
+            "points_p10": round(float(np.percentile(pts, 10)), 1),
+            "points_p50": round(float(np.percentile(pts, 50)), 1),
+            "points_p90": round(float(np.percentile(pts, 90)), 1),
+            "title_odds": round(title_odds, 4),
+            "top4_odds": round(title_odds + top4_part, 4),
+            "top6_odds": round(title_odds + top4_part + top6_part, 4),
+            "relegation_odds": round(position_odds["18-20"], 4),
+            "position_odds": {k: round(v, 4) for k, v in position_odds.items()},
+        })
+    projected.sort(key=lambda r: (r["median_position"], -r["points_p50"]))
+    return {"projected": projected, "n_sims": n_sims, "fixtures_remaining": len(rows)}
+
+
+def generate_forecast(n_sims=10000, seed=42):
+    today = datetime.now(timezone.utc)
+    today_str = today.strftime("%Y-%m-%d")
+    season_year = None
+    fixtures = []
+
+    upcoming = data_manager.fetch_upcoming_matches()
+    if upcoming is not None and not upcoming.empty:
+        season_year = season_year_of(upcoming.iloc[0]["date"])
+        for _, row in upcoming.iterrows():
+            date_str = row["date"].strftime("%Y-%m-%d")
+            if date_str >= today_str:
+                fixtures.append({
+                    "home": row["home_team"],
+                    "away": row["away_team"],
+                    "home_elo": float(row.get("home_elo") or 1500),
+                    "away_elo": float(row.get("away_elo") or 1500),
+                })
+
+    df = predictor.training_df
+    if season_year is None and df is not None and not df.empty:
+        season_year = season_year_of(df["date"].max())
+
+    standings = []
+    if df is not None:
+        standings = build_standings(df, season_year) if season_year is not None else []
+
+    if not fixtures:
+        if standings:
+            return {
+                "generated": today_str,
+                "season_year": season_year,
+                "n_sims": n_sims,
+                "season_complete": True,
+                "standings": standings,
+                "projected": [],
+                "fixtures_remaining": 0,
+            }
+        stale = _latest_forecast()
+        if stale:
+            stale["stale"] = stale.get("generated", "unknown")
+            return stale
+        return None
+
+    sim = simulate_season(standings, fixtures, n_sims=n_sims, seed=seed)
+    return {
+        "generated": today_str,
+        "season_year": season_year,
+        "n_sims": sim["n_sims"],
+        "season_complete": False,
+        "standings": standings,
+        "projected": sim["projected"],
+        "fixtures_remaining": sim["fixtures_remaining"],
+    }
+
+
+def _latest_forecast():
+    if not os.path.isdir(FORECAST_DIR):
+        return None
+    files = sorted(f for f in os.listdir(FORECAST_DIR) if f.endswith(".json"))
+    if not files:
+        return None
+    return utils_data.load_json(os.path.join(FORECAST_DIR, files[-1]))
+
+
+def write_forecast_file(forecast=None, out_dir=None):
+    forecast = forecast or generate_forecast()
+    if not forecast:
+        return None
+    dir_path = out_dir or FORECAST_DIR
+    os.makedirs(dir_path, exist_ok=True)
+    path = os.path.join(dir_path, f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.json")
+    utils_data.save_json(forecast, path)
+    return path
