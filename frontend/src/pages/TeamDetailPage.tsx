@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import Press from '../components/Press';
@@ -7,11 +7,12 @@ import EmptyState from '../components/EmptyState';
 import TeamBadge from '../components/TeamBadge';
 import FeatureReveal from '../components/FeatureReveal';
 import { SvgLineChart } from '../lib/charts';
-import { getTeamProfile } from '../api/matches';
+import { getHeadToHead, getTeamProfile, getTeams } from '../api/matches';
 import { teamShort } from '../lib/teams';
 import { percent, printDate } from '../lib/format';
 import { getReducedMotionVariants, headVariants } from '../lib/motion';
 import type { Match, TeamProfileData } from '../types';
+import type { H2HData } from '../types';
 
 type LoadState =
   | { status: 'loading' }
@@ -32,6 +33,45 @@ export default function TeamDetailPage() {
       .catch(() => { if (!cancelled) setState({ status: 'error' }); });
     return () => { cancelled = true; };
   }, [teamName, reloadKey]);
+
+  const [vsList, setVsList] = useState<string[]>([]);
+  const [vs, setVs] = useState<string>('');
+  const [h2h, setH2h] = useState<H2HData | null>(null);
+  const [h2hLoading, setH2hLoading] = useState(false);
+  const [h2hError, setH2hError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getTeams()
+      .then((teams) => {
+        if (cancelled) return;
+        const others = teams.map((t) => t.name).filter((n) => n !== teamName).sort();
+        setVsList(others);
+        if (others.length > 0) {
+          setVs(others[0]);
+          setH2hLoading(true);
+          setH2hError(false);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [teamName]);
+
+  useEffect(() => {
+    if (!vs) return;
+    let cancelled = false;
+    getHeadToHead(teamName, vs)
+      .then((res) => { if (!cancelled) setH2h(res); })
+      .catch(() => { if (!cancelled) setH2hError(true); })
+      .finally(() => { if (!cancelled) setH2hLoading(false); });
+    return () => { cancelled = true; };
+  }, [teamName, vs]);
+
+  const onVsChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    setH2hLoading(true);
+    setH2hError(false);
+    setVs(e.target.value);
+  }, []);
 
   if (state.status === 'loading') return <div className="mx-auto max-w-3xl px-4 pb-4"><Press /></div>;
   if (state.status === 'error') {
@@ -168,6 +208,52 @@ export default function TeamDetailPage() {
           />
         </div>
       )}
+
+      <section className="rule-double mt-10 pt-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-mono text-xl font-semibold text-rubric">Head to head</h2>
+          <label className="flex items-center gap-2">
+            <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">opponent</span>
+            <select
+              value={vs}
+              onChange={onVsChange}
+              className="border border-paper-line bg-paper-white px-2 py-1 font-mono text-xs uppercase tracking-wider-caps text-ink"
+            >
+              {vsList.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+        </div>
+
+        {h2hLoading && <p className="mt-3 font-serif text-xs italic text-ink-faint" role="status">Setting the fixture…</p>}
+        {h2hError && !h2hLoading && (
+          <p className="mt-3 font-serif text-xs italic text-rubric">This fixture could not be set — try another opponent.</p>
+        )}
+        {h2h && !h2hLoading && (
+          <>
+            <p className="mt-3 font-serif text-sm italic text-ink-soft">
+              {h2h.summary.meetings} meetings · {teamShort(h2h.team_a)} {h2h.summary.team_a_wins}–{h2h.summary.draws}–{h2h.summary.team_b_wins} {teamShort(h2h.team_b)}
+              · {teamShort(h2h.team_a)} scored {h2h.summary.team_a_for}, conceded {h2h.summary.team_a_against}
+            </p>
+            <div className="mt-3">
+              {h2h.meetings.length === 0 ? (
+                <p className="font-serif text-xs italic text-ink-faint">No recorded meetings in the training ledger.</p>
+              ) : (
+                h2h.meetings.map((m) => (
+                  <div key={m.date + m.home_team + m.away_team} className="flex flex-wrap items-center justify-between gap-x-3 border-t border-paper-line py-2.5">
+                    <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">{m.date}</span>
+                    <span className="min-w-0 truncate font-sans text-sm font-bold uppercase tracking-caps text-ink">
+                      {teamShort(m.home_team)} <span className="font-mono font-normal text-ink-faint">{m.home_goals}–{m.away_goals}</span> {teamShort(m.away_team)}
+                    </span>
+                    <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-soft">
+                      {m.winner === 'Draw' ? 'draw' : `${teamShort(m.winner)} win`}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
