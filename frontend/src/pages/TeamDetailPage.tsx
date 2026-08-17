@@ -78,7 +78,7 @@ export default function TeamDetailPage() {
   useEffect(() => {
     if (!vs) return;
     let cancelled = false;
-    getHeadToHead(teamName, vs)
+    getHeadToHead(teamName, canonicalClubName(vs))
       .then((res) => { if (!cancelled) setH2h(res); })
       .catch(() => { if (!cancelled) setH2hError(true); })
       .finally(() => { if (!cancelled) setH2hLoading(false); });
