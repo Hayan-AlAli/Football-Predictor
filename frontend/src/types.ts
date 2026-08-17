@@ -164,13 +164,6 @@ export interface H2HSummary {
   team_a_against: number;
 }
 
-export interface ModelCall {
-  date: string;
-  predicted: string;
-  actual: string | null;
-  status: 'CORRECT' | 'INCORRECT' | null;
-}
-
 export interface H2HData {
   team_a: string;
   team_b: string;
@@ -178,5 +171,4 @@ export interface H2HData {
   team_b_info: Team;
   summary: H2HSummary;
   meetings: Meeting[];
-  model_calls: ModelCall[];
 }

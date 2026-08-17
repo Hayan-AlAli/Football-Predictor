@@ -273,3 +273,23 @@ def test_head_to_head_never_met_empty_record():
         "team_a_against": 0,
     }
     assert h["meetings"] == []
+
+
+def test_head_to_head_self_pair_empty_record():
+    for pair in [("Arsenal", "Arsenal"), ("Arsenal F.C.", "Arsenal")]:
+        h = head_to_head(H2H_DF, *pair)
+        assert h is not None
+        assert h["summary"] == {
+            "meetings": 0,
+            "team_a_wins": 0,
+            "draws": 0,
+            "team_b_wins": 0,
+            "team_a_for": 0,
+            "team_a_against": 0,
+        }
+        assert h["meetings"] == []
+
+
+def test_profile_and_h2h_guard_missing_training_frame():
+    assert team_profile(None, "Arsenal") is None
+    assert head_to_head(None, "Arsenal", "Chelsea") is None

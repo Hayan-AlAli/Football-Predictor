@@ -37,6 +37,7 @@ def test_team_profile_ok(monkeypatch):
     def fake_profile(df, name):
         return {"team": "Arsenal", "seasons": [], "form": [], "elo_history": []}
     monkeypatch.setattr(insights, "team_profile", fake_profile)
+    monkeypatch.setattr(insights, "upcoming_fixtures", lambda name: [])
     r = _client().get("/api/teams/Arsenal")
     assert r.status_code == 200
     body = r.json()
@@ -96,3 +97,18 @@ def test_team_profile_includes_upcoming(monkeypatch):
     r = _client().get("/api/teams/Arsenal")
     assert r.status_code == 200
     assert r.json()["upcoming"] == []
+
+
+def test_h2h_self_pair_empty_record(monkeypatch):
+    import pandas as pd
+    from backend import predictor
+    df = pd.DataFrame([
+        {"date": pd.Timestamp("2024-08-17"), "home_team": "Arsenal", "away_team": "Chelsea",
+         "home_goals": 2, "away_goals": 1, "home_elo": 1900, "away_elo": 1800},
+    ])
+    monkeypatch.setattr(predictor, "training_df", df)
+    r = _client().get("/api/teams/Arsenal/h2h?vs=Arsenal")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["summary"]["meetings"] == 0
+    assert body["meetings"] == []

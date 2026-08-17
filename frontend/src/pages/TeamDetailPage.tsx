@@ -19,6 +19,21 @@ type LoadState =
   | { status: 'error' }
   | { status: 'ready'; data: TeamProfileData };
 
+/** Bridges /api/teams display names ("Arsenal F.C.") to match-derived slugs
+ *  ("Arsenal") the same way backend.utils.normalize_team_name does. */
+function canonicalClubName(name: string): string {
+  return name
+    .replace(/\s*[AF]\.?C\.?$/i, '')
+    .replace(/^AFC\s+/i, '')
+    .replace(/^Brighton (&|and) Hove Albion$/i, 'Brighton')
+    .replace(/^Tottenham Hotspur$/i, 'Tottenham')
+    .replace(/^Newcastle United$/i, 'Newcastle')
+    .replace(/^Wolverhampton Wanderers$/i, 'Wolverhampton')
+    .replace(/^West Ham United$/i, 'West Ham')
+    .replace(/^Leeds United$/i, 'Leeds')
+    .replace(/^Hull City$/i, 'Hull');
+}
+
 export default function TeamDetailPage() {
   const { teamName = '' } = useParams();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
@@ -45,7 +60,10 @@ export default function TeamDetailPage() {
     getTeams()
       .then((teams) => {
         if (cancelled) return;
-        const others = teams.map((t) => t.name).filter((n) => n !== teamName).sort();
+        const others = teams
+          .map((t) => t.name)
+          .filter((n) => canonicalClubName(n) !== canonicalClubName(teamName))
+          .sort();
         setVsList(others);
         if (others.length > 0) {
           setVs(others[0]);

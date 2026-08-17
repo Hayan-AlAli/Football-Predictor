@@ -309,7 +309,25 @@ def _canonical_name(df, norm):
     return norm
 
 
+def _empty_h2h(df, a, b):
+    return {
+        "team_a": _canonical_name(df, a),
+        "team_b": _canonical_name(df, b),
+        "summary": {
+            "meetings": 0,
+            "team_a_wins": 0,
+            "draws": 0,
+            "team_b_wins": 0,
+            "team_a_for": 0,
+            "team_a_against": 0,
+        },
+        "meetings": [],
+    }
+
+
 def team_profile(training_df, team_name):
+    if training_df is None:
+        return None
     df = _norm_df(training_df)
     norm = utils.normalize_team_name(team_name)
     involved = df[(df["home_team"] == norm) | (df["away_team"] == norm)]
@@ -377,32 +395,22 @@ def team_profile(training_df, team_name):
 
 
 def head_to_head(training_df, team_a, team_b):
+    if training_df is None:
+        return None
     df = _norm_df(training_df)
     a = utils.normalize_team_name(team_a)
     b = utils.normalize_team_name(team_b)
-    if a == b:
-        return None
     present = set(df["home_team"]) | set(df["away_team"])
     if a not in present or b not in present:
         return None
+    if a == b:
+        return _empty_h2h(df, a, b)
     meetings = df[
         ((df["home_team"] == a) & (df["away_team"] == b))
         | ((df["home_team"] == b) & (df["away_team"] == a))
     ]
     if meetings.empty:
-        return {
-            "team_a": _canonical_name(df, a),
-            "team_b": _canonical_name(df, b),
-            "summary": {
-                "meetings": 0,
-                "team_a_wins": 0,
-                "draws": 0,
-                "team_b_wins": 0,
-                "team_a_for": 0,
-                "team_a_against": 0,
-            },
-            "meetings": [],
-        }
+        return _empty_h2h(df, a, b)
 
     a_wins = draws = b_wins = 0
     a_for = a_against = 0

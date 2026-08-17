@@ -309,7 +309,8 @@ def simulate_season(standings, fixture_rows, n_sims=10000, seed=42):
         points[away] += pts_a
 
     mat = np.vstack([points[t] for t in team_names])          # (n_teams, n_sims)
-    order = np.lexsort((np.array(team_names), -mat))          # rank: points desc, name asc
+    name_order = np.argsort(np.array(team_names), kind="stable")
+    order = name_order[np.argsort(-mat[name_order], axis=0, kind="stable")]  # points desc, name asc (stable double-argsort; name is the tie-breaker for equal simulated points)
     positions = np.empty_like(order, dtype=int)
     for i in range(n_sims):
         positions[order[:, i], i] = np.arange(len(team_names))
@@ -369,7 +370,7 @@ def generate_forecast(n_sims=10000, seed=42):
         standings = build_standings(df, season_year) if season_year is not None else []
 
     if season_year is None and df is not None and not df.empty:
-        season_year = int(df["date"].dt.year.max())
+        season_year = season_year_of(df["date"].max())
 
     if not fixtures:
         if standings:
@@ -420,7 +421,7 @@ def write_forecast_file(forecast=None, out_dir=None):
     return path
 ```
 
-`_poisson_sims` re-seeds per fixture (seed offset by fixture index) so fixture ordering cannot change outcomes; overall determinism comes from `seed`.
+`_poisson_sims` re-seeds per fixture (seed offset by fixture index), so same-input determinism holds — the per-fixture seed depends on the fixture's index, not on the outcome of any other fixture; overall determinism comes from `seed`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -445,6 +446,7 @@ git commit -m "feat: Monte Carlo season simulation with odds and points ranges"
 **Interfaces:**
 - Consumes: `utils_data.load_json`, prediction files `data/predictions/<date>.json` (shape: `[{id, date, home_team, away_team, prediction: {prob_home, prob_draw, prob_away, winner, ...}}]`), result files `data/results/<date>.json` (shape: `[{match: {...}, actual: {home_goals, away_goals, winner}, status: "CORRECT"|"INCORRECT"|"PENDING"}]`).
 - Produces: `compute_calibration(predictions_dir=None, results_dir=None) -> dict` → `{entries, brier, accuracy, bins, rolling}`:
+  - Actual signature is `(predictions_dir=None, results_dir=None)`; `predictions_dir` is accepted for API compatibility but unused — the predictions are read from each results entry's embedded `match.prediction`, so only `data/results/<date>.json` files are consumed.
   - `entries`: count of decided (CORRECT/INCORRECT with actual) entries
   - `brier`: `None` if 0 entries; else mean of `(1 - p)^2` when correct, `p^2` when wrong, where `p` is the probability the model assigned to the outcome it called
   - `accuracy`: `None` if 0 entries; else `correct / entries`
@@ -1024,11 +1026,15 @@ def test_team_profile_ok(monkeypatch):
     def fake_profile(df, name):
         return {"team": "Arsenal", "seasons": [], "form": [], "elo_history": []}
     monkeypatch.setattr(insights, "team_profile", fake_profile)
+    monkeypatch.setattr(insights, "upcoming_fixtures", lambda name: [])
     r = _client().get("/api/teams/Arsenal")
     assert r.status_code == 200
     body = r.json()
     assert body["team"] == "Arsenal"
     assert body["team_info"]["name"] == "Arsenal"
+```
+
+Note: `test_team_profile_ok` is fully monkeypatched — `upcoming_fixtures` too — so the endpoint test stays network-free.
 
 
 def test_team_profile_404(monkeypatch):
@@ -1502,7 +1508,7 @@ git commit -m "feat: frontend plumbing for insights pages"
 - Produces (components used by Tasks 11-14):
   - `MeterBar({ value, tone })` — `value: number` 0..1, `tone?: 'ink' | 'rubric'` (default `ink`). A ruled track with a filled bar, like the outcome-odds bars in `LedgerRow`.
   - `SvgLineChart({ points, width = 520, height = 160, strokeClass = 'stroke-rubric' })` — `points: Array<{ x: string; y: number }>` (x is a date/ordinal string). Renders an SVG polyline scaled to min/max of `y` with 10% headroom, `vectorEffect="non-scaling-stroke"`, plus faint min/max reference lines and a rubber-tip dot on the last point.
-  - `CalibrationCurve({ bins, width = 520, height = 160 })` — draws the diagonal (perfect calibration) in faint dashed ink and each bin as a point `(predicted, actual)` connected by a rubric polyline, with `0%/100%` axis captions.
+  - `CalibrationCurve({ bins, width = 520, height = 160 })` — draws the diagonal (perfect calibration) in faint dashed ink and each bin as a point `(predicted, actual)` connected by a rubric polyline, with axis captions fixed: x-axis `0%` bottom-left and `100%` bottom-right; y-axis `0%` at the bottom, `100%` at the top.
 
 - [ ] **Step 1: Create component**
 
@@ -2355,6 +2361,7 @@ git commit -m "feat: team detail pages and indexed roster links"
 **Interfaces:**
 - Consumes: `getHeadToHead(team, vs)`, `H2HData`, `teamsFromMatches` fallback not needed — use `/api/teams` via `getTeams` for the opponent picker (import `getTeams` from `api/matches`), `teamShort`, `TeamBadge`.
 - Produces: a "Head to head" section on `/teams/:teamName`:
+  - Contract: `getHeadToHead` returns 200 with an honest empty record (zeros summary + empty meetings list) both for never-met pairs and for a team paired with itself (`vs` = the club itself, e.g. slug "Arsenal" vs list name "Arsenal F.C."); 404 only when a team is absent from the training ledger.
   - Opponent `<select>` populated from `getTeams()` (exclude the current team), defaulting to the first option; changing it fetches `getHeadToHead(team, vs)`.
   - On data: summary line ("X meetings · A W–D–L B · A scored n, conceded m"), then the meetings list rendered as compact ruled rows (`date · home a-b away · winner`).
   - Loading state: small serif italic "setting the fixture…" line. Error state: inline note, not the full-page slate.
