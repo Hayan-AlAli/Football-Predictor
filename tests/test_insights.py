@@ -259,3 +259,17 @@ def test_head_to_head_summary_and_meetings():
 
 def test_head_to_head_unknown_pair():
     assert head_to_head(H2H_DF, "Arsenal", "Norwich City") is None
+
+
+def test_head_to_head_never_met_empty_record():
+    h = head_to_head(H2H_DF, "Everton", "Chelsea")
+    assert h is not None
+    assert h["summary"] == {
+        "meetings": 0,
+        "team_a_wins": 0,
+        "draws": 0,
+        "team_b_wins": 0,
+        "team_a_for": 0,
+        "team_a_against": 0,
+    }
+    assert h["meetings"] == []

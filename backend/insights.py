@@ -382,12 +382,27 @@ def head_to_head(training_df, team_a, team_b):
     b = utils.normalize_team_name(team_b)
     if a == b:
         return None
+    present = set(df["home_team"]) | set(df["away_team"])
+    if a not in present or b not in present:
+        return None
     meetings = df[
         ((df["home_team"] == a) & (df["away_team"] == b))
         | ((df["home_team"] == b) & (df["away_team"] == a))
     ]
     if meetings.empty:
-        return None
+        return {
+            "team_a": _canonical_name(df, a),
+            "team_b": _canonical_name(df, b),
+            "summary": {
+                "meetings": 0,
+                "team_a_wins": 0,
+                "draws": 0,
+                "team_b_wins": 0,
+                "team_a_for": 0,
+                "team_a_against": 0,
+            },
+            "meetings": [],
+        }
 
     a_wins = draws = b_wins = 0
     a_for = a_against = 0

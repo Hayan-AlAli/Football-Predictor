@@ -73,6 +73,21 @@ def test_h2h_404(monkeypatch):
     assert r.status_code == 404
 
 
+def test_h2h_never_met_empty_record(monkeypatch):
+    empty = {
+        "team_a": "Everton", "team_b": "Chelsea",
+        "summary": {"meetings": 0, "team_a_wins": 0, "draws": 0,
+                    "team_b_wins": 0, "team_a_for": 0, "team_a_against": 0},
+        "meetings": [],
+    }
+    monkeypatch.setattr(insights, "head_to_head", lambda df, a, b: empty)
+    r = _client().get("/api/teams/Everton/h2h?vs=Chelsea")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["summary"]["meetings"] == 0
+    assert body["meetings"] == []
+
+
 def test_team_profile_includes_upcoming(monkeypatch):
     def fake_profile(df, name):
         return {"team": "Arsenal", "seasons": [], "form": [], "elo_history": []}

@@ -228,7 +228,7 @@ export default function TeamDetailPage() {
         {h2hError && !h2hLoading && (
           <p className="mt-3 font-serif text-xs italic text-rubric">This fixture could not be set — try another opponent.</p>
         )}
-        {h2h && !h2hLoading && (
+        {h2h && !h2hLoading && !h2hError && (
           <>
             <p className="mt-3 font-serif text-sm italic text-ink-soft">
               {h2h.summary.meetings} meetings · {teamShort(h2h.team_a)} {h2h.summary.team_a_wins}–{h2h.summary.draws}–{h2h.summary.team_b_wins} {teamShort(h2h.team_b)}
