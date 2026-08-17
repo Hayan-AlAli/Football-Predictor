@@ -199,6 +199,13 @@ def _latest_forecast():
     return utils_data.load_json(os.path.join(FORECAST_DIR, files[-1]))
 
 
+def _today_forecast():
+    today_file = os.path.join(FORECAST_DIR, f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.json")
+    if not os.path.isfile(today_file):
+        return None
+    return utils_data.load_json(today_file)
+
+
 def write_forecast_file(forecast=None, out_dir=None):
     forecast = forecast or generate_forecast()
     if not forecast:

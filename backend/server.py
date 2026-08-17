@@ -82,7 +82,7 @@ async def get_teams():
 
 
 @app.get("/api/matches/upcoming")
-async def get_upcoming_matches():
+def get_upcoming_matches():
     try:
         upcoming_df = data_manager.fetch_upcoming_matches()
 
@@ -122,7 +122,7 @@ async def get_upcoming_matches():
 
 
 @app.get("/api/matches/predictions")
-async def get_predictions(date: Optional[str] = None):
+def get_predictions(date: Optional[str] = None):
     try:
         if date is None:
             date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -168,7 +168,7 @@ async def get_predictions(date: Optional[str] = None):
 
 
 @app.post("/api/matches/predictions/generate")
-async def generate_predictions():
+def generate_predictions():
     try:
         today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         target_date = today
@@ -270,7 +270,7 @@ async def get_results(date: Optional[str] = None):
 
 
 @app.post("/api/predict")
-async def predict_single_match(home_team: str, away_team: str):
+def predict_single_match(home_team: str, away_team: str):
     try:
         match_data = {
             'home_team': home_team,
@@ -321,10 +321,14 @@ async def get_available_dates():
 
 
 @app.get("/api/season/forecast")
-async def get_season_forecast():
+def get_season_forecast():
+    cached = insights._today_forecast()
+    if cached is not None:
+        return cached
     forecast = insights.generate_forecast()
     if forecast is None:
         raise HTTPException(status_code=503, detail="Forecast unavailable")
+    insights.write_forecast_file(forecast)
     return forecast
 
 
@@ -334,7 +338,7 @@ async def get_calibration():
 
 
 @app.get("/api/teams/{team_name}")
-async def get_team_profile(team_name: str):
+def get_team_profile(team_name: str):
     profile = insights.team_profile(predictor_module_training_df(), team_name)
     if profile is None:
         raise HTTPException(status_code=404, detail="Team not found")

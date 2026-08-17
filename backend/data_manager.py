@@ -5,8 +5,14 @@ from backend import utils
 import logging
 import concurrent.futures
 from backend import predictor
+import time
 
-_SOCCERDATA_TIMEOUT = 45
+_SOCCERDATA_TIMEOUT = 15
+
+_UPCOMING_CACHE_TTL = 21600
+_UPCOMING_EMPTY_CACHE_TTL = 900
+_upcoming_cache = None
+_upcoming_cache_ts = 0.0
 
 
 def _run_with_timeout(func, timeout=_SOCCERDATA_TIMEOUT):
@@ -122,6 +128,19 @@ def merge_data_with_elo(matches_df):
 
 
 def fetch_upcoming_matches():
+    global _upcoming_cache, _upcoming_cache_ts
+    now = time.time()
+    if _upcoming_cache is not None:
+        ttl = _UPCOMING_EMPTY_CACHE_TTL if _upcoming_cache.empty else _UPCOMING_CACHE_TTL
+        if now - _upcoming_cache_ts < ttl:
+            return _upcoming_cache.copy()
+    result = _scrape_upcoming_matches()
+    _upcoming_cache = result
+    _upcoming_cache_ts = now
+    return result.copy()
+
+
+def _scrape_upcoming_matches():
     logger.info("Fetching upcoming matches from ESPN...")
     try:
         current_season = str(datetime.datetime.now().year)

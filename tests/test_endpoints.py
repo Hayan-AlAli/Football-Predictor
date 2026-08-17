@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+import json
+
 from fastapi.testclient import TestClient
 
 from backend import server, insights
@@ -13,16 +16,50 @@ def test_season_forecast_ok(monkeypatch):
         "season_complete": False, "standings": [], "projected": [],
         "fixtures_remaining": 0,
     }
+    monkeypatch.setattr(insights, "_today_forecast", lambda: None)
     monkeypatch.setattr(insights, "generate_forecast", lambda *a, **k: payload)
+    monkeypatch.setattr(insights, "write_forecast_file", lambda f: None)
     r = _client().get("/api/season/forecast")
     assert r.status_code == 200
     assert r.json()["season_year"] == 2026
 
 
 def test_season_forecast_unavailable(monkeypatch):
+    monkeypatch.setattr(insights, "_today_forecast", lambda: None)
     monkeypatch.setattr(insights, "generate_forecast", lambda *a, **k: None)
     r = _client().get("/api/season/forecast")
     assert r.status_code == 503
+
+
+def test_season_forecast_serves_today_cache(monkeypatch, tmp_path):
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    payload = {
+        "generated": today, "season_year": 2026, "n_sims": 10000,
+        "season_complete": False, "standings": [], "projected": [],
+        "fixtures_remaining": 0,
+    }
+    (tmp_path / f"{today}.json").write_text(json.dumps(payload))
+    monkeypatch.setattr(insights, "FORECAST_DIR", str(tmp_path))
+    monkeypatch.setattr(insights, "generate_forecast",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not recompute")))
+    r = _client().get("/api/season/forecast")
+    assert r.status_code == 200
+    assert r.json()["generated"] == today
+
+
+def test_season_forecast_writes_cache_on_miss(monkeypatch, tmp_path):
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    payload = {
+        "generated": today, "season_year": 2026, "n_sims": 10000,
+        "season_complete": False, "standings": [], "projected": [],
+        "fixtures_remaining": 0,
+    }
+    monkeypatch.setattr(insights, "FORECAST_DIR", str(tmp_path))
+    monkeypatch.setattr(insights, "_today_forecast", lambda: None)
+    monkeypatch.setattr(insights, "generate_forecast", lambda *a, **k: payload)
+    r = _client().get("/api/season/forecast")
+    assert r.status_code == 200
+    assert (tmp_path / f"{today}.json").exists()
 
 
 def test_calibration_ok(monkeypatch):

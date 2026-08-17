@@ -117,7 +117,10 @@ def test_simulate_season_odds_and_percentiles_sane():
     assert by["Arsenal"]["title_odds"] >= by["Chelsea"]["title_odds"]
 
 
-def test_generate_forecast_returns_payload():
+def test_generate_forecast_returns_payload(monkeypatch):
+    import pandas as pd
+    from backend import data_manager
+    monkeypatch.setattr(data_manager, "fetch_upcoming_matches", pd.DataFrame)
     res = generate_forecast()
     assert res is not None
     assert isinstance(res["standings"], list)
