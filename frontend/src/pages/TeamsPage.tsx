@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import Press from '../components/Press';
 import OfflineSlate from '../components/OfflineSlate';
@@ -135,6 +136,10 @@ export default function TeamsPage() {
                           animate="show"
                           className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 border-t border-paper-line py-3.5"
                         >
+                          <Link
+                            to={`/teams/${encodeURIComponent(club.name)}`}
+                            className="col-span-2 flex min-w-0 items-center gap-3 no-underline"
+                          >
                           <TeamBadge team={club.name} info={club} size="md" />
                           <span className="min-w-0">
                             <span className="flex items-center gap-2">
@@ -154,6 +159,7 @@ export default function TeamsPage() {
                               {club.elo != null && ` · club rating ${club.elo}`}
                             </span>
                           </span>
+                          </Link>
                           <span
                             className="hidden h-2 w-2 shrink-0 rounded-none border border-black/10 sm:block"
                             style={{ backgroundColor: ink }}
