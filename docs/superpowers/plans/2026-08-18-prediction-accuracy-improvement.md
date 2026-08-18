@@ -307,7 +307,7 @@ def test_model_specs_contains_baseline():
 def test_score_test_returns_metrics_dict(monkeypatch):
     df = _data()
     monkeypatch.setattr(evaluate, "_fit_pair", lambda X_train, yh, ya, spec_key: (None, None))
-    monkeypatch.setattr(evaluate, "_predict_pair", lambda pair, X: (pd.Series([1.2, 0.8]), pd.Series([0.7, 1.1])))
+    monkeypatch.setattr(evaluate, "_predict_pair", lambda pair, X: (pd.Series([1.2, 0.8, 1.1, 0.9, 1.0]), pd.Series([0.7, 1.1, 1.2, 0.8, 1.0])))
     res = evaluate.score_test(_data(), df[df["date"].dt.year == 2023], "baseline_rf")
     for key in ("brier", "log_loss", "accuracy", "n_matches"):
         assert key in res
