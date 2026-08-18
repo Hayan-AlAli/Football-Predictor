@@ -1,0 +1,87 @@
+import pandas as pd
+import pytest
+
+from backend import features
+
+
+def _df(rows):
+    return pd.DataFrame(rows)
+
+
+def test_team_decayed_form_weights_recent_more():
+    team = pd.DataFrame([
+        {"date": pd.Timestamp("2026-01-01"), "goals_scored": 0.0, "xg_for": 0.5},
+        {"date": pd.Timestamp("2026-02-01"), "goals_scored": 4.0, "xg_for": 3.0},
+    ])
+    g, x = features.team_decayed_form(team, half_life_days=15.0)
+    # 31 days gap -> second game weight ~8x first; still an average, so 0 < g < 4
+    assert 2.0 < g < 4.0
+    assert 1.5 < x < 3.0
+
+
+def test_team_decayed_form_empty():
+    g, x = features.team_decayed_form(pd.DataFrame(columns=["date", "goals_scored", "xg_for"]))
+    assert (g, x) == (0.0, 0.0)
+
+
+def test_v2_rolling_no_leakage_uses_prior_matches_only():
+    rows = [
+        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "B",
+         "home_goals": 1, "away_goals": 0, "home_xg": 0.5, "away_xg": 0.2},
+        {"date": pd.Timestamp("2026-01-08"), "home_team": "B", "away_team": "A",
+         "home_goals": 2, "away_goals": 0, "home_xg": 1.8, "away_xg": 0.1},
+    ]
+    df = features.calculate_rolling_stats_v2(_df(rows))
+    # Match 2: A's decayed form uses only match 1 (A scored 1, xg 0.5)
+    assert df.loc[1, "away_rolling_goals"] == 1.0
+    assert df.loc[1, "away_rolling_xg"] == 0.5
+
+
+def test_v2_league_relative_clipped_nonnegative():
+    rows = [
+        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "B",
+         "home_goals": 0, "away_goals": 0, "home_xg": 0.1, "away_xg": 0.1},
+        {"date": pd.Timestamp("2026-01-08"), "home_team": "B", "away_team": "A",
+         "home_goals": 0, "away_goals": 0, "home_xg": 0.1, "away_xg": 0.1},
+    ]
+    df = features.calculate_rolling_stats_v2(_df(rows))
+    assert (df["home_relative_goals"] >= 0).all()
+    assert (df["away_relative_goals"] >= 0).all()
+
+
+def test_feature_columns_v1_matches_production():
+    assert features.feature_columns("v1") == [
+        "home_team_code", "away_team_code", "home_elo", "away_elo",
+        "home_rolling_goals", "away_rolling_goals", "home_rolling_xg", "away_rolling_xg",
+    ]
+
+
+def test_feature_columns_v2_extends_v1():
+    cols = features.feature_columns("v2")
+    assert cols[:8] == features.feature_columns("v1")
+    assert cols[8:] == ["elo_gap", "home_relative_goals", "away_relative_goals"]
+
+
+def test_build_feature_columns_v1_preserves_legacy_semantics():
+    rows = [
+        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "B",
+         "home_goals": 1, "away_goals": 0, "home_xg": 0.5, "away_xg": 0.2,
+         "home_elo": 1500.0, "away_elo": 1450.0},
+        {"date": pd.Timestamp("2026-01-08"), "home_team": "B", "away_team": "A",
+         "home_goals": 2, "away_goals": 0, "home_xg": 1.8, "away_xg": 0.1,
+         "home_elo": 1450.0, "away_elo": 1500.0},
+    ]
+    df = features.build_feature_columns(_df(rows), "v1")
+    for col in features.feature_columns("v1"):
+        assert col in df.columns
+    assert "elo_gap" not in df.columns
+
+
+def test_build_feature_columns_v2_adds_elo_gap():
+    rows = [
+        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "B",
+         "home_goals": 1, "away_goals": 0, "home_xg": 0.5, "away_xg": 0.2,
+         "home_elo": 1600.0, "away_elo": 1500.0},
+    ]
+    df = features.build_feature_columns(_df(rows), "v2")
+    assert df.loc[0, "elo_gap"] == 100.0
