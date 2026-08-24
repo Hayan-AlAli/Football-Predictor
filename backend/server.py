@@ -325,6 +325,22 @@ async def get_results(date: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"Error fetching results: {str(e)}")
 
 
+@app.get("/api/dates/results")
+async def get_result_dates():
+    try:
+        results_dir = utils_data.RESULTS_DIR
+        dates = []
+        if os.path.exists(results_dir):
+            for filename in os.listdir(results_dir):
+                if filename.endswith('.json'):
+                    date_str = filename.replace('.json', '')
+                    dates.append(date_str)
+        dates.sort(reverse=True)
+        return {"dates": dates}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing result dates: {str(e)}")
+
+
 @app.post("/api/predict")
 def predict_single_match(home_team: str, away_team: str):
     try:

@@ -5,7 +5,7 @@ import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
 import TeamBadge from '../components/TeamBadge';
 import { useData } from '../lib/data-context';
-import { getResultEntries } from '../api/matches';
+import { getResultEntries, getResultDates } from '../api/matches';
 import { teamShort } from '../lib/teams';
 import { scoreline } from '../lib/format';
 import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
@@ -42,6 +42,25 @@ export default function RecordsPage() {
   const staggerV = reduce ? getReducedMotionVariants(staggerContainer) : staggerContainer;
   const rowV = reduce ? getReducedMotionVariants(ledgerVariants) : ledgerVariants;
 
+  const [resultDates, setResultDates] = useState<string[]>([]);
+  const [resultDatesLoading, setResultDatesLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const dates = await getResultDates();
+        if (!cancelled) {
+          setResultDates(dates);
+          setResultDatesLoading(false);
+        }
+      } catch {
+        if (!cancelled) setResultDatesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const dateToGw = useMemo(() => {
     const byDate = new Map<string, number>();
     for (const m of matches) {
@@ -51,9 +70,8 @@ export default function RecordsPage() {
   }, [matches]);
 
   const candidateDates = useMemo(() => {
-    const set = new Set(matches.map((m) => m.date));
-    return [...set].sort().slice(-5).reverse();
-  }, [matches]);
+    return resultDates.slice(0, 5);
+  }, [resultDates]);
 
   const { entries, loading } = useAllVerdicts(candidateDates);
 
@@ -96,7 +114,7 @@ export default function RecordsPage() {
 
       {status === 'online' && (
         <>
-          {loading ? (
+          {loading || resultDatesLoading ? (
             <Press phase={1} />
           ) : entries.length === 0 ? (
             <div className="mt-6">

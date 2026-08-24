@@ -150,3 +150,12 @@ export async function getHeadToHead(team: string, vs: string): Promise<H2HData> 
     `/api/teams/${encodeURIComponent(team)}/h2h?vs=${encodeURIComponent(vs)}`
   );
 }
+
+interface ResultDatesResponse {
+  dates: string[];
+}
+
+export async function getResultDates(): Promise<string[]> {
+  const data = await fetchAPI<ResultDatesResponse>('/api/dates/results');
+  return data.dates || [];
+}
