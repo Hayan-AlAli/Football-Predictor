@@ -267,9 +267,6 @@ async def get_results(date: Optional[str] = None):
             pred_path = utils_data.get_prediction_file_path(date)
             predictions = utils_data.load_json(pred_path) or []
 
-        if not predictions:
-            return {"date": date, "results": [], "message": "No predictions for this date"}
-
         results_map = {}
         for res in raw_results:
             key = (res['home_team'], res['away_team'])
@@ -289,6 +286,8 @@ async def get_results(date: Optional[str] = None):
             return None
 
         comparison_results = []
+        matched_result_keys = set()
+
         for pred in predictions:
             result_entry = {
                 'match': pred,
@@ -299,6 +298,7 @@ async def get_results(date: Optional[str] = None):
             actual = find_result(pred['home_team'], pred['away_team'])
             if actual is not None:
                 result_entry['actual'] = actual
+                matched_result_keys.add((pred['home_team'], pred['away_team']))
 
                 hg = actual['home_goals']
                 ag = actual['away_goals']
@@ -318,6 +318,26 @@ async def get_results(date: Optional[str] = None):
                     result_entry['status'] = 'INCORRECT'
 
             comparison_results.append(result_entry)
+
+        for res in raw_results:
+            key = (res['home_team'], res['away_team'])
+            if key not in matched_result_keys:
+                comparison_results.append({
+                    'match': {
+                        'id': utils_data.generate_match_id(date, res['home_team'], res['away_team']),
+                        'date': date,
+                        'home_team': res['home_team'],
+                        'away_team': res['away_team'],
+                        'home_team_info': get_team_info(res['home_team']),
+                        'away_team_info': get_team_info(res['away_team']),
+                    },
+                    'actual': {
+                        'home_goals': res['home_goals'],
+                        'away_goals': res['away_goals'],
+                        'score': f"{res['home_goals']}-{res['away_goals']}",
+                    },
+                    'status': 'PENDING'
+                })
 
         return {"date": date, "results": comparison_results}
 
