@@ -258,12 +258,68 @@ async def get_results(date: Optional[str] = None):
             date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
         result_path = utils_data.get_result_file_path(date)
+        raw_results = utils_data.load_json(result_path) or []
 
-        if not os.path.exists(result_path):
-            return {"date": date, "results": [], "message": "No results for this date"}
+        predictions = []
+        if DB_AVAILABLE:
+            predictions = db.load_predictions(date)
+        if not predictions:
+            pred_path = utils_data.get_prediction_file_path(date)
+            predictions = utils_data.load_json(pred_path) or []
 
-        results = utils_data.load_json(result_path)
-        return {"date": date, "results": results}
+        if not predictions:
+            return {"date": date, "results": [], "message": "No predictions for this date"}
+
+        results_map = {}
+        for res in raw_results:
+            key = (res['home_team'], res['away_team'])
+            results_map[key] = {
+                'home_goals': res['home_goals'],
+                'away_goals': res['away_goals'],
+                'score': f"{res['home_goals']}-{res['away_goals']}"
+            }
+
+        def find_result(pred_home, pred_away):
+            key = (pred_home, pred_away)
+            if key in results_map:
+                return results_map[key]
+            for (r_home, r_away), val in results_map.items():
+                if (pred_home in r_home or r_home in pred_home) and (pred_away in r_away or r_away in pred_away):
+                    return val
+            return None
+
+        comparison_results = []
+        for pred in predictions:
+            result_entry = {
+                'match': pred,
+                'actual': None,
+                'status': 'PENDING'
+            }
+
+            actual = find_result(pred['home_team'], pred['away_team'])
+            if actual is not None:
+                result_entry['actual'] = actual
+
+                hg = actual['home_goals']
+                ag = actual['away_goals']
+                if hg > ag:
+                    actual_winner = pred['home_team']
+                elif ag > hg:
+                    actual_winner = pred['away_team']
+                else:
+                    actual_winner = "Draw"
+
+                result_entry['actual']['winner'] = actual_winner
+
+                predicted_winner = pred.get('prediction', {}).get('winner')
+                if predicted_winner == actual_winner:
+                    result_entry['status'] = 'CORRECT'
+                else:
+                    result_entry['status'] = 'INCORRECT'
+
+            comparison_results.append(result_entry)
+
+        return {"date": date, "results": comparison_results}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching results: {str(e)}")
