@@ -1,0 +1,31 @@
+[
+    {
+        "id": "2026-08-31_astonvilla_arsenal",
+        "date": "2026-08-31",
+        "time": "19:00",
+        "home_team": "Aston Villa",
+        "away_team": "Arsenal",
+        "prediction": {
+            "winner": "Draw",
+            "score": "1-1",
+            "home_goals": 1.53,
+            "away_goals": 1.87,
+            "home_elo": 1920,
+            "away_elo": 2063,
+            "prob_home": 0.3180153699507134,
+            "prob_draw": 0.22323222953288985,
+            "prob_away": 0.4587524005163967,
+            "features": {
+                "home_elo": 1920,
+                "away_elo": 2063,
+                "elo_gap": -142,
+                "home_rolling_goals": 0.6,
+                "away_rolling_goals": 1.8,
+                "home_rolling_xg": 1.419,
+                "away_rolling_xg": 1.945,
+                "league_avg_goals": 1.428,
+                "league_avg_xg": 1.475
+            }
+        }
+    }
+]
