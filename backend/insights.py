@@ -247,87 +247,88 @@ def _norm_pair(home_team, away_team):
     return (utils.normalize_team_name(home_team), utils.normalize_team_name(away_team))
 
 
-def compute_calibration(predictions_dir=None, results_dir=None):
-    res_dir = results_dir or utils_data.RESULTS_DIR
-    pred_dir = predictions_dir or utils_data.PREDICTIONS_DIR
+def compute_calibration_from_records(predictions, results_by_date):
+    """Core pairing over in-memory records.
+
+    predictions: list of prediction dicts (each with date/home_team/away_team/prediction).
+    results_by_date: {date_str: [raw result dicts]}.
+    Returns the same CalibrationData dict as compute_calibration.
+    """
+    pred_by_date = {}
+    for pred in predictions or []:
+        d = pred.get("date")
+        if d is None:
+            continue
+        pred_by_date.setdefault(d, []).append(pred)
 
     entries = []
-    if os.path.isdir(res_dir):
-        for fname in sorted(os.listdir(res_dir)):
-            if not fname.endswith(".json"):
-                continue
-            date_str = fname.replace(".json", "")
-            raw_results = utils_data.load_json(os.path.join(res_dir, fname)) or []
+    for date_str in sorted(results_by_date or {}):
+        raw_results = results_by_date[date_str] or []
+        predictions_for_date = pred_by_date.get(date_str, [])
 
-            predictions = []
-            if os.path.isdir(pred_dir):
-                pred_path = os.path.join(pred_dir, fname)
-                if os.path.isfile(pred_path):
-                    predictions = utils_data.load_json(pred_path) or []
-
-            results_map = {}
-            for res in raw_results:
-                # Accept both the raw results format
-                # {"home_team", "away_team", "home_goals", "away_goals"}
-                # and the wrapped verdict format
-                # {"match": {...}, "actual": {"home_goals", "away_goals"}, ...}.
-                if "actual" in res and isinstance(res.get("actual"), dict):
-                    match = res.get("match") or {}
-                    actual = res["actual"]
-                    try:
-                        key = (match["home_team"], match["away_team"])
-                    except KeyError:
-                        continue
-                    results_map[_norm_pair(*key)] = {
-                        'home_goals': actual['home_goals'],
-                        'away_goals': actual['away_goals'],
-                    }
-                    continue
+        results_map = {}
+        for res in raw_results:
+            # Accept both the raw results format
+            # {"home_team", "away_team", "home_goals", "away_goals"}
+            # and the wrapped verdict format
+            # {"match": {...}, "actual": {"home_goals", "away_goals"}, ...}.
+            if "actual" in res and isinstance(res.get("actual"), dict):
+                match = res.get("match") or {}
+                actual = res["actual"]
                 try:
-                    key = (res['home_team'], res['away_team'])
+                    key = (match["home_team"], match["away_team"])
                 except KeyError:
                     continue
                 results_map[_norm_pair(*key)] = {
-                    'home_goals': res['home_goals'],
-                    'away_goals': res['away_goals'],
+                    'home_goals': actual['home_goals'],
+                    'away_goals': actual['away_goals'],
                 }
+                continue
+            try:
+                key = (res['home_team'], res['away_team'])
+            except KeyError:
+                continue
+            results_map[_norm_pair(*key)] = {
+                'home_goals': res['home_goals'],
+                'away_goals': res['away_goals'],
+            }
 
-            def find_result(pred_home, pred_away):
-                key = _norm_pair(pred_home, pred_away)
-                if key in results_map:
-                    return results_map[key]
-                for (r_home, r_away), val in results_map.items():
-                    if (pred_home in r_home or r_home in pred_home) and (pred_away in r_away or r_away in pred_away):
-                        return val
-                return None
+        def find_result(pred_home, pred_away):
+            key = _norm_pair(pred_home, pred_away)
+            if key in results_map:
+                return results_map[key]
+            for (r_home, r_away), val in results_map.items():
+                if (pred_home in r_home or r_home in pred_home) and (pred_away in r_away or r_away in pred_away):
+                    return val
+            return None
 
-            for pred in predictions:
-                actual = find_result(pred.get('home_team', ''), pred.get('away_team', ''))
-                if actual is None:
-                    continue
+        for pred in predictions_for_date:
+            actual = find_result(pred.get('home_team', ''), pred.get('away_team', ''))
+            if actual is None:
+                continue
 
-                hg = actual['home_goals']
-                ag = actual['away_goals']
-                if hg > ag:
-                    actual_winner = pred.get('home_team', '')
-                elif ag > hg:
-                    actual_winner = pred.get('away_team', '')
-                else:
-                    actual_winner = "Draw"
+            hg = actual['home_goals']
+            ag = actual['away_goals']
+            if hg > ag:
+                actual_winner = pred.get('home_team', '')
+            elif ag > hg:
+                actual_winner = pred.get('away_team', '')
+            else:
+                actual_winner = "Draw"
 
-                predicted_winner = (pred.get('prediction') or {}).get('winner')
-                is_correct = predicted_winner == actual_winner
+            predicted_winner = (pred.get('prediction') or {}).get('winner')
+            is_correct = predicted_winner == actual_winner
 
-                pred_data = pred.get('prediction') or {}
-                if not pred_data.get('prob_home'):
-                    continue
+            pred_data = pred.get('prediction') or {}
+            if not pred_data.get('prob_home'):
+                continue
 
-                p = _called_probability(pred_data, pred.get('home_team', ''), pred.get('away_team', ''))
-                entries.append({
-                    "date": date_str,
-                    "p": p,
-                    "correct": is_correct,
-                })
+            p = _called_probability(pred_data, pred.get('home_team', ''), pred.get('away_team', ''))
+            entries.append({
+                "date": date_str,
+                "p": p,
+                "correct": is_correct,
+            })
 
     n = len(entries)
     if n == 0:
@@ -369,6 +370,33 @@ def compute_calibration(predictions_dir=None, results_dir=None):
         "bins": bins,
         "rolling": rolling,
     }
+
+
+def compute_calibration(predictions_dir=None, results_dir=None):
+    res_dir = results_dir or utils_data.RESULTS_DIR
+    pred_dir = predictions_dir or utils_data.PREDICTIONS_DIR
+
+    by_date = {}
+    all_preds = []
+    if os.path.isdir(res_dir):
+        for fname in sorted(os.listdir(res_dir)):
+            if not fname.endswith(".json"):
+                continue
+            date_str = fname.replace(".json", "")
+            raw_results = utils_data.load_json(os.path.join(res_dir, fname)) or []
+            by_date[date_str] = raw_results
+
+            predictions = []
+            if os.path.isdir(pred_dir):
+                pred_path = os.path.join(pred_dir, fname)
+                if os.path.isfile(pred_path):
+                    predictions = utils_data.load_json(pred_path) or []
+            for pred in predictions:
+                p = dict(pred)
+                p["date"] = date_str
+                all_preds.append(p)
+
+    return compute_calibration_from_records(all_preds, by_date)
 def _norm_df(df):
     out = df.copy()
     out["date"] = pd.to_datetime(out["date"])

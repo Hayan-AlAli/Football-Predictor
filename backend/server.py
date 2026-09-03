@@ -258,7 +258,11 @@ async def get_results(date: Optional[str] = None):
             date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
         result_path = utils_data.get_result_file_path(date)
-        raw_results = utils_data.load_json(result_path) or []
+        raw_results = []
+        if DB_AVAILABLE:
+            raw_results = db.load_results(date) or []
+        if not raw_results:
+            raw_results = utils_data.load_json(result_path) or []
 
         predictions = []
         if DB_AVAILABLE:
@@ -361,6 +365,8 @@ async def get_result_dates():
                 if filename.endswith('.json'):
                     date_str = filename.replace('.json', '')
                     dates.append(date_str)
+        if DB_AVAILABLE:
+            dates = sorted(set(dates) | set(db.load_result_dates() or []))
         dates.sort(reverse=True)
         return {"dates": dates}
     except Exception as e:
@@ -432,6 +438,9 @@ def get_season_forecast():
 
 @app.get("/api/calibration")
 async def get_calibration():
+    if DB_AVAILABLE:
+        results_by_date = {d: db.load_results(d) for d in db.load_result_dates()}
+        return insights.compute_calibration_from_records(db.load_all_predictions(), results_by_date)
     return insights.compute_calibration()
 
 
