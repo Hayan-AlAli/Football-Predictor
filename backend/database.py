@@ -71,6 +71,23 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_predictions_date
             ON predictions(match_date);
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS results (
+                match_date DATE NOT NULL,
+                home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL,
+                home_goals DOUBLE PRECISION,
+                away_goals DOUBLE PRECISION,
+                PRIMARY KEY (match_date, home_team, away_team)
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS forecast_cache (
+                match_date DATE PRIMARY KEY,
+                payload JSONB NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+        """)
         conn.commit()
     _initialized = True
 
@@ -215,6 +232,71 @@ def get_available_dates():
         )
         rows = cur.fetchall()
         return [row['match_date'].isoformat() for row in rows]
+
+
+def save_results(rows):
+    with get_db() as conn:
+        cur = conn.cursor()
+        for r in rows:
+            cur.execute("""
+                INSERT INTO results (match_date, home_team, away_team, home_goals, away_goals)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (match_date, home_team, away_team) DO UPDATE SET
+                    home_goals = EXCLUDED.home_goals,
+                    away_goals = EXCLUDED.away_goals
+            """, (r['date'], r['home_team'], r['away_team'],
+                  _to_native(r.get('home_goals')), _to_native(r.get('away_goals'))))
+
+
+def load_results(date_str):
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT home_team, away_team, home_goals, away_goals FROM results WHERE match_date = %s",
+            (date_str,)
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def load_result_dates():
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT match_date FROM results ORDER BY match_date DESC")
+        rows = cur.fetchall()
+        return [row['match_date'].isoformat() for row in rows]
+
+
+def save_forecast(date_str, payload):
+    from psycopg2.extras import Json
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO forecast_cache (match_date, payload)
+            VALUES (%s, %s)
+            ON CONFLICT (match_date) DO UPDATE SET
+                payload = EXCLUDED.payload,
+                created_at = NOW()
+        """, (date_str, Json(payload)))
+
+
+def _row_to_forecast(row):
+    return dict(row['payload'])
+
+
+def load_forecast(date_str):
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT payload FROM forecast_cache WHERE match_date = %s", (date_str,))
+        row = cur.fetchone()
+        return _row_to_forecast(row) if row else None
+
+
+def load_latest_forecast():
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT payload FROM forecast_cache ORDER BY match_date DESC LIMIT 1")
+        row = cur.fetchone()
+        return _row_to_forecast(row) if row else None
 
 
 def prediction_exists(date_str):
