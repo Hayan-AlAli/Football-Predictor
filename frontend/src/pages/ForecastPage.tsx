@@ -6,7 +6,6 @@ import EmptyState from '../components/EmptyState';
 import TeamBadge from '../components/TeamBadge';
 import { MeterBar } from '../lib/charts';
 import { getForecast } from '../api/matches';
-import { teamShort } from '../lib/teams';
 import { percent } from '../lib/format';
 import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
 import type { ForecastData } from '../types';
@@ -80,15 +79,15 @@ export default function ForecastPage() {
             No fixtures remain — here is the final league table as the model saw it.
           </p>
           <div className="mt-6">
-            {data.standings.map((s, i) => (
-              <div key={s.team} className="grid grid-cols-[2rem_1fr_4rem] items-center gap-x-3 border-t border-paper-line py-3">
-                <span className="font-mono text-sm text-ink-faint tnum">{i + 1}</span>
-                <span className="flex min-w-0 items-center gap-2 truncate font-sans text-sm font-bold uppercase tracking-caps text-ink">
-                  <TeamBadge team={s.team} size="sm" /> {teamShort(s.team)}
-                </span>
-                <span className="text-right font-mono text-sm text-ink tnum">{s.points}</span>
-              </div>
-            ))}
+              {data.standings.map((s, i) => (
+                <div key={s.team} className="grid grid-cols-[2rem_1fr_4rem] items-center gap-x-3 border-t border-paper-line py-3">
+                  <span className="font-mono text-sm text-ink-faint tnum">{i + 1}</span>
+                  <span className="flex min-w-0 items-center gap-2.5 truncate font-sans text-sm font-bold uppercase tracking-caps text-ink" title={s.team}>
+                    <TeamBadge team={s.team} info={s.team_info} size="md" /> {s.team}
+                  </span>
+                  <span className="text-right font-mono text-sm text-ink tnum">{s.points}</span>
+                </div>
+              ))}
           </div>
         </>
       ) : rows.length === 0 ? (
@@ -129,9 +128,9 @@ export default function ForecastPage() {
                   className="grid grid-cols-[2rem_1fr_auto] items-center gap-x-3 border-t border-paper-line py-3.5 sm:grid-cols-[2.5rem_1fr_10rem_4.5rem_12rem] sm:px-2"
                 >
                   <span className="font-mono text-sm text-ink-faint tnum">{i + 1}</span>
-                  <span className="flex min-w-0 items-center gap-2">
-                    <TeamBadge team={r.team} size="md" />
-                    <span className="truncate font-sans text-sm font-bold uppercase tracking-caps text-ink">{teamShort(r.team)}</span>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <TeamBadge team={r.team} info={r.team_info} size="lg" />
+                    <span className="truncate font-sans text-sm font-bold uppercase tracking-caps text-ink" title={r.team}>{r.team}</span>
                     {current && (
                       <span className="hidden sm:inline font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
                         {current.points} pts · {current.played} played

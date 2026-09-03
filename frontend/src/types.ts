@@ -56,6 +56,7 @@ export interface PredictionFeatures {
 
 export interface StandingsRow {
   team: string;
+  team_info?: Team;
   played: number;
   wins: number;
   draws: number;
@@ -68,6 +69,7 @@ export interface StandingsRow {
 
 export interface ProjectedRow {
   team: string;
+  team_info?: Team;
   median_position: number;
   points_p10: number;
   points_p50: number;

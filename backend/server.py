@@ -422,11 +422,26 @@ async def get_available_dates():
 def get_season_forecast():
     cached = insights._today_forecast()
     if cached is not None:
-        return cached
+        return _forecast_with_team_info(cached)
     forecast = insights.generate_forecast()
     if forecast is None:
         raise HTTPException(status_code=503, detail="Forecast unavailable")
+    forecast = _forecast_with_team_info(forecast)
     insights.write_forecast_file(forecast)
+    return forecast
+
+
+def _forecast_with_team_info(forecast):
+    """Attach badge/name info to every standings + projected row.
+
+    Covers fresh payloads and cached files predating this field, so the
+    forecast page can print real crests instead of initials.
+    """
+    for key in ("standings", "projected"):
+        for row in forecast.get(key, []) or []:
+            team = row.get("team")
+            if team:
+                row["team_info"] = {**get_team_info(team), "name": team}
     return forecast
 
 
