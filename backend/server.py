@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 import os
@@ -258,11 +258,21 @@ async def get_results(date: Optional[str] = None):
             date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
         result_path = utils_data.get_result_file_path(date)
-        raw_results = utils_data.load_json(result_path) or []
+        raw_results = []
+        if DB_AVAILABLE:
+            try:
+                raw_results = db.load_results(date) or []
+            except Exception:
+                raw_results = []
+        if not raw_results:
+            raw_results = utils_data.load_json(result_path) or []
 
         predictions = []
         if DB_AVAILABLE:
-            predictions = db.load_predictions(date)
+            try:
+                predictions = db.load_predictions(date) or []
+            except Exception:
+                predictions = []
         if not predictions:
             pred_path = utils_data.get_prediction_file_path(date)
             predictions = utils_data.load_json(pred_path) or []
@@ -361,6 +371,11 @@ async def get_result_dates():
                 if filename.endswith('.json'):
                     date_str = filename.replace('.json', '')
                     dates.append(date_str)
+        if DB_AVAILABLE:
+            try:
+                dates = sorted(set(dates) | set(db.load_result_dates() or []))
+            except Exception:
+                pass
         dates.sort(reverse=True)
         return {"dates": dates}
     except Exception as e:
@@ -420,6 +435,14 @@ async def get_available_dates():
 
 @app.get("/api/season/forecast")
 def get_season_forecast():
+    if DB_AVAILABLE:
+        try:
+            today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+            db_forecast = db.load_forecast(today) or db.load_latest_forecast()
+        except Exception:
+            db_forecast = None
+        if db_forecast is not None:
+            return db_forecast
     cached = insights._today_forecast()
     if cached is not None:
         return _forecast_with_team_info(cached)
@@ -447,6 +470,12 @@ def _forecast_with_team_info(forecast):
 
 @app.get("/api/calibration")
 async def get_calibration():
+    if DB_AVAILABLE:
+        try:
+            results_by_date = {d: (db.load_results(d) or []) for d in (db.load_result_dates() or [])}
+            return insights.compute_calibration_from_records(db.load_all_predictions(), results_by_date)
+        except Exception:
+            pass
     return insights.compute_calibration()
 
 
@@ -474,6 +503,38 @@ async def get_head_to_head(team_name: str, vs: Optional[str] = None):
         "team_a_info": get_team_info(h2h["team_a"]),
         "team_b_info": get_team_info(h2h["team_b"]),
     }
+
+
+def _require_cron_secret(request: Request):
+    expected = os.environ.get("CRON_SECRET")
+    if not expected or request.headers.get("authorization") != f"Bearer {expected}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+@app.api_route("/api/jobs/morning", methods=["GET", "POST"])
+def run_morning_job_endpoint(request: Request):
+    _require_cron_secret(request)
+    from backend import automation
+    try:
+        summary = automation.run_morning_job(use_db=DB_AVAILABLE)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Morning job failed: {e}")
+    return summary
+
+
+@app.api_route("/api/jobs/evening", methods=["GET", "POST"])
+def run_evening_job_endpoint(request: Request):
+    _require_cron_secret(request)
+    from backend import automation
+    try:
+        summary = automation.run_evening_job(use_db=DB_AVAILABLE)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evening job failed: {e}")
+    return summary
 
 
 if __name__ == "__main__":

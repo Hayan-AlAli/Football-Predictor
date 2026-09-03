@@ -43,3 +43,8 @@ public/
 
 # Git worktrees (isolated implementation workspaces)
 .worktrees/
+
+# Runtime data (Postgres in prod, local files in dev)
+data/predictions/
+data/results/
+data/forecast/

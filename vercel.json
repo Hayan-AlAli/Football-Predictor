@@ -4,5 +4,9 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/jobs/morning", "schedule": "0 6 * * *" },
+    { "path": "/api/jobs/evening", "schedule": "30 22 * * *" }
   ]
 }

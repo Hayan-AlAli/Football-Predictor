@@ -143,13 +143,15 @@ from backend import predictor
 
 
 def test_generate_forecast_handles_nan_elo(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    future = (datetime.now(timezone.utc) + timedelta(days=30)).date()
     train = pd.DataFrame([
         {"date": pd.Timestamp("2025-08-16"), "home_team": "Arsenal", "away_team": "Chelsea",
          "home_goals": 2, "away_goals": 1},
     ])
     monkeypatch.setattr(predictor, "training_df", train)
     fixtures = pd.DataFrame([
-        {"date": pd.Timestamp("2026-08-20"), "home_team": "Arsenal", "away_team": "Chelsea",
+        {"date": pd.Timestamp(future), "home_team": "Arsenal", "away_team": "Chelsea",
          "home_elo": float("nan"), "away_elo": float("nan")},
     ])
     monkeypatch.setattr(data_manager, "fetch_upcoming_matches", lambda: fixtures)
@@ -207,6 +209,27 @@ def test_calibration_empty(tmp_path):
     res = compute_calibration(pred_dir, res_dir)
     assert res["entries"] == 0 and res["brier"] is None and res["accuracy"] is None
     assert res["bins"] == [] and res["rolling"] == []
+
+
+def test_calibration_from_records_pairs_db_rows():
+    from backend.insights import compute_calibration_from_records
+    predictions = [
+        {"date": "2026-01-03", "home_team": "Arsenal", "away_team": "Chelsea",
+         "prediction": {"prob_home": 0.8, "prob_draw": 0.1, "prob_away": 0.1, "winner": "Arsenal"}},
+    ]
+    results_by_date = {
+        "2026-01-03": [{"home_team": "Wolves", "away_team": "Chelsea",
+                        "home_goals": 0, "away_goals": 2}],
+    }
+    # Wolves != Arsenal: no pair -> zero entries, but must not crash
+    res = compute_calibration_from_records(predictions, results_by_date)
+    assert res["entries"] == 0
+    results_by_date["2026-01-03"][0]["home_team"] = "Arsenal"
+    res = compute_calibration_from_records(predictions, results_by_date)
+    # NOTE (Task 4): brief asserted accuracy == 1.0 here, but with the
+    # verbatim data (0-2 away win) vs predicted home winner "Arsenal" the
+    # preserved winner-comparison semantics yield INCORRECT -> 0.0.
+    assert res["entries"] == 1 and res["accuracy"] == 0.0
 from backend.insights import head_to_head, team_profile
 
 H2H_DF = pd.DataFrame([
