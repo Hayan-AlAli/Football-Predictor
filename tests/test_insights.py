@@ -143,13 +143,15 @@ from backend import predictor
 
 
 def test_generate_forecast_handles_nan_elo(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    future = (datetime.now(timezone.utc) + timedelta(days=30)).date()
     train = pd.DataFrame([
         {"date": pd.Timestamp("2025-08-16"), "home_team": "Arsenal", "away_team": "Chelsea",
          "home_goals": 2, "away_goals": 1},
     ])
     monkeypatch.setattr(predictor, "training_df", train)
     fixtures = pd.DataFrame([
-        {"date": pd.Timestamp("2026-08-20"), "home_team": "Arsenal", "away_team": "Chelsea",
+        {"date": pd.Timestamp(future), "home_team": "Arsenal", "away_team": "Chelsea",
          "home_elo": float("nan"), "away_elo": float("nan")},
     ])
     monkeypatch.setattr(data_manager, "fetch_upcoming_matches", lambda: fixtures)
