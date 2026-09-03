@@ -30,7 +30,7 @@ function useAllVerdicts(dates: string[]) {
     return () => {
       cancelled = true;
     };
-  }, [datesKey, dates]);
+  }, [datesKey]);
   return { entries: state.key === datesKey ? state.entries : [], loading: state.key !== datesKey };
 }
 
@@ -70,20 +70,26 @@ export default function RecordsPage() {
   }, [matches]);
 
   const candidateDates = useMemo(() => {
-    return resultDates.slice(0, 5);
+    return resultDates;
   }, [resultDates]);
 
   const { entries, loading } = useAllVerdicts(candidateDates);
 
   const grouped = useMemo(() => {
-    const map = new Map<number, ResultEntry[]>();
+    const map = new Map<string, { gw: number | null; date: string; list: ResultEntry[] }>();
     for (const e of entries) {
-      const gw = dateToGw.get(e.match.date) ?? 0;
-      const list = map.get(gw) ?? [];
-      list.push(e);
-      map.set(gw, list);
+      const date = e.match.date;
+      const gw = dateToGw.get(date) ?? null;
+      const key = gw != null ? `gw-${gw}` : `date-${date}`;
+      const group = map.get(key) ?? { gw, date, list: [] };
+      group.list.push(e);
+      // Keep the earliest date as the group's representative date.
+      if (date < group.date) group.date = date;
+      map.set(key, group);
     }
-    return [...map.entries()].sort((a, b) => a[0] - b[0]).reverse();
+    return [...map.values()].sort((a, b) =>
+      a.gw != null && b.gw != null ? b.gw - a.gw : b.date.localeCompare(a.date)
+    );
   }, [entries, dateToGw]);
 
   const correct = entries.filter((e) => e.status === 'CORRECT').length;
@@ -139,13 +145,17 @@ export default function RecordsPage() {
               </div>
 
               {/* The verdict ledger */}
-              {grouped.map(([gw, group]) => (
-                <section key={gw} className="mt-4" style={{ contentVisibility: 'auto' }}>
+              {grouped.map((group) => (
+                <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} className="mt-4" style={{ contentVisibility: 'auto' }}>
                   <h2 className="rule-double pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
-                    <span className="font-mono text-rubric">Matchweek {gw}</span>
+                    {group.gw != null ? (
+                      <span className="font-mono text-rubric">Matchweek {group.gw}</span>
+                    ) : (
+                      <span className="font-mono text-rubric">{group.date}</span>
+                    )}
                   </h2>
                   <motion.div variants={staggerV} initial="hidden" animate="show">
-                    {group.map((entry) => {
+                    {group.list.map((entry) => {
                       const m = entry.match;
                       const home = m.home_team_info ?? m.home_team;
                       const away = m.away_team_info ?? m.away_team;

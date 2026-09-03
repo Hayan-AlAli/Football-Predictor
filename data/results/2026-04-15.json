@@ -1,0 +1,32 @@
+[
+  {
+    "home_team": "Brighton",
+    "away_team": "Ipswich Town",
+    "home_goals": 2,
+    "away_goals": 1
+  },
+  {
+    "home_team": "Everton",
+    "away_team": "Fulham",
+    "home_goals": 1,
+    "away_goals": 2
+  },
+  {
+    "home_team": "Wolves",
+    "away_team": "Chelsea",
+    "home_goals": 2,
+    "away_goals": 1
+  },
+  {
+    "home_team": "Crystal Palace",
+    "away_team": "Arsenal",
+    "home_goals": 1,
+    "away_goals": 2
+  },
+  {
+    "home_team": "Newcastle",
+    "away_team": "Everton",
+    "home_goals": 2,
+    "away_goals": 1
+  }
+]

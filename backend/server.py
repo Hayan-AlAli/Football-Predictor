@@ -269,7 +269,8 @@ async def get_results(date: Optional[str] = None):
 
         results_map = {}
         for res in raw_results:
-            key = (res['home_team'], res['away_team'])
+            key = (utils.normalize_team_name(res['home_team']),
+                   utils.normalize_team_name(res['away_team']))
             results_map[key] = {
                 'home_goals': res['home_goals'],
                 'away_goals': res['away_goals'],
@@ -277,7 +278,8 @@ async def get_results(date: Optional[str] = None):
             }
 
         def find_result(pred_home, pred_away):
-            key = (pred_home, pred_away)
+            key = (utils.normalize_team_name(pred_home),
+                   utils.normalize_team_name(pred_away))
             if key in results_map:
                 return results_map[key]
             for (r_home, r_away), val in results_map.items():
@@ -298,7 +300,10 @@ async def get_results(date: Optional[str] = None):
             actual = find_result(pred['home_team'], pred['away_team'])
             if actual is not None:
                 result_entry['actual'] = actual
-                matched_result_keys.add((pred['home_team'], pred['away_team']))
+                matched_result_keys.add((
+                    utils.normalize_team_name(pred['home_team']),
+                    utils.normalize_team_name(pred['away_team']),
+                ))
 
                 hg = actual['home_goals']
                 ag = actual['away_goals']
@@ -320,7 +325,8 @@ async def get_results(date: Optional[str] = None):
             comparison_results.append(result_entry)
 
         for res in raw_results:
-            key = (res['home_team'], res['away_team'])
+            key = (utils.normalize_team_name(res['home_team']),
+                   utils.normalize_team_name(res['away_team']))
             if key not in matched_result_keys:
                 comparison_results.append({
                     'match': {

@@ -1,0 +1,230 @@
+{
+  "generated": "2026-08-24",
+  "season_year": 2025,
+  "n_sims": 10000,
+  "season_complete": true,
+  "standings": [
+    {
+      "team": "Arsenal",
+      "played": 25,
+      "wins": 17,
+      "draws": 5,
+      "losses": 3,
+      "gf": 49,
+      "ga": 17,
+      "gd": 32,
+      "points": 56
+    },
+    {
+      "team": "Manchester City",
+      "played": 25,
+      "wins": 15,
+      "draws": 5,
+      "losses": 5,
+      "gf": 51,
+      "ga": 24,
+      "gd": 27,
+      "points": 50
+    },
+    {
+      "team": "Aston Villa",
+      "played": 25,
+      "wins": 14,
+      "draws": 5,
+      "losses": 6,
+      "gf": 36,
+      "ga": 27,
+      "gd": 9,
+      "points": 47
+    },
+    {
+      "team": "Manchester United",
+      "played": 25,
+      "wins": 12,
+      "draws": 8,
+      "losses": 5,
+      "gf": 46,
+      "ga": 36,
+      "gd": 10,
+      "points": 44
+    },
+    {
+      "team": "Chelsea",
+      "played": 25,
+      "wins": 12,
+      "draws": 7,
+      "losses": 6,
+      "gf": 45,
+      "ga": 28,
+      "gd": 17,
+      "points": 43
+    },
+    {
+      "team": "Brentford",
+      "played": 25,
+      "wins": 12,
+      "draws": 3,
+      "losses": 10,
+      "gf": 39,
+      "ga": 34,
+      "gd": 5,
+      "points": 39
+    },
+    {
+      "team": "Liverpool",
+      "played": 25,
+      "wins": 11,
+      "draws": 6,
+      "losses": 8,
+      "gf": 40,
+      "ga": 35,
+      "gd": 5,
+      "points": 39
+    },
+    {
+      "team": "Everton",
+      "played": 25,
+      "wins": 10,
+      "draws": 7,
+      "losses": 8,
+      "gf": 28,
+      "ga": 28,
+      "gd": 0,
+      "points": 37
+    },
+    {
+      "team": "Sunderland",
+      "played": 25,
+      "wins": 9,
+      "draws": 9,
+      "losses": 7,
+      "gf": 27,
+      "ga": 29,
+      "gd": -2,
+      "points": 36
+    },
+    {
+      "team": "Fulham",
+      "played": 25,
+      "wins": 10,
+      "draws": 4,
+      "losses": 11,
+      "gf": 35,
+      "ga": 37,
+      "gd": -2,
+      "points": 34
+    },
+    {
+      "team": "Bournemouth",
+      "played": 25,
+      "wins": 8,
+      "draws": 10,
+      "losses": 7,
+      "gf": 41,
+      "ga": 44,
+      "gd": -3,
+      "points": 34
+    },
+    {
+      "team": "Newcastle",
+      "played": 25,
+      "wins": 9,
+      "draws": 6,
+      "losses": 10,
+      "gf": 35,
+      "ga": 36,
+      "gd": -1,
+      "points": 33
+    },
+    {
+      "team": "Crystal Palace",
+      "played": 25,
+      "wins": 8,
+      "draws": 8,
+      "losses": 9,
+      "gf": 26,
+      "ga": 29,
+      "gd": -3,
+      "points": 32
+    },
+    {
+      "team": "Brighton",
+      "played": 25,
+      "wins": 7,
+      "draws": 10,
+      "losses": 8,
+      "gf": 34,
+      "ga": 33,
+      "gd": 1,
+      "points": 31
+    },
+    {
+      "team": "Tottenham",
+      "played": 25,
+      "wins": 7,
+      "draws": 8,
+      "losses": 10,
+      "gf": 35,
+      "ga": 35,
+      "gd": 0,
+      "points": 29
+    },
+    {
+      "team": "Leeds",
+      "played": 25,
+      "wins": 7,
+      "draws": 8,
+      "losses": 10,
+      "gf": 34,
+      "ga": 43,
+      "gd": -9,
+      "points": 29
+    },
+    {
+      "team": "Nottingham Forest",
+      "played": 25,
+      "wins": 7,
+      "draws": 5,
+      "losses": 13,
+      "gf": 25,
+      "ga": 38,
+      "gd": -13,
+      "points": 26
+    },
+    {
+      "team": "West Ham",
+      "played": 25,
+      "wins": 6,
+      "draws": 5,
+      "losses": 14,
+      "gf": 31,
+      "ga": 48,
+      "gd": -17,
+      "points": 23
+    },
+    {
+      "team": "Burnley",
+      "played": 25,
+      "wins": 3,
+      "draws": 6,
+      "losses": 16,
+      "gf": 25,
+      "ga": 49,
+      "gd": -24,
+      "points": 15
+    },
+    {
+      "team": "Wolverhampton",
+      "played": 25,
+      "wins": 1,
+      "draws": 5,
+      "losses": 19,
+      "gf": 16,
+      "ga": 48,
+      "gd": -32,
+      "points": 8
+    }
+  ],
+  "projected": [],
+  "fixtures_remaining": 0
+}

@@ -3,19 +3,58 @@ import pandas as pd
 import os
 import random
 import re
+import time
 from backend import utils
 import math
 import concurrent.futures
 
 _ELO_TIMEOUT = 15
+_ELO_CACHE_TTL = 24 * 3600  # re-hit the live API at most once a day per process
+_ELO_CACHE_PATH = os.path.join(os.path.dirname(__file__), '..', 'elo_state.pkl')
 
-MODEL_PATH_HOME = os.path.join(os.path.dirname(__file__), '..', 'model_home.pkl')
-MODEL_PATH_AWAY = os.path.join(os.path.dirname(__file__), '..', 'model_away.pkl')
-ENCODER_PATH = os.path.join(os.path.dirname(__file__), '..', 'team_encoder.pkl')
-TRAINING_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'training_data.pkl')
+_live_elo_cache = None
+_live_elo_cache_ts = 0.0
+_live_elo_failed_ts = 0.0
+_LIVE_ELO_RETRY_AFTER = 3600  # don't hammer a dead API: retry at most hourly
+
+
+def _load_elo_disk_cache():
+    try:
+        if not os.path.exists(_ELO_CACHE_PATH):
+            return None
+        if time.time() - os.path.getmtime(_ELO_CACHE_PATH) > _ELO_CACHE_TTL:
+            return None
+        cached = joblib.load(_ELO_CACHE_PATH)
+        if isinstance(cached, dict) and cached:
+            return cached
+    except Exception:
+        pass
+    return None
+
+
+def _save_elo_disk_cache(lookup):
+    try:
+        joblib.dump(lookup, _ELO_CACHE_PATH)
+    except Exception:
+        pass
 
 
 def _fetch_live_elo():
+    """Live ClubElo ratings, memoized in-process and cached on disk (24h).
+
+    Returns None when the API is unreachable so callers can fall back
+    to training-data Elo instead of hammering a dead endpoint.
+    """
+    global _live_elo_cache, _live_elo_cache_ts, _live_elo_failed_ts
+    now = time.time()
+    if _live_elo_cache is not None and now - _live_elo_cache_ts < _ELO_CACHE_TTL:
+        return _live_elo_cache
+    if now - _live_elo_failed_ts < _LIVE_ELO_RETRY_AFTER:
+        return None
+    disk = _load_elo_disk_cache()
+    if disk is not None:
+        _live_elo_cache, _live_elo_cache_ts = disk, now
+        return disk
     try:
         import soccerdata
         import datetime
@@ -27,10 +66,55 @@ def _fetch_live_elo():
             lookup = {}
             for team, row in ratings.iterrows():
                 lookup[utils.normalize_team_name(str(team))] = row['elo']
+            _live_elo_cache, _live_elo_cache_ts = lookup, now
+            _save_elo_disk_cache(lookup)
             return lookup
     except Exception:
         pass
+    _live_elo_failed_ts = time.time()
     return None
+
+
+def training_elo_lookup():
+    """Latest known Elo per team from the bundled training data.
+
+    Offline fallback for when the live ClubElo API is unreachable.
+    Exact-1500.0 readings are skipped: they are fallback artifacts
+    written when Elo was unavailable, not genuine ratings.
+    """
+    if training_df is None or training_df.empty:
+        return {}
+    try:
+        df = training_df.copy()
+        df['date'] = pd.to_datetime(df['date'])
+        lookup = {}
+        ordered = df.sort_values('date')
+        for _, row in ordered.iterrows():
+            for team_col, elo_col in (('home_team', 'home_elo'), ('away_team', 'away_elo')):
+                try:
+                    elo = float(row[elo_col])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if pd.isna(elo) or elo == 1500.0:
+                    continue
+                lookup[utils.normalize_team_name(str(row[team_col]))] = elo
+        return lookup
+    except Exception:
+        return {}
+
+
+def resolve_elo(team_name, live_lookup=None):
+    """Best-effort Elo for a team: live ratings → training data → 1500."""
+    if live_lookup:
+        elo = _resolve_elo(live_lookup, team_name)
+        if elo != 1500:
+            return elo
+    return _resolve_elo(training_elo_lookup(), team_name)
+
+MODEL_PATH_HOME = os.path.join(os.path.dirname(__file__), '..', 'model_home.pkl')
+MODEL_PATH_AWAY = os.path.join(os.path.dirname(__file__), '..', 'model_away.pkl')
+ENCODER_PATH = os.path.join(os.path.dirname(__file__), '..', 'team_encoder.pkl')
+TRAINING_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'training_data.pkl')
 
 
 def _tokens(name):
@@ -193,15 +277,14 @@ def predict_match(match_data):
             home_elo = match_data.get('home_elo')
             away_elo = match_data.get('away_elo')
             if home_elo is None or away_elo is None:
-                live_elo = _fetch_live_elo()
+                live_elo = _fetch_live_elo() or training_elo_lookup()
                 if live_elo:
                     if home_elo is None:
                         home_elo = _resolve_elo(live_elo, home_team_norm)
                     if away_elo is None:
                         away_elo = _resolve_elo(live_elo, away_team_norm)
-                else:
-                    home_elo = home_elo or 1500
-                    away_elo = away_elo or 1500
+                home_elo = home_elo or 1500
+                away_elo = away_elo or 1500
 
             h_g, h_xg = get_latest_stats(home_team_norm, training_df)
             a_g, a_xg = get_latest_stats(away_team_norm, training_df)

@@ -243,9 +243,13 @@ def _called_probability(pred, home_team, away_team):
     return float(max(probs))
 
 
+def _norm_pair(home_team, away_team):
+    return (utils.normalize_team_name(home_team), utils.normalize_team_name(away_team))
+
+
 def compute_calibration(predictions_dir=None, results_dir=None):
     res_dir = results_dir or utils_data.RESULTS_DIR
-    pred_dir = utils_data.PREDICTIONS_DIR
+    pred_dir = predictions_dir or utils_data.PREDICTIONS_DIR
 
     entries = []
     if os.path.isdir(res_dir):
@@ -263,14 +267,33 @@ def compute_calibration(predictions_dir=None, results_dir=None):
 
             results_map = {}
             for res in raw_results:
-                key = (res['home_team'], res['away_team'])
-                results_map[key] = {
+                # Accept both the raw results format
+                # {"home_team", "away_team", "home_goals", "away_goals"}
+                # and the wrapped verdict format
+                # {"match": {...}, "actual": {"home_goals", "away_goals"}, ...}.
+                if "actual" in res and isinstance(res.get("actual"), dict):
+                    match = res.get("match") or {}
+                    actual = res["actual"]
+                    try:
+                        key = (match["home_team"], match["away_team"])
+                    except KeyError:
+                        continue
+                    results_map[_norm_pair(*key)] = {
+                        'home_goals': actual['home_goals'],
+                        'away_goals': actual['away_goals'],
+                    }
+                    continue
+                try:
+                    key = (res['home_team'], res['away_team'])
+                except KeyError:
+                    continue
+                results_map[_norm_pair(*key)] = {
                     'home_goals': res['home_goals'],
                     'away_goals': res['away_goals'],
                 }
 
             def find_result(pred_home, pred_away):
-                key = (pred_home, pred_away)
+                key = _norm_pair(pred_home, pred_away)
                 if key in results_map:
                     return results_map[key]
                 for (r_home, r_away), val in results_map.items():

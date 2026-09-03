@@ -167,15 +167,19 @@ def _scrape_upcoming_matches():
 
         today = datetime.date.today()
         today_str = today.strftime('%Y-%m-%d')
-        elo_scraper = soccerdata.ClubElo()
-        logger.info(f"Fetching current ELO for {today_str}...")
-        todays_elo = _run_with_timeout(lambda: elo_scraper.read_by_date(today_str))
-
         elo_lookup = {}
-        if not todays_elo.empty:
-            for team, row in todays_elo.iterrows():
-                norm = utils.normalize_team_name(str(team))
-                elo_lookup[norm] = row['elo']
+        try:
+            elo_scraper = soccerdata.ClubElo()
+            logger.info(f"Fetching current ELO for {today_str}...")
+            todays_elo = _run_with_timeout(lambda: elo_scraper.read_by_date(today_str))
+            if todays_elo is not None and not todays_elo.empty:
+                for team, row in todays_elo.iterrows():
+                    norm = utils.normalize_team_name(str(team))
+                    elo_lookup[norm] = row['elo']
+        except Exception as e:
+            logger.warning(f"Live ELO unavailable ({e}); using training-data ELO.")
+        if not elo_lookup:
+            elo_lookup = predictor.training_elo_lookup()
 
         h_elos = []
         a_elos = []

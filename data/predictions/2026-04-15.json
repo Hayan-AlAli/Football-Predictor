@@ -1,1 +1,147 @@
-[]
+[
+    {
+        "id": "2026-04-15_brighton_ipswichtown",
+        "date": "2026-04-15",
+        "time": "15:00",
+        "home_team": "Brighton",
+        "away_team": "Ipswich Town",
+        "prediction": {
+            "winner": "Draw",
+            "score": "1-1",
+            "home_goals": 1.33,
+            "away_goals": 1.3,
+            "home_elo": 1500,
+            "away_elo": 1500,
+            "prob_home": 0.37593352603496816,
+            "prob_draw": 0.2621190379464325,
+            "prob_away": 0.3619474360185994,
+            "features": {
+                "home_elo": 1500,
+                "away_elo": 1500,
+                "elo_gap": 0,
+                "home_rolling_goals": 0.8,
+                "away_rolling_goals": 1.441,
+                "home_rolling_xg": 1.288,
+                "away_rolling_xg": 1.505,
+                "league_avg_goals": 1.428,
+                "league_avg_xg": 1.475
+            }
+        }
+    },
+    {
+        "id": "2026-04-15_everton_fulham",
+        "date": "2026-04-15",
+        "time": "15:00",
+        "home_team": "Everton",
+        "away_team": "Fulham",
+        "prediction": {
+            "winner": "Fulham",
+            "score": "0-1",
+            "home_goals": 0.99,
+            "away_goals": 1.87,
+            "home_elo": 1500,
+            "away_elo": 1500,
+            "prob_home": 0.1964794243089218,
+            "prob_draw": 0.22371347639245667,
+            "prob_away": 0.5798070992986216,
+            "features": {
+                "home_elo": 1500,
+                "away_elo": 1500,
+                "elo_gap": 0,
+                "home_rolling_goals": 1.2,
+                "away_rolling_goals": 1.4,
+                "home_rolling_xg": 1.288,
+                "away_rolling_xg": 1.275,
+                "league_avg_goals": 1.428,
+                "league_avg_xg": 1.475
+            }
+        }
+    },
+    {
+        "id": "2026-04-15_wolverhampton_chelsea",
+        "date": "2026-04-15",
+        "time": "15:00",
+        "home_team": "Wolverhampton",
+        "away_team": "Chelsea",
+        "prediction": {
+            "winner": "Wolverhampton",
+            "score": "2-1",
+            "home_goals": 2.06,
+            "away_goals": 1.84,
+            "home_elo": 1500,
+            "away_elo": 1500,
+            "prob_home": 0.43847566773746777,
+            "prob_draw": 0.20877338179612123,
+            "prob_away": 0.35275095046641086,
+            "features": {
+                "home_elo": 1500,
+                "away_elo": 1500,
+                "elo_gap": 0,
+                "home_rolling_goals": 1.428,
+                "away_rolling_goals": 2.4,
+                "home_rolling_xg": 1.475,
+                "away_rolling_xg": 2.717,
+                "league_avg_goals": 1.428,
+                "league_avg_xg": 1.475
+            }
+        }
+    },
+    {
+        "id": "2026-04-15_crystalpalace_arsenal",
+        "date": "2026-04-15",
+        "time": "15:00",
+        "home_team": "Crystal Palace",
+        "away_team": "Arsenal",
+        "prediction": {
+            "winner": "Draw",
+            "score": "1-1",
+            "home_goals": 1.54,
+            "away_goals": 1.27,
+            "home_elo": 1500,
+            "away_elo": 1500,
+            "prob_home": 0.43610355009781826,
+            "prob_draw": 0.24969454846618527,
+            "prob_away": 0.31420190143599647,
+            "features": {
+                "home_elo": 1500,
+                "away_elo": 1500,
+                "elo_gap": 0,
+                "home_rolling_goals": 0.8,
+                "away_rolling_goals": 1.8,
+                "home_rolling_xg": 1.494,
+                "away_rolling_xg": 1.945,
+                "league_avg_goals": 1.428,
+                "league_avg_xg": 1.475
+            }
+        }
+    },
+    {
+        "id": "2026-04-15_newcastle_everton",
+        "date": "2026-04-15",
+        "time": "15:00",
+        "home_team": "Newcastle",
+        "away_team": "Everton",
+        "prediction": {
+            "winner": "Newcastle",
+            "score": "2-1",
+            "home_goals": 2.16,
+            "away_goals": 1.66,
+            "home_elo": 1500,
+            "away_elo": 1500,
+            "prob_home": 0.4944943162282569,
+            "prob_draw": 0.20640529111192982,
+            "prob_away": 0.2991003926598133,
+            "features": {
+                "home_elo": 1500,
+                "away_elo": 1500,
+                "elo_gap": 0,
+                "home_rolling_goals": 1.428,
+                "away_rolling_goals": 1.2,
+                "home_rolling_xg": 1.475,
+                "away_rolling_xg": 1.288,
+                "league_avg_goals": 1.428,
+                "league_avg_xg": 1.475
+            }
+        }
+    }
+]

@@ -20,7 +20,7 @@ def regenerate():
     print(f"Found {len(dates)} dates with predictions")
 
     print("Fetching live club Elo...")
-    live_elo = predictor._fetch_live_elo() or {}
+    live_elo = predictor._fetch_live_elo() or predictor.training_elo_lookup()
 
     total = 0
     for date_str in dates:
