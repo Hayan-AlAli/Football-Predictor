@@ -149,3 +149,19 @@ def test_h2h_self_pair_empty_record(monkeypatch):
     body = r.json()
     assert body["summary"]["meetings"] == 0
     assert body["meetings"] == []
+
+
+def test_jobs_require_secret():
+    r = _client().post("/api/jobs/morning")
+    assert r.status_code == 401
+
+
+def test_morning_job_ok(monkeypatch):
+    import os
+    from backend import automation
+    monkeypatch.setenv("CRON_SECRET", "test-secret")
+    monkeypatch.setattr(automation, "run_morning_job",
+                        lambda use_db: {"date": "2026-01-03", "predictions": 5, "forecast": True})
+    r = _client().post("/api/jobs/morning", headers={"Authorization": "Bearer test-secret"})
+    assert r.status_code == 200
+    assert r.json()["predictions"] == 5

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 import os
@@ -459,6 +459,38 @@ async def get_head_to_head(team_name: str, vs: Optional[str] = None):
         "team_a_info": get_team_info(h2h["team_a"]),
         "team_b_info": get_team_info(h2h["team_b"]),
     }
+
+
+def _require_cron_secret(request: Request):
+    expected = os.environ.get("CRON_SECRET")
+    if not expected or request.headers.get("authorization") != f"Bearer {expected}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+@app.post("/api/jobs/morning")
+def run_morning_job_endpoint(request: Request):
+    _require_cron_secret(request)
+    from backend import automation
+    try:
+        summary = automation.run_morning_job(use_db=DB_AVAILABLE)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Morning job failed: {e}")
+    return summary
+
+
+@app.post("/api/jobs/evening")
+def run_evening_job_endpoint(request: Request):
+    _require_cron_secret(request)
+    from backend import automation
+    try:
+        summary = automation.run_evening_job(use_db=DB_AVAILABLE)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evening job failed: {e}")
+    return summary
 
 
 if __name__ == "__main__":
