@@ -397,6 +397,8 @@ def compute_calibration(predictions_dir=None, results_dir=None):
                 all_preds.append(p)
 
     return compute_calibration_from_records(all_preds, by_date)
+
+
 def _norm_df(df):
     out = df.copy()
     out["date"] = pd.to_datetime(out["date"])

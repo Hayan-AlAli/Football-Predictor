@@ -260,13 +260,19 @@ async def get_results(date: Optional[str] = None):
         result_path = utils_data.get_result_file_path(date)
         raw_results = []
         if DB_AVAILABLE:
-            raw_results = db.load_results(date) or []
+            try:
+                raw_results = db.load_results(date) or []
+            except Exception:
+                raw_results = []
         if not raw_results:
             raw_results = utils_data.load_json(result_path) or []
 
         predictions = []
         if DB_AVAILABLE:
-            predictions = db.load_predictions(date)
+            try:
+                predictions = db.load_predictions(date) or []
+            except Exception:
+                predictions = []
         if not predictions:
             pred_path = utils_data.get_prediction_file_path(date)
             predictions = utils_data.load_json(pred_path) or []
@@ -366,7 +372,10 @@ async def get_result_dates():
                     date_str = filename.replace('.json', '')
                     dates.append(date_str)
         if DB_AVAILABLE:
-            dates = sorted(set(dates) | set(db.load_result_dates() or []))
+            try:
+                dates = sorted(set(dates) | set(db.load_result_dates() or []))
+            except Exception:
+                pass
         dates.sort(reverse=True)
         return {"dates": dates}
     except Exception as e:
@@ -427,8 +436,11 @@ async def get_available_dates():
 @app.get("/api/season/forecast")
 def get_season_forecast():
     if DB_AVAILABLE:
-        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-        db_forecast = db.load_forecast(today) or db.load_latest_forecast()
+        try:
+            today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+            db_forecast = db.load_forecast(today) or db.load_latest_forecast()
+        except Exception:
+            db_forecast = None
         if db_forecast is not None:
             return db_forecast
     cached = insights._today_forecast()
@@ -444,8 +456,11 @@ def get_season_forecast():
 @app.get("/api/calibration")
 async def get_calibration():
     if DB_AVAILABLE:
-        results_by_date = {d: db.load_results(d) for d in db.load_result_dates()}
-        return insights.compute_calibration_from_records(db.load_all_predictions(), results_by_date)
+        try:
+            results_by_date = {d: (db.load_results(d) or []) for d in (db.load_result_dates() or [])}
+            return insights.compute_calibration_from_records(db.load_all_predictions(), results_by_date)
+        except Exception:
+            pass
     return insights.compute_calibration()
 
 
@@ -481,7 +496,7 @@ def _require_cron_secret(request: Request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-@app.post("/api/jobs/morning")
+@app.api_route("/api/jobs/morning", methods=["GET", "POST"])
 def run_morning_job_endpoint(request: Request):
     _require_cron_secret(request)
     from backend import automation
@@ -494,7 +509,7 @@ def run_morning_job_endpoint(request: Request):
     return summary
 
 
-@app.post("/api/jobs/evening")
+@app.api_route("/api/jobs/evening", methods=["GET", "POST"])
 def run_evening_job_endpoint(request: Request):
     _require_cron_secret(request)
     from backend import automation

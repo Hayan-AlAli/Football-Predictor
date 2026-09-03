@@ -161,7 +161,6 @@ def test_jobs_require_secret():
 
 
 def test_morning_job_ok(monkeypatch):
-    import os
     from backend import automation
     monkeypatch.setenv("CRON_SECRET", "test-secret")
     monkeypatch.setattr(automation, "run_morning_job",
@@ -185,3 +184,36 @@ def test_season_forecast_serves_db_cache(monkeypatch):
     r = _client().get("/api/season/forecast")
     assert r.status_code == 200
     assert r.json()["generated"] == "2026-01-03"
+
+
+def test_jobs_accept_get_with_secret(monkeypatch):
+    from backend import automation
+    monkeypatch.setenv("CRON_SECRET", "test-secret")
+    monkeypatch.setattr(automation, "run_morning_job",
+                        lambda use_db: {"date": "2026-01-03", "predictions": 5, "forecast": True})
+    monkeypatch.setattr(automation, "run_evening_job",
+                        lambda use_db, lookback_days=3: {"saved": []})
+    headers = {"Authorization": "Bearer test-secret"}
+    assert _client().get("/api/jobs/morning", headers=headers).status_code == 200
+    assert _client().get("/api/jobs/evening", headers=headers).status_code == 200
+
+
+def test_jobs_get_without_secret_is_401():
+    assert _client().get("/api/jobs/morning").status_code == 401
+    assert _client().get("/api/jobs/evening").status_code == 401
+
+
+def test_season_forecast_serves_latest_when_today_missing(monkeypatch):
+    from backend import database as db
+    payload = {"generated": "2026-01-02", "season_year": 2026, "n_sims": 10,
+               "season_complete": False, "standings": [], "projected": [],
+               "fixtures_remaining": 0}
+    monkeypatch.setattr(db, "load_forecast", lambda d: None)
+    monkeypatch.setattr(db, "load_latest_forecast", lambda: payload)
+    monkeypatch.setattr(server, "DB_AVAILABLE", True)
+    monkeypatch.setattr(insights, "_today_forecast", lambda: None)
+    monkeypatch.setattr(insights, "generate_forecast",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not recompute")))
+    r = _client().get("/api/season/forecast")
+    assert r.status_code == 200
+    assert r.json()["generated"] == "2026-01-02"

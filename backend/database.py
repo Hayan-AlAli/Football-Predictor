@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
+from psycopg2.extras import Json
+
 load_dotenv()
 
 DATABASE_URL = os.environ.get("POSTGRES_URL") or None
@@ -267,7 +269,6 @@ def load_result_dates():
 
 
 def save_forecast(date_str, payload):
-    from psycopg2.extras import Json
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("""
