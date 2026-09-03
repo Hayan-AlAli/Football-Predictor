@@ -11,6 +11,7 @@ def _client():
 
 
 def test_season_forecast_ok(monkeypatch):
+    monkeypatch.setattr(server, "DB_AVAILABLE", False)
     payload = {
         "generated": "2026-08-15", "season_year": 2026, "n_sims": 10000,
         "season_complete": False, "standings": [], "projected": [],
@@ -25,6 +26,7 @@ def test_season_forecast_ok(monkeypatch):
 
 
 def test_season_forecast_unavailable(monkeypatch):
+    monkeypatch.setattr(server, "DB_AVAILABLE", False)
     monkeypatch.setattr(insights, "_today_forecast", lambda: None)
     monkeypatch.setattr(insights, "generate_forecast", lambda *a, **k: None)
     r = _client().get("/api/season/forecast")
@@ -32,6 +34,7 @@ def test_season_forecast_unavailable(monkeypatch):
 
 
 def test_season_forecast_serves_today_cache(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "DB_AVAILABLE", False)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     payload = {
         "generated": today, "season_year": 2026, "n_sims": 10000,
@@ -48,6 +51,7 @@ def test_season_forecast_serves_today_cache(monkeypatch, tmp_path):
 
 
 def test_season_forecast_writes_cache_on_miss(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "DB_AVAILABLE", False)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     payload = {
         "generated": today, "season_year": 2026, "n_sims": 10000,
@@ -165,3 +169,19 @@ def test_morning_job_ok(monkeypatch):
     r = _client().post("/api/jobs/morning", headers={"Authorization": "Bearer test-secret"})
     assert r.status_code == 200
     assert r.json()["predictions"] == 5
+
+
+def test_season_forecast_serves_db_cache(monkeypatch):
+    from backend import database as db
+    payload = {"generated": "2026-01-03", "season_year": 2026, "n_sims": 10,
+               "season_complete": False, "standings": [], "projected": [],
+               "fixtures_remaining": 0}
+    monkeypatch.setattr(db, "load_forecast", lambda d: payload)
+    monkeypatch.setattr(db, "load_latest_forecast", lambda: payload)
+    monkeypatch.setattr(server, "DB_AVAILABLE", True)
+    monkeypatch.setattr(insights, "_today_forecast", lambda: None)
+    monkeypatch.setattr(insights, "generate_forecast",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not recompute")))
+    r = _client().get("/api/season/forecast")
+    assert r.status_code == 200
+    assert r.json()["generated"] == "2026-01-03"

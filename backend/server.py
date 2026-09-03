@@ -426,6 +426,11 @@ async def get_available_dates():
 
 @app.get("/api/season/forecast")
 def get_season_forecast():
+    if DB_AVAILABLE:
+        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        db_forecast = db.load_forecast(today) or db.load_latest_forecast()
+        if db_forecast is not None:
+            return db_forecast
     cached = insights._today_forecast()
     if cached is not None:
         return cached
