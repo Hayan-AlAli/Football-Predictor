@@ -1,12 +1,12 @@
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from backend import utils_data
 from backend import data_manager
 from backend import insights
 
 
-def run_morning_job():
+def run_morning_job(use_db=False):
     print("Starting Morning Job (Prediction)...")
     utils_data.ensure_directories()
 
@@ -17,26 +17,66 @@ def run_morning_job():
 
     if upcoming_df.empty:
         print("No matches found from data manager.")
-        return
+        return {"date": current_date_str, "predictions": 0, "forecast": None}
 
     predictions = utils_data.generate_predictions_for_date(current_date_str, upcoming_df)
 
     if not predictions:
         print(f"No matches scheduled for today ({current_date_str}).")
-        return
+        return {"date": current_date_str, "predictions": 0, "forecast": None}
 
     print(f"Found {len(predictions)} matches for today.")
 
-    output_path = utils_data.get_prediction_file_path(current_date_str)
-    utils_data.save_json(predictions, output_path)
+    if use_db:
+        from backend import database as db
+        if not db.DATABASE_URL:
+            raise RuntimeError("POSTGRES_URL not set")
+        db.init_db()
+        db.save_predictions(predictions)
+    else:
+        output_path = utils_data.get_prediction_file_path(current_date_str)
+        utils_data.save_json(predictions, output_path)
 
-    forecast_path = insights.write_forecast_file()
-    if forecast_path:
-        print(f"Forecast cache written to {forecast_path}")
+    if use_db:
+        from backend import database as db
+        forecast = insights.generate_forecast()
+        if forecast:
+            db.save_forecast(current_date_str, forecast)
+            print(f"Forecast cached in DB for {current_date_str}")
+        summary_forecast = bool(forecast)
+    else:
+        forecast_path = insights.write_forecast_file()
+        if forecast_path:
+            print(f"Forecast cache written to {forecast_path}")
+        summary_forecast = forecast_path
     print("Morning job completed successfully.")
+    return {"date": current_date_str, "predictions": len(predictions), "forecast": summary_forecast}
 
 
-def run_evening_job():
+def run_evening_job(use_db=False, lookback_days=3):
+    if use_db:
+        from backend import database as db
+        if not db.DATABASE_URL:
+            raise RuntimeError("POSTGRES_URL not set")
+        db.init_db()
+        print("Starting Evening Job (Results)...")
+        today = datetime.now(timezone.utc).date()
+        saved = []
+        for i in range(lookback_days):
+            date_str = (today - timedelta(days=i)).strftime('%Y-%m-%d')
+            if db.load_results(date_str):
+                print(f"Results already recorded for {date_str}, skipping.")
+                continue
+            completed_matches = data_manager.fetch_latest_results(date_str)
+            if not completed_matches:
+                print(f"No completed matches found for {date_str}.")
+                continue
+            db.save_results([{"date": date_str, **r} for r in completed_matches])
+            print(f"Saved {len(completed_matches)} results for {date_str} to DB.")
+            saved.append((date_str, len(completed_matches)))
+        print("Evening job completed successfully.")
+        return {"saved": saved}
+
     print("Starting Evening Job (Results)...")
     utils_data.ensure_directories()
 
@@ -48,13 +88,13 @@ def run_evening_job():
 
     if not predictions:
         print(f"No predictions found for {current_date_str}. Nothing to compare.")
-        return
+        return {"saved": []}
 
     completed_matches = data_manager.fetch_latest_results(current_date_str)
 
     if not completed_matches:
         print("No completed matches found.")
-        return
+        return {"saved": []}
 
     results_map = {}
     for res in completed_matches:
@@ -112,11 +152,12 @@ def run_evening_job():
     matched_count = sum(1 for r in comparison_results if r['actual'] is not None)
     if matched_count == 0:
         print(f"No actual results matched predictions for {current_date_str}. Nothing to save.")
-        return
+        return {"saved": []}
 
     output_path = utils_data.get_result_file_path(current_date_str)
     utils_data.save_json(comparison_results, output_path)
     print(f"Evening job completed successfully. {matched_count}/{len(comparison_results)} predictions matched.")
+    return {"saved": [(current_date_str, matched_count)]}
 
 
 if __name__ == "__main__":
