@@ -176,16 +176,18 @@ export default function RecordsPage() {
               </p>
               <nav aria-label="Index of matchweeks" className="scroll-smooth-motion sticky top-[112px] z-10 -mx-4 border-y border-paper-line bg-paper px-4 py-2">
                 <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Index</span>
-                <span className="ml-3 inline-flex flex-wrap gap-x-3 gap-y-1">
+                <span className="ml-3 inline-flex max-w-full items-center gap-x-1 overflow-x-auto">
                   {grouped.map((group) => {
                     const id = group.gw != null ? `gw-${group.gw}` : `date-${group.date}`;
-                    const label = group.gw != null ? `${group.gw}` : group.date;
+                    const label = group.gw != null ? `MW ${group.gw}` : group.date;
+                    const active = activeId === id;
                     return (
                       <a
                         key={id}
                         href={`#${id}`}
                         data-index-link={id}
-                        className={`font-mono text-[0.625rem] uppercase tracking-widest hover:text-rubric ${activeId === id ? 'text-rubric' : 'text-ink-soft'}`}
+                        aria-current={active ? 'true' : undefined}
+                        className={`inline-flex min-h-[44px] items-center whitespace-nowrap px-2 font-mono text-[0.625rem] uppercase tracking-widest hover:text-rubric ${active ? 'text-rubric' : 'text-ink-soft'}`}
                       >
                         {label}
                       </a>
