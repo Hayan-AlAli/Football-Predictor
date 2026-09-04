@@ -11,8 +11,8 @@ import { scoreline } from '../lib/format';
 import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
 import type { ResultEntry } from '../types';
 
-function useAllVerdicts(dates: string[]) {
-  const [state, setState] = useState<{ key: string; entries: ResultEntry[] }>({ key: '', entries: [] });
+function useAllVerdicts(dates: string[], reloadKey: number) {
+  const [state, setState] = useState<{ key: string; entries: ResultEntry[]; failed: number }>({ key: '', entries: [], failed: 0 });
   const datesKey = dates.join(',');
   useEffect(() => {
     let cancelled = false;
@@ -25,13 +25,15 @@ function useAllVerdicts(dates: string[]) {
         entries: res
           .filter((r) => r.status === 'fulfilled')
           .flatMap((r) => r.value),
+        failed: res.filter((r) => r.status === 'rejected').length,
       });
     })();
     return () => {
       cancelled = true;
     };
-  }, [datesKey, dates]);
-  return { entries: state.key === datesKey ? state.entries : [], loading: state.key !== datesKey };
+  }, [datesKey, dates, reloadKey]);
+  const fresh = state.key === datesKey;
+  return { entries: fresh ? state.entries : [], failed: fresh ? state.failed : 0, loading: !fresh };
 }
 
 /** The Records — every verdict kept against the actual result, hits and misses alike. */
@@ -44,6 +46,13 @@ export default function RecordsPage() {
 
   const [resultDates, setResultDates] = useState<string[]>([]);
   const [resultDatesLoading, setResultDatesLoading] = useState(true);
+  const [resultDatesError, setResultDatesError] = useState(false);
+  const [ledgerReloadKey, setLedgerReloadKey] = useState(0);
+  const retryLedger = () => {
+    setResultDatesError(false);
+    setResultDatesLoading(true);
+    setLedgerReloadKey((k) => k + 1);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -55,11 +64,14 @@ export default function RecordsPage() {
           setResultDatesLoading(false);
         }
       } catch {
-        if (!cancelled) setResultDatesLoading(false);
+        if (!cancelled) {
+          setResultDatesError(true);
+          setResultDatesLoading(false);
+        }
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [ledgerReloadKey]);
 
   const dateToGw = useMemo(() => {
     const byDate = new Map<string, number>();
@@ -73,7 +85,7 @@ export default function RecordsPage() {
     return resultDates;
   }, [resultDates]);
 
-  const { entries, loading } = useAllVerdicts(candidateDates);
+  const { entries, failed: failedDates, loading } = useAllVerdicts(candidateDates, ledgerReloadKey);
 
   const grouped = useMemo(() => {
     const map = new Map<string, { gw: number | null; date: string; list: ResultEntry[] }>();
@@ -143,6 +155,13 @@ export default function RecordsPage() {
         <>
           {loading || resultDatesLoading ? (
             <Press phase={1} />
+          ) : resultDatesError ? (
+            <div className="mt-6">
+              <OfflineSlate
+                message="The record could not be fetched. The pages may still be intact — try again."
+                onRetry={retryLedger}
+              />
+            </div>
           ) : entries.length === 0 ? (
             <div className="mt-6">
               <EmptyState
@@ -183,6 +202,18 @@ export default function RecordsPage() {
                   {accuracy != null && <span className="chip">{decided} decided · {accuracy}%</span>}
                 </span>
               </div>
+              {failedDates > 0 && (
+                <p className="mt-2 font-serif text-xs italic text-ink-faint">
+                  {failedDates} of {candidateDates.length} pages unavailable — totals partial.{' '}
+                  <button
+                    type="button"
+                    onClick={retryLedger}
+                    className="font-mono text-[0.625rem] uppercase tracking-widest text-rubric underline underline-offset-2"
+                  >
+                    Retry
+                  </button>
+                </p>
+              )}
 
               {/* The verdict ledger */}
               {grouped.map((group) => {
