@@ -112,6 +112,23 @@ body::before {
   to { transform: scaleX(1); }
 }
 
+/* Press-run: section rules draw as they scroll into view.
+   Progressive enhancement — without scroll-timeline support (or with
+   reduced motion) the static .rule-double lines simply stand printed. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rule-press-scroll {
+      animation: rule-press-scroll linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+    @keyframes rule-press-scroll {
+      from { background-size: 0% 1px, 0% 1px; }
+      to { background-size: 100% 1px, 100% 1px; }
+    }
+  }
+}
+
 /* The model's call — a rubric stamp */
 .stamp {
   display: inline-block;

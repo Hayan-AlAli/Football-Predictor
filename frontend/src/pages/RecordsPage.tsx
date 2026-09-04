@@ -8,7 +8,7 @@ import { useData } from '../lib/data-context';
 import { getResultEntries, getResultDates } from '../api/matches';
 import { teamName, teamShort } from '../lib/teams';
 import { scoreline } from '../lib/format';
-import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
+import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer, stampVariants } from '../lib/motion';
 import type { ResultEntry } from '../types';
 
 function useAllVerdicts(dates: string[], reloadKey: number) {
@@ -49,6 +49,7 @@ export default function RecordsPage() {
   const headV = reduce ? getReducedMotionVariants(headVariants) : headVariants;
   const staggerV = reduce ? getReducedMotionVariants(staggerContainer) : staggerContainer;
   const rowV = reduce ? getReducedMotionVariants(ledgerVariants) : ledgerVariants;
+  const stampV = reduce ? getReducedMotionVariants(stampVariants) : stampVariants;
 
   const [resultDates, setResultDates] = useState<string[]>([]);
   const [resultDatesLoading, setResultDatesLoading] = useState(true);
@@ -248,7 +249,7 @@ export default function RecordsPage() {
                 const groupIncorrect = group.list.filter((e) => e.status === 'INCORRECT').length;
                 return (
                 <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} id={sectionId} className="mt-4 scroll-mt-40" style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 480px' }}>
-                  <h2 className="rule-double flex items-baseline justify-between gap-2 pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
+                  <h2 className="rule-double rule-press-scroll flex items-baseline justify-between gap-2 pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
                     {group.gw != null ? (
                       <span className="font-mono text-rubric">Matchweek {group.gw}</span>
                     ) : (
@@ -300,12 +301,12 @@ export default function RecordsPage() {
                             </span>
                             <span>
                               {entry.status === 'CORRECT' && (
-                                <span className="stamp" style={{ background: 'var(--ledger)' }}>
+                                <motion.span variants={stampV} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-10% 0px' }} className="stamp" style={{ background: 'var(--ledger)' }}>
                                   ✓ Correct
-                                </span>
+                                </motion.span>
                               )}
                               {entry.status === 'INCORRECT' && (
-                                <span className="stamp">✗ Incorrect</span>
+                                <motion.span variants={stampV} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-10% 0px' }} className="stamp">✗ Incorrect</motion.span>
                               )}
                               {entry.status === 'PENDING' && (
                                 <span className="chip">Pending</span>
