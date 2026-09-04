@@ -117,6 +117,24 @@ _FEATURE_COLUMNS_V1 = [
     "home_team_code", "away_team_code", "home_elo", "away_elo",
     "home_rolling_goals", "away_rolling_goals", "home_rolling_xg", "away_rolling_xg",
 ]
+
+# Production feature set: V1 plus the Elo gap. This is the single canonical
+# definition used by BOTH training (train_model.py) and inference
+# (predictor.py) so the two can never drift apart.
+PRODUCTION_FEATURE_COLUMNS = _FEATURE_COLUMNS_V1 + ["elo_difference"]
+
+
+def add_elo_difference(df):
+    """Append elo_difference = home_elo - away_elo (NaN Elo -> 1500.0).
+
+    The one shared implementation for training and prediction.
+    """
+    df = df.copy()
+    df["elo_difference"] = (
+        pd.to_numeric(df["home_elo"], errors="coerce").fillna(1500.0)
+        - pd.to_numeric(df["away_elo"], errors="coerce").fillna(1500.0)
+    )
+    return df
 _FEATURE_COLUMNS_V2 = _FEATURE_COLUMNS_V1 + ["elo_gap", "home_relative_goals", "away_relative_goals"]
 
 

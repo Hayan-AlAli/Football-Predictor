@@ -22,6 +22,12 @@ def test_select_winner_tie_breaks_home():
     assert winner == "Arsenal"
 
 
+def test_models_expect_production_features_including_elo_difference():
+    from backend import features as features_mod
+    assert predictor.model_home.n_features_in_ == len(features_mod.PRODUCTION_FEATURE_COLUMNS)
+    assert predictor.model_away.n_features_in_ == len(features_mod.PRODUCTION_FEATURE_COLUMNS)
+
+
 def test_predict_match_returns_features():
     pred = predictor.predict_match({
         "home_team": "Arsenal",

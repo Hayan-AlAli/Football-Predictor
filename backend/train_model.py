@@ -30,6 +30,8 @@ def train():
 
     df = features.calculate_rolling_stats(df)
 
+    df = features.add_elo_difference(df)
+
     le = LabelEncoder()
     all_teams = pd.concat([df['home_team'], df['away_team']]).unique()
     le.fit(all_teams)
@@ -37,12 +39,7 @@ def train():
     df['home_team_code'] = le.transform(df['home_team'])
     df['away_team_code'] = le.transform(df['away_team'])
 
-    feature_cols = [
-        'home_team_code', 'away_team_code',
-        'home_elo', 'away_elo',
-        'home_rolling_goals', 'away_rolling_goals',
-        'home_rolling_xg', 'away_rolling_xg'
-    ]
+    feature_cols = features.PRODUCTION_FEATURE_COLUMNS
 
     X = df[feature_cols]
     y_home = df['home_goals']

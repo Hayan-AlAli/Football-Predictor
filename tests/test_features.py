@@ -8,6 +8,24 @@ def _df(rows):
     return pd.DataFrame(rows)
 
 
+def test_add_elo_difference_basic_and_nan_fill():
+    df = features.add_elo_difference(_df([
+        {"home_elo": 1900.0, "away_elo": 1800.0},
+        {"home_elo": float("nan"), "away_elo": 1700.0},
+        {"home_elo": 1600.0, "away_elo": float("nan")},
+    ]))
+    assert list(df["elo_difference"]) == [100.0, -200.0, 100.0]
+
+
+def test_production_feature_columns_appends_elo_difference_last():
+    assert features.PRODUCTION_FEATURE_COLUMNS[-1] == "elo_difference"
+    assert features.PRODUCTION_FEATURE_COLUMNS[:-1] == [
+        "home_team_code", "away_team_code", "home_elo", "away_elo",
+        "home_rolling_goals", "away_rolling_goals",
+        "home_rolling_xg", "away_rolling_xg",
+    ]
+
+
 def test_team_decayed_form_weights_recent_more():
     team = pd.DataFrame([
         {"date": pd.Timestamp("2026-01-01"), "goals_scored": 0.0, "xg_for": 0.5},

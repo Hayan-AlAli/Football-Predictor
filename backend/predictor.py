@@ -5,6 +5,7 @@ import random
 import re
 import time
 from backend import utils
+from backend import features
 import math
 import concurrent.futures
 
@@ -326,7 +327,8 @@ def predict_match(match_data):
             league_avg_goals = float(training_df['home_rolling_goals'].mean())
             league_avg_xg = float(training_df['home_rolling_xg'].mean())
 
-            X_pred = pd.DataFrame([features_dict])
+            X_pred = features.add_elo_difference(pd.DataFrame([features_dict]))
+            X_pred = X_pred[features.PRODUCTION_FEATURE_COLUMNS]
 
             pred_home_goals = model_home.predict(X_pred)[0]
             pred_away_goals = model_away.predict(X_pred)[0]
