@@ -40,7 +40,6 @@ def normalize_team_name(name):
         "Ipswich Town": "Ipswich Town",
         "Ipswich Town F.C.": "Ipswich Town",
         "Sheffield Utd": "Sheffield United",
-        "Leeds United": "Leeds",
         "Leeds": "Leeds United",
         "Norwich City": "Norwich",
         "West Brom": "West Bromwich Albion",

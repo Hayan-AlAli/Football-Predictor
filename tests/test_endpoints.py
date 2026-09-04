@@ -69,6 +69,7 @@ def test_season_forecast_writes_cache_on_miss(monkeypatch, tmp_path):
 def test_calibration_ok(monkeypatch):
     payload = {"entries": 0, "brier": None, "accuracy": None, "bins": [], "rolling": []}
     monkeypatch.setattr(insights, "compute_calibration", lambda *a, **k: payload)
+    monkeypatch.setattr(insights, "compute_calibration_from_records", lambda *a, **k: payload)
     r = _client().get("/api/calibration")
     assert r.status_code == 200
     assert r.json()["entries"] == 0

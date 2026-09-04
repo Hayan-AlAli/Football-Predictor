@@ -282,9 +282,9 @@ async def get_results(date: Optional[str] = None):
             key = (utils.normalize_team_name(res['home_team']),
                    utils.normalize_team_name(res['away_team']))
             results_map[key] = {
-                'home_goals': res['home_goals'],
-                'away_goals': res['away_goals'],
-                'score': f"{res['home_goals']}-{res['away_goals']}"
+                'home_goals': int(res['home_goals']),
+                'away_goals': int(res['away_goals']),
+                'score': f"{int(res['home_goals'])}-{int(res['away_goals'])}"
             }
 
         def find_result(pred_home, pred_away):
@@ -348,9 +348,9 @@ async def get_results(date: Optional[str] = None):
                         'away_team_info': get_team_info(res['away_team']),
                     },
                     'actual': {
-                        'home_goals': res['home_goals'],
-                        'away_goals': res['away_goals'],
-                        'score': f"{res['home_goals']}-{res['away_goals']}",
+                        'home_goals': int(res['home_goals']),
+                        'away_goals': int(res['away_goals']),
+                        'score': f"{int(res['home_goals'])}-{int(res['away_goals'])}",
                     },
                     'status': 'PENDING'
                 })
