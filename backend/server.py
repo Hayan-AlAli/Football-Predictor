@@ -442,7 +442,7 @@ def get_season_forecast():
         except Exception:
             db_forecast = None
         if db_forecast is not None:
-            return db_forecast
+            return _forecast_with_team_info(db_forecast)
     cached = insights._today_forecast()
     if cached is not None:
         return _forecast_with_team_info(cached)
