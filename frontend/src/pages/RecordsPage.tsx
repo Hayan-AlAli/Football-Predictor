@@ -12,28 +12,34 @@ import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContaine
 import type { ResultEntry } from '../types';
 
 function useAllVerdicts(dates: string[], reloadKey: number) {
-  const [state, setState] = useState<{ key: string; entries: ResultEntry[]; failed: number }>({ key: '', entries: [], failed: 0 });
+  const [state, setState] = useState<{ key: string; entries: ResultEntry[]; settled: number; failed: number }>({ key: '', entries: [], settled: 0, failed: 0 });
   const datesKey = dates.join(',');
   useEffect(() => {
     let cancelled = false;
     if (!datesKey) return;
-    (async () => {
-      const res = await Promise.allSettled(dates.map((d) => getResultEntries(d)));
+    const snapshot = datesKey;
+    // Resolve each date independently so one slow page never holds the
+    // ledger hostage; sections print as their dates arrive.
+    const settle = (fn: (s: { key: string; entries: ResultEntry[]; settled: number; failed: number }) => { key: string; entries: ResultEntry[]; settled: number; failed: number }) => {
       if (cancelled) return;
-      setState({
-        key: datesKey,
-        entries: res
-          .filter((r) => r.status === 'fulfilled')
-          .flatMap((r) => r.value),
-        failed: res.filter((r) => r.status === 'rejected').length,
+      setState((s) => {
+        const base = s.key === snapshot ? s : { key: snapshot, entries: [], settled: 0, failed: 0 };
+        return fn(base);
       });
-    })();
+    };
+    for (const d of dates) {
+      getResultEntries(d).then(
+        (value) => settle((s) => ({ ...s, entries: [...s.entries, ...value], settled: s.settled + 1 })),
+        () => settle((s) => ({ ...s, settled: s.settled + 1, failed: s.failed + 1 })),
+      );
+    }
     return () => {
       cancelled = true;
     };
   }, [datesKey, dates, reloadKey]);
   const fresh = state.key === datesKey;
-  return { entries: fresh ? state.entries : [], failed: fresh ? state.failed : 0, loading: !fresh };
+  const loading = fresh ? state.settled < dates.length : true;
+  return { entries: fresh ? state.entries : [], failed: fresh ? state.failed : 0, loading };
 }
 
 /** The Records — every verdict kept against the actual result, hits and misses alike. */
@@ -241,7 +247,7 @@ export default function RecordsPage() {
                 const groupCorrect = group.list.filter((e) => e.status === 'CORRECT').length;
                 const groupIncorrect = group.list.filter((e) => e.status === 'INCORRECT').length;
                 return (
-                <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} id={sectionId} className="mt-4 scroll-mt-40" style={{ contentVisibility: 'auto' }}>
+                <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} id={sectionId} className="mt-4 scroll-mt-40" style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 480px' }}>
                   <h2 className="rule-double flex items-baseline justify-between gap-2 pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
                     {group.gw != null ? (
                       <span className="font-mono text-rubric">Matchweek {group.gw}</span>
