@@ -1,7 +1,11 @@
+import { useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { headVariants, getReducedMotionVariants } from '../lib/motion';
 import { gameweekLabel } from '../lib/format';
+import { useData } from '../lib/data-context';
+import { useBook } from '../lib/book';
+import { currentGameweek } from '../lib/gameweek';
 
 const SECTIONS = [
   { to: '/', label: 'MATCHDAY', folio: (gw?: number) => (gw == null ? '1' : gameweekLabel(gw)) },
@@ -14,13 +18,26 @@ const SECTIONS = [
 
 interface RunningHeadProps {
   gameweek?: number;
+  isCurrentWeek?: boolean;
 }
 
 /** The almanack's running head: masthead rule, section nav, folio. */
-export default function RunningHead({ gameweek }: RunningHeadProps) {
+export default function RunningHead({ gameweek, isCurrentWeek }: RunningHeadProps) {
   const reduce = useReducedMotion();
   const variants = reduce ? getReducedMotionVariants(headVariants) : headVariants;
   const location = useLocation();
+  // The head is rendered by App (not MatchdayPage), so when no explicit prop
+  // is passed, derive the same selected === thisWeek expression here — gated
+  // to the matchday leaf so other sections' folios are unaffected.
+  const { matches, gameweeks } = useData();
+  const { selectedGameweek } = useBook();
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const thisWeek = useMemo(
+    () => currentGameweek(gameweeks, matches, today),
+    [gameweeks, matches, today],
+  );
+  const showStamp =
+    isCurrentWeek ?? (location.pathname === '/' && thisWeek != null && selectedGameweek === thisWeek);
 
   const activeSection =
     SECTIONS.find((s) =>
@@ -75,6 +92,11 @@ export default function RunningHead({ gameweek }: RunningHeadProps) {
             <span key={activeSection.to + gameweek} className="folio-tick font-mono text-lg font-semibold text-ink tnum">
               {activeSection.folio(gameweek)}
             </span>
+            {showStamp && (
+              <span className="stamp" style={{ background: 'var(--rubric)' }}>
+                This week
+              </span>
+            )}
           </span>
         </div>
       </div>

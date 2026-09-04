@@ -7,6 +7,7 @@ import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
 import { useData } from '../lib/data-context';
 import { useBook } from '../lib/book';
+import { currentGameweek } from '../lib/gameweek';
 import { getResultEntries } from '../api/matches';
 import { sortMatchesByDate } from '../lib/format';
 import { staggerContainer, getReducedMotionVariants } from '../lib/motion';
@@ -47,11 +48,17 @@ export default function MatchdayPage() {
   const reduce = useReducedMotion();
   const { selectedGameweek: selected, setSelectedGameweek: setSelected } = useBook();
 
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const thisWeek = useMemo(
+    () => currentGameweek(gameweeks, matches, today),
+    [gameweeks, matches, today],
+  );
+
   useEffect(() => {
-    if (selected == null && gameweeks.length > 0) {
-      setSelected(gameweeks[0]);
+    if (selected == null && thisWeek != null) {
+      setSelected(thisWeek);
     }
-  }, [gameweeks, selected, setSelected]);
+  }, [thisWeek, selected, setSelected]);
 
   const weekMatches = useMemo(
     () => sortMatchesByDate(matches.filter((m) => m.gameweek === selected)),
@@ -99,6 +106,13 @@ export default function MatchdayPage() {
             fixtureCount={weekMatches.length}
             onSelect={setSelected}
           />
+          {selected === thisWeek && thisWeek != null && (
+            <div className="flex justify-center pb-2">
+              <span className="stamp" style={{ background: 'var(--rubric)' }}>
+                This week
+              </span>
+            </div>
+          )}
 
           {/* The record of this matchweek */}
           <div className="rule-draw flex flex-wrap items-center justify-between gap-2 py-3" aria-live="polite">
