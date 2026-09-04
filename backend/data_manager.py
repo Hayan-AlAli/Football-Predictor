@@ -201,8 +201,49 @@ def _scrape_upcoming_matches():
         return pd.DataFrame()
 
 
+def _football_data_season_code(date_str):
+    y = int(date_str.split('-')[0])
+    m = int(date_str.split('-')[1])
+    start = y if m > 7 else y - 1
+    return f"{str(start)[2:]}{str(start + 1)[2:]}"
+
+
+def _parse_football_data_csv(text, date_str):
+    """Parse football-data.co.uk E0.csv text into raw result dicts for one date."""
+    import io
+    df = pd.read_csv(io.StringIO(text))
+    df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y', errors='coerce')
+    day = df[df['Date'].dt.strftime('%Y-%m-%d') == date_str]
+    results = []
+    for _, row in day.iterrows():
+        if pd.isna(row.get('FTHG')) or pd.isna(row.get('FTAG')):
+            continue
+        results.append({
+            'home_team': utils.normalize_team_name(str(row['HomeTeam'])),
+            'away_team': utils.normalize_team_name(str(row['AwayTeam'])),
+            'home_goals': int(row['FTHG']),
+            'away_goals': int(row['FTAG']),
+        })
+    return results
+
+
+def _fetch_football_data_results(date_str):
+    """Results fallback for seasons Understat hasn't published yet.
+
+    football-data.co.uk posts E0.csv within days of each matchweek; Understat
+    can lag by weeks at season start (e.g. season 2026 returns ~empty).
+    """
+    import requests
+    code = _football_data_season_code(date_str)
+    url = f"https://www.football-data.co.uk/mmz4281/{code}/E0.csv"
+    resp = requests.get(url, timeout=25)
+    resp.raise_for_status()
+    return _parse_football_data_csv(resp.text, date_str)
+
+
 def fetch_latest_results(date_str):
     logger.info(f"Fetching results for {date_str}...")
+    results = []
     try:
         y = int(date_str.split('-')[0])
         season = str(y) if int(date_str.split('-')[1]) > 7 else str(y - 1)
@@ -215,7 +256,6 @@ def fetch_latest_results(date_str):
 
         days_matches = matches[matches['date_str'] == date_str].copy()
 
-        results = []
         for _, row in days_matches.iterrows():
             if pd.isna(row['home_goals']):
                 continue
@@ -227,8 +267,15 @@ def fetch_latest_results(date_str):
                 'away_goals': int(row['away_goals'])
             })
 
-        return results
-
     except Exception as e:
         logger.error(f"Error fetching results: {e}")
-        return []
+
+    if not results:
+        try:
+            results = _fetch_football_data_results(date_str)
+            logger.info(f"Football-data fallback returned {len(results)} matches for {date_str}.")
+        except Exception as e:
+            logger.error(f"Error fetching football-data results: {e}")
+            results = []
+
+    return results

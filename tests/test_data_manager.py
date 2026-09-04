@@ -77,6 +77,28 @@ def test_fetch_upcoming_matches_cache_result_not_mutated_by_caller(monkeypatch):
     assert "date_str" not in cached.columns
 
 
+CSV_SAMPLE = """Div,Date,HomeTeam,AwayTeam,FTHG,FTAG
+E0,22/08/2026,Hull,Man United,2,0
+E0,22/08/2026,Everton,Crystal Palace,2,0
+E0,23/08/2026,Arsenal,Chelsea,,
+"""
+
+
+def test_parse_football_data_csv_filters_date_and_blanks():
+    rows = data_manager._parse_football_data_csv(CSV_SAMPLE, "2026-08-22")
+    assert rows == [
+        {"home_team": "Hull", "away_team": "Manchester United",
+         "home_goals": 2, "away_goals": 0},
+        {"home_team": "Everton", "away_team": "Crystal Palace",
+         "home_goals": 2, "away_goals": 0},
+    ]
+
+
+def test_football_data_season_code():
+    assert data_manager._football_data_season_code("2026-08-22") == "2627"
+    assert data_manager._football_data_season_code("2026-05-25") == "2526"
+
+
 def test_scrape_upcoming_matches_survives_dead_elo(monkeypatch):
     import soccerdata
 
