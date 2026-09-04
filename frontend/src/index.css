@@ -297,6 +297,14 @@ img {
   font-variant-numeric: tabular-nums;
 }
 
+@layer utilities {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-smooth-motion {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
 /* ---------- Motion ---------- */
 
 @keyframes page-turn-in {

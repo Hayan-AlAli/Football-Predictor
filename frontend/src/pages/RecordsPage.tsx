@@ -98,6 +98,27 @@ export default function RecordsPage() {
   const decided = correct + incorrect;
   const accuracy = decided > 0 ? Math.round((correct / decided) * 100) : null;
 
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (reduce) return;
+    if (grouped.length === 0) return;
+    const observer = new IntersectionObserver(
+      (observed) => {
+        for (const entry of observed) {
+          if (entry.isIntersecting) setActiveId(entry.target.id);
+        }
+      },
+      { rootMargin: '-40% 0px -55% 0px' }
+    );
+    for (const group of grouped) {
+      const id = group.gw != null ? `gw-${group.gw}` : `date-${group.date}`;
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [grouped, reduce]);
+
   return (
     <div className="mx-auto max-w-3xl px-4 pb-4">
       <motion.div variants={headV} initial="hidden" animate="show" className="pt-8">
@@ -131,6 +152,25 @@ export default function RecordsPage() {
             </div>
           ) : (
             <>
+              <nav aria-label="Index of matchweeks" className="scroll-smooth-motion sticky top-0 z-10 -mx-4 border-y border-paper-line bg-paper px-4 py-2">
+                <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Index</span>
+                <span className="ml-3 inline-flex flex-wrap gap-x-3 gap-y-1">
+                  {grouped.map((group) => {
+                    const id = group.gw != null ? `gw-${group.gw}` : `date-${group.date}`;
+                    const label = group.gw != null ? `${group.gw}` : group.date;
+                    return (
+                      <a
+                        key={id}
+                        href={`#${id}`}
+                        data-index-link={id}
+                        className={`font-mono text-[0.625rem] uppercase tracking-widest hover:text-rubric ${activeId === id ? 'text-rubric' : 'text-ink-soft'}`}
+                      >
+                        {label}
+                      </a>
+                    );
+                  })}
+                </span>
+              </nav>
               {/* Summary */}
               <div className="rule-draw mt-6 flex flex-wrap items-center justify-between gap-2 py-3">
                 <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">
@@ -145,13 +185,22 @@ export default function RecordsPage() {
               </div>
 
               {/* The verdict ledger */}
-              {grouped.map((group) => (
-                <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} className="mt-4" style={{ contentVisibility: 'auto' }}>
-                  <h2 className="rule-double pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
+              {grouped.map((group) => {
+                const sectionId = group.gw != null ? `gw-${group.gw}` : `date-${group.date}`;
+                const groupCorrect = group.list.filter((e) => e.status === 'CORRECT').length;
+                const groupIncorrect = group.list.filter((e) => e.status === 'INCORRECT').length;
+                return (
+                <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} id={sectionId} className="mt-4" style={{ contentVisibility: 'auto' }}>
+                  <h2 className="rule-double flex items-baseline justify-between gap-2 pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
                     {group.gw != null ? (
                       <span className="font-mono text-rubric">Matchweek {group.gw}</span>
                     ) : (
                       <span className="font-mono text-rubric">{group.date}</span>
+                    )}
+                    {(groupCorrect > 0 || groupIncorrect > 0) && (
+                      <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
+                        {groupCorrect} correct · {groupIncorrect} incorrect
+                      </span>
                     )}
                   </h2>
                   <motion.div variants={staggerV} initial="hidden" animate="show">
@@ -205,7 +254,8 @@ export default function RecordsPage() {
                     })}
                   </motion.div>
                 </section>
-              ))}
+                );
+              })}
             </>
           )}
         </>
