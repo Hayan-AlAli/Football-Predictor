@@ -6,7 +6,7 @@ import EmptyState from '../components/EmptyState';
 import TeamBadge from '../components/TeamBadge';
 import { useData } from '../lib/data-context';
 import { getResultEntries, getResultDates } from '../api/matches';
-import { teamShort } from '../lib/teams';
+import { teamName, teamShort } from '../lib/teams';
 import { scoreline } from '../lib/format';
 import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
 import type { ResultEntry } from '../types';
@@ -208,6 +208,8 @@ export default function RecordsPage() {
                       const m = entry.match;
                       const home = m.home_team_info ?? m.home_team;
                       const away = m.away_team_info ?? m.away_team;
+                      const homeName = teamName(home);
+                      const awayName = teamName(away);
                       const pred = m.prediction;
                       const actualScore = entry.actual?.score ? scoreline(entry.actual.score) : null;
                       return (
@@ -219,12 +221,15 @@ export default function RecordsPage() {
                           className="border-t border-paper-line py-3.5"
                         >
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <span className="flex items-center gap-1.5 font-sans text-sm font-bold uppercase tracking-caps text-ink">
-                              <TeamBadge team={m.home_team} info={m.home_team_info} size="sm" />
-                              {teamShort(home)}
+                            <span
+                              className="flex min-w-0 items-center gap-1.5 truncate font-sans text-sm font-bold uppercase tracking-caps text-ink"
+                              title={`${homeName} vs ${awayName}`}
+                            >
+                              <TeamBadge team={m.home_team} info={m.home_team_info} size="md" />
+                              {homeName}
                               <span className="font-mono font-normal lowercase text-ink-faint">vs</span>
-                              {teamShort(away)}
-                              <TeamBadge team={m.away_team} info={m.away_team_info} size="sm" />
+                              {awayName}
+                              <TeamBadge team={m.away_team} info={m.away_team_info} size="md" />
                             </span>
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
