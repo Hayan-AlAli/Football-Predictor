@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { teamShort, teamInk, clubTextColor } from '../lib/teams';
+import { teamName, teamShort, teamInk, clubTextColor } from '../lib/teams';
 import type { Team } from '../types';
 
 const SIZES = {
@@ -28,9 +28,9 @@ export default function TeamBadge({ team, info, size = 'md', className = '' }: T
       >
         <img
           src={badge}
-          alt={`${teamShort(info ?? team)} badge`}
+          alt={`${teamName(info ?? team)} club badge`}
           loading="lazy"
-          className="h-full w-full object-contain"
+          className="aspect-square h-full w-full object-contain"
           onError={() => setFailed(true)}
         />
       </span>

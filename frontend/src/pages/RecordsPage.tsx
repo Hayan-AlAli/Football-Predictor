@@ -174,7 +174,7 @@ export default function RecordsPage() {
               <p className="mt-4 font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
                 Called = the model&apos;s print · bold = what happened
               </p>
-              <nav aria-label="Index of matchweeks" className="scroll-smooth-motion sticky top-[112px] z-10 -mx-4 border-y border-paper-line bg-paper px-4 py-2">
+              <nav aria-label="Index of matchweeks" className="sticky top-[112px] z-10 -mx-4 border-y border-paper-line bg-paper px-4 py-2">
                 <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Index</span>
                 <span className="ml-3 inline-flex max-w-full items-center gap-x-1 overflow-x-auto">
                   {grouped.map((group) => {
@@ -204,7 +204,7 @@ export default function RecordsPage() {
                   <span className="text-ledger">✓ {correct} correct</span>
                   <span className="text-rubric">✗ {incorrect} incorrect</span>
                   {pending > 0 && <span className="text-ink-faint">{pending} pending</span>}
-                  {accuracy != null && <span className="chip">{decided} decided · {accuracy}%</span>}
+                  {accuracy != null && <span className="chip" title="Pending verdicts excluded">{decided} decided · {accuracy}%</span>}
                 </span>
               </div>
               {failedDates > 0 && (
@@ -250,7 +250,7 @@ export default function RecordsPage() {
                       const actualScore = entry.actual?.score ? scoreline(entry.actual.score) : null;
                       return (
                         <motion.div
-                          key={m.id ?? `${m.home_team}-${m.away_team}`}
+                          key={m.id ?? `${m.date}-${m.home_team}-${m.away_team}`}
                           variants={rowV}
                           initial="hidden"
                           animate="show"
