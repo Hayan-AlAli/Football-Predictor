@@ -256,6 +256,22 @@ def random_prediction(home_team, away_team):
     }
 
 
+def _select_winner(home_team, away_team, prob_home, prob_draw, prob_away,
+                   best_home, best_draw, best_away):
+    """Pick the outcome with the highest aggregate probability.
+
+    The likeliest single scoreline is often a draw (e.g. 1-1) even when one
+    side owns most of the probability mass — comparing peak scoreline
+    densities instead of outcome totals made ~65% of calls draws.
+    Ties break toward home (home advantage).
+    """
+    if prob_home >= prob_draw and prob_home >= prob_away:
+        return home_team, best_home
+    if prob_away >= prob_home and prob_away >= prob_draw:
+        return away_team, best_away
+    return "Draw", best_draw
+
+
 def predict_match(match_data):
     home_team = match_data['home_team']
     away_team = match_data['away_team']
@@ -320,15 +336,9 @@ def predict_match(match_data):
 
             prob_home, prob_draw, prob_away, best_home, best_draw, best_away, p_best_home, p_best_draw, p_best_away = calculate_probabilities(pred_home_goals, pred_away_goals)
 
-            if p_best_home >= p_best_draw and p_best_home >= p_best_away:
-                winner = home_team
-                score_home, score_away = best_home
-            elif p_best_away >= p_best_home and p_best_away >= p_best_draw:
-                winner = away_team
-                score_home, score_away = best_away
-            else:
-                winner = "Draw"
-                score_home, score_away = best_draw
+            winner, (score_home, score_away) = _select_winner(
+                home_team, away_team, prob_home, prob_draw, prob_away,
+                best_home, best_draw, best_away)
 
             return {
                 'winner': winner,
