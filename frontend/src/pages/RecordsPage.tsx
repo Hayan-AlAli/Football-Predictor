@@ -110,6 +110,17 @@ export default function RecordsPage() {
   const decided = correct + incorrect;
   const accuracy = decided > 0 ? Math.round((correct / decided) * 100) : null;
 
+  const ledgerStatus =
+    loading || resultDatesLoading
+      ? 'Consulting the record…'
+      : resultDatesError
+        ? 'The record could not be fetched.'
+        : entries.length === 0
+          ? 'No verdicts recorded yet.'
+          : failedDates > 0
+            ? `The record is printed with ${failedDates} of ${candidateDates.length} pages unavailable.`
+            : `The record is printed: ${correct} correct, ${incorrect} incorrect.`;
+
   const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -142,6 +153,10 @@ export default function RecordsPage() {
           the record is honest by design.
         </p>
       </motion.div>
+
+      <p aria-live="polite" className="sr-only">
+        {ledgerStatus}
+      </p>
 
       {status === 'loading' && <Press />}
       {status === 'offline' && (
