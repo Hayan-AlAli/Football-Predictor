@@ -152,7 +152,7 @@ export default function RecordsPage() {
             </div>
           ) : (
             <>
-              <nav aria-label="Index of matchweeks" className="scroll-smooth-motion sticky top-0 z-10 -mx-4 border-y border-paper-line bg-paper px-4 py-2">
+              <nav aria-label="Index of matchweeks" className="scroll-smooth-motion sticky top-[112px] z-10 -mx-4 border-y border-paper-line bg-paper px-4 py-2">
                 <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Index</span>
                 <span className="ml-3 inline-flex flex-wrap gap-x-3 gap-y-1">
                   {grouped.map((group) => {
@@ -190,7 +190,7 @@ export default function RecordsPage() {
                 const groupCorrect = group.list.filter((e) => e.status === 'CORRECT').length;
                 const groupIncorrect = group.list.filter((e) => e.status === 'INCORRECT').length;
                 return (
-                <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} id={sectionId} className="mt-4" style={{ contentVisibility: 'auto' }}>
+                <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} id={sectionId} className="mt-4 scroll-mt-40" style={{ contentVisibility: 'auto' }}>
                   <h2 className="rule-double flex items-baseline justify-between gap-2 pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
                     {group.gw != null ? (
                       <span className="font-mono text-rubric">Matchweek {group.gw}</span>

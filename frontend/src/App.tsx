@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import DataProvider from './lib/data-provider';
 import { BookContext } from './lib/book';
 import RunningHead from './components/RunningHead';
+import { useThisWeek } from './lib/gameweek';
 import SectionFooter from './components/SectionFooter';
 import Press from './components/Press';
 
@@ -17,6 +18,7 @@ const TeamDetailPage = lazy(() => import('./pages/TeamDetailPage'));
 function Shell() {
   const [selectedGameweek, setSelectedGameweek] = useState<number | null>(null);
   const location = useLocation();
+  const thisWeek = useThisWeek();
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -30,7 +32,7 @@ function Shell() {
       >
         Skip to content
       </a>
-      <RunningHead gameweek={selectedGameweek ?? undefined} />
+      <RunningHead gameweek={selectedGameweek ?? thisWeek ?? undefined} />
       <main id="main-content" className="flex-1">
         <Suspense fallback={<Press />}>
           <Routes>

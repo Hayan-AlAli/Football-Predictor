@@ -1,11 +1,9 @@
-import { useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { headVariants, getReducedMotionVariants } from '../lib/motion';
 import { gameweekLabel } from '../lib/format';
-import { useData } from '../lib/data-context';
 import { useBook } from '../lib/book';
-import { currentGameweek } from '../lib/gameweek';
+import { useThisWeek } from '../lib/gameweek';
 
 const SECTIONS = [
   { to: '/', label: 'MATCHDAY', folio: (gw?: number) => (gw == null ? '1' : gameweekLabel(gw)) },
@@ -29,13 +27,8 @@ export default function RunningHead({ gameweek, isCurrentWeek }: RunningHeadProp
   // The head is rendered by App (not MatchdayPage), so when no explicit prop
   // is passed, derive the same selected === thisWeek expression here — gated
   // to the matchday leaf so other sections' folios are unaffected.
-  const { matches, gameweeks } = useData();
   const { selectedGameweek } = useBook();
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const thisWeek = useMemo(
-    () => currentGameweek(gameweeks, matches, today),
-    [gameweeks, matches, today],
-  );
+  const thisWeek = useThisWeek();
   const showStamp =
     isCurrentWeek ?? (location.pathname === '/' && thisWeek != null && (selectedGameweek ?? thisWeek) === thisWeek);
 

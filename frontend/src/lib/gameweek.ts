@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import type { Match } from '../types';
+import { useData } from './data-context';
 
 /** Gameweek whose matches contain today; else nearest upcoming, else latest. */
 export function currentGameweek(
@@ -29,4 +31,14 @@ export function currentGameweek(
     .sort((a, b) => (a.first as string).localeCompare(b.first as string));
   if (upcoming.length > 0) return upcoming[0].gw;
   return gameweeks[gameweeks.length - 1];
+}
+
+/** Shared this-week derivation: selected fallback before page-turn. Memoised. */
+export function useThisWeek(): number | null {
+  const { matches, gameweeks } = useData();
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  return useMemo(
+    () => currentGameweek(gameweeks, matches, today),
+    [gameweeks, matches, today],
+  );
 }

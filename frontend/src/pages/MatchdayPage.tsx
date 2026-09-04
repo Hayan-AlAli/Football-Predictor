@@ -7,7 +7,7 @@ import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
 import { useData } from '../lib/data-context';
 import { useBook } from '../lib/book';
-import { currentGameweek } from '../lib/gameweek';
+import { useThisWeek } from '../lib/gameweek';
 import { getResultEntries } from '../api/matches';
 import { sortMatchesByDate } from '../lib/format';
 import { staggerContainer, getReducedMotionVariants } from '../lib/motion';
@@ -37,7 +37,7 @@ function useVerdicts(dates: string[]) {
     };
   }, [key, dates]);
   return {
-    entries: state.key === key ? state.entries : [],
+    entries: state.entries,
     loading: key ? state.key !== key : false,
   };
 }
@@ -48,13 +48,9 @@ export default function MatchdayPage() {
   const reduce = useReducedMotion();
   const { selectedGameweek: selected, setSelectedGameweek: setSelected } = useBook();
 
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const thisWeek = useMemo(
-    () => currentGameweek(gameweeks, matches, today),
-    [gameweeks, matches, today],
-  );
+  const thisWeekFromHook = useThisWeek();
 
-  const view = selected ?? thisWeek;
+  const view = selected ?? thisWeekFromHook;
 
   const weekMatches = useMemo(
     () => sortMatchesByDate(matches.filter((m) => m.gameweek === view)),
@@ -102,7 +98,7 @@ export default function MatchdayPage() {
             fixtureCount={weekMatches.length}
             onSelect={setSelected}
           />
-          {view === thisWeek && thisWeek != null && (
+          {view === thisWeekFromHook && thisWeekFromHook != null && (
             <div className="flex justify-center pb-2">
               <span className="stamp" style={{ background: 'var(--rubric)' }}>
                 This week
