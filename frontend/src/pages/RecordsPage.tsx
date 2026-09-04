@@ -171,6 +171,9 @@ export default function RecordsPage() {
             </div>
           ) : (
             <>
+              <p className="mt-4 font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
+                Called = the model&apos;s print · bold = what happened
+              </p>
               <nav aria-label="Index of matchweeks" className="scroll-smooth-motion sticky top-[112px] z-10 -mx-4 border-y border-paper-line bg-paper px-4 py-2">
                 <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Index</span>
                 <span className="ml-3 inline-flex flex-wrap gap-x-3 gap-y-1">
@@ -265,10 +268,11 @@ export default function RecordsPage() {
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span className="flex items-center gap-2 font-mono text-xs text-ink-soft tnum">
-                              <span className="hidden sm:inline uppercase tracking-wider-caps text-[0.625rem] text-ink-faint">Called</span>
+                              <span className="uppercase tracking-wider-caps text-[0.625rem] text-ink-faint">Called</span>
                               {pred ? `${pred.winner === 'Draw' ? 'Draw' : teamShort(pred.winner ?? '')} ${scoreline(pred.score)}` : '—'}
                             </span>
-                            <span className="font-mono text-xs font-semibold text-ink tnum">
+                            <span className="flex items-center gap-2 font-mono text-xs font-semibold text-ink tnum">
+                              <span className="uppercase tracking-wider-caps text-[0.625rem] font-normal text-ink-faint">Actual</span>
                               {actualScore ?? <span className="text-ink-faint">—</span>}
                             </span>
                             <span>
