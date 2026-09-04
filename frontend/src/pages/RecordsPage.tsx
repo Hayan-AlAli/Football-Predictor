@@ -30,7 +30,7 @@ function useAllVerdicts(dates: string[]) {
     return () => {
       cancelled = true;
     };
-  }, [datesKey]);
+  }, [datesKey, dates]);
   return { entries: state.key === datesKey ? state.entries : [], loading: state.key !== datesKey };
 }
 

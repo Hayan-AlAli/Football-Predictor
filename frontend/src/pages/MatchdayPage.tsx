@@ -14,16 +14,14 @@ import { staggerContainer, getReducedMotionVariants } from '../lib/motion';
 import type { ResultEntry } from '../types';
 
 function useVerdicts(dates: string[]) {
-  const [state, setState] = useState<{ key: string; entries: ResultEntry[]; loading: boolean }>({
+  const [state, setState] = useState<{ key: string; entries: ResultEntry[] }>({
     key: '',
     entries: [],
-    loading: false,
   });
   const key = dates.join(',');
   useEffect(() => {
     let cancelled = false;
     if (!key) return;
-    setState((s) => ({ ...s, loading: true }));
     (async () => {
       const res = await Promise.allSettled(dates.map((d) => getResultEntries(d)));
       if (cancelled) return;
@@ -32,14 +30,16 @@ function useVerdicts(dates: string[]) {
         entries: res
           .filter((r) => r.status === 'fulfilled')
           .flatMap((r) => r.value),
-        loading: false,
       });
     })();
     return () => {
       cancelled = true;
     };
   }, [key, dates]);
-  return state;
+  return {
+    entries: state.key === key ? state.entries : [],
+    loading: key ? state.key !== key : false,
+  };
 }
 
 /** The matchday page: this matchweek's ledger, printed by the model. */
@@ -54,15 +54,11 @@ export default function MatchdayPage() {
     [gameweeks, matches, today],
   );
 
-  useEffect(() => {
-    if (selected == null && thisWeek != null) {
-      setSelected(thisWeek);
-    }
-  }, [thisWeek, selected, setSelected]);
+  const view = selected ?? thisWeek;
 
   const weekMatches = useMemo(
-    () => sortMatchesByDate(matches.filter((m) => m.gameweek === selected)),
-    [matches, selected]
+    () => sortMatchesByDate(matches.filter((m) => m.gameweek === view)),
+    [matches, view]
   );
   const weekDates = useMemo(() => [...new Set(weekMatches.map((m) => m.date))], [weekMatches]);
   const { entries: verdicts, loading: verdictsLoading } = useVerdicts(weekDates);
@@ -98,15 +94,15 @@ export default function MatchdayPage() {
         />
       )}
 
-      {status === 'online' && gameweeks.length > 0 && selected != null && (
+      {status === 'online' && gameweeks.length > 0 && view != null && (
         <>
           <PageTurnNav
             gameweeks={gameweeks}
-            selected={selected}
+            selected={view}
             fixtureCount={weekMatches.length}
             onSelect={setSelected}
           />
-          {selected === thisWeek && thisWeek != null && (
+          {view === thisWeek && thisWeek != null && (
             <div className="flex justify-center pb-2">
               <span className="stamp" style={{ background: 'var(--rubric)' }}>
                 This week
@@ -157,7 +153,7 @@ export default function MatchdayPage() {
               variants={staggerV}
               initial="hidden"
               animate="show"
-              key={selected}
+              key={view}
               className="rule-double page-turn-in pb-8"
             >
               {/* Column heads */}

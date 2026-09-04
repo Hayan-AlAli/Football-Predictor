@@ -37,7 +37,7 @@ export default function RunningHead({ gameweek, isCurrentWeek }: RunningHeadProp
     [gameweeks, matches, today],
   );
   const showStamp =
-    isCurrentWeek ?? (location.pathname === '/' && thisWeek != null && selectedGameweek === thisWeek);
+    isCurrentWeek ?? (location.pathname === '/' && thisWeek != null && (selectedGameweek ?? thisWeek) === thisWeek);
 
   const activeSection =
     SECTIONS.find((s) =>
