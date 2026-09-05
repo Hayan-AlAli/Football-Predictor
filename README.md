@@ -64,7 +64,6 @@ python -m backend.automation evening
 │       ├── fetch_and_save_matches.py
 │       ├── migrate_to_db.py
 │       ├── regenerate_predictions.py
-│       └── debug_soccerdata.py
 ├── data/
 │   ├── teams.json             # Premier League team metadata + badge URLs
 │   ├── predictions/           # Generated predictions (JSON)

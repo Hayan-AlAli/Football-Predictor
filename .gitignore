@@ -48,3 +48,8 @@ public/
 data/predictions/
 data/results/
 data/forecast/
+
+# Internal process docs (product contract, design notes, AI plans/specs) - local only
+PRODUCT.md
+DESIGN.md
+docs/
