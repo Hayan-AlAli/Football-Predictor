@@ -18,12 +18,80 @@ def test_add_elo_difference_basic_and_nan_fill():
 
 
 def test_production_feature_columns_appends_elo_difference_last():
-    assert features.PRODUCTION_FEATURE_COLUMNS[-1] == "elo_difference"
-    assert features.PRODUCTION_FEATURE_COLUMNS[:-1] == [
+    assert features.PRODUCTION_FEATURE_COLUMNS[:8] == [
         "home_team_code", "away_team_code", "home_elo", "away_elo",
         "home_rolling_goals", "away_rolling_goals",
         "home_rolling_xg", "away_rolling_xg",
     ]
+    assert features.PRODUCTION_FEATURE_COLUMNS[8] == "elo_difference"
+    assert features.PRODUCTION_FEATURE_COLUMNS[9:] == features.multi_window_columns()
+    assert len(features.PRODUCTION_FEATURE_COLUMNS) == 25
+
+
+def test_team_window_form_last3_and_last10():
+    rows = [
+        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "X",
+         "home_goals": 1, "away_goals": 0, "home_xg": 1.0, "away_xg": 0.5},
+        {"date": pd.Timestamp("2026-01-08"), "home_team": "Y", "away_team": "A",
+         "home_goals": 2, "away_goals": 2, "home_xg": 2.0, "away_xg": 1.5},
+        {"date": pd.Timestamp("2026-01-15"), "home_team": "A", "away_team": "Z",
+         "home_goals": 3, "away_goals": 1, "home_xg": 2.5, "away_xg": 1.0},
+        {"date": pd.Timestamp("2026-01-22"), "home_team": "W", "away_team": "A",
+         "home_goals": 0, "away_goals": 1, "home_xg": 0.5, "away_xg": 1.0},
+    ]
+    df = _df(rows)
+    f3 = features.team_window_form(df, "A", 3, before=pd.Timestamp("2026-02-01"))
+    # Last 3 of A: 2-2 away, 3-1 home, 1-0 away
+    assert f3["scored"] == pytest.approx((2 + 3 + 1) / 3)
+    assert f3["conceded"] == pytest.approx((2 + 1 + 0) / 3)
+    assert f3["xg_for"] == pytest.approx((1.5 + 2.5 + 1.0) / 3)
+    assert f3["xg_against"] == pytest.approx((2.0 + 1.0 + 0.5) / 3)
+    f10 = features.team_window_form(df, "A", 10, before=pd.Timestamp("2026-02-01"))
+    # All 4 of A: adds 1-0 home win
+    assert f10["scored"] == pytest.approx((1 + 2 + 3 + 1) / 4)
+    assert f10["conceded"] == pytest.approx((0 + 2 + 1 + 0) / 4)
+
+
+def test_team_window_form_excludes_fixture_and_future():
+    rows = [
+        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "X",
+         "home_goals": 5, "away_goals": 0, "home_xg": 4.0, "away_xg": 0.5},
+        {"date": pd.Timestamp("2026-01-08"), "home_team": "A", "away_team": "Y",
+         "home_goals": 5, "away_goals": 0, "home_xg": 4.0, "away_xg": 0.5},
+    ]
+    df = _df(rows)
+    # Same-date matches are not prior: only the 01-01 game counts.
+    f = features.team_window_form(df, "A", 10, before=pd.Timestamp("2026-01-08"))
+    assert f["scored"] == 5.0
+    assert f["conceded"] == 0.0
+
+
+def test_team_window_form_empty_history_is_zero():
+    df = _df([
+        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "X",
+         "home_goals": 1, "away_goals": 0, "home_xg": 1.0, "away_xg": 0.5},
+    ])
+    assert features.team_window_form(df, "ZZZ", 3, before=pd.Timestamp("2026-02-01")) == {
+        "scored": 0.0, "conceded": 0.0, "xg_for": 0.0, "xg_against": 0.0}
+
+
+def test_add_multi_window_form_columns_and_no_leakage():
+    rows = [
+        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "B",
+         "home_goals": 2, "away_goals": 0, "home_xg": 2.0, "away_xg": 0.5,
+         "home_elo": 1800.0, "away_elo": 1700.0},
+        {"date": pd.Timestamp("2026-01-08"), "home_team": "B", "away_team": "A",
+         "home_goals": 1, "away_goals": 1, "home_xg": 1.0, "away_xg": 1.0,
+         "home_elo": 1700.0, "away_elo": 1800.0},
+    ]
+    df = features.add_multi_window_form(_df(rows))
+    for col in features.multi_window_columns():
+        assert col in df.columns
+    # Row 0: no prior matches -> zeros. Row 1: only row 0 counts (not itself).
+    assert df.loc[0, "home_form_3_scored"] == 0.0
+    assert df.loc[1, "home_form_3_scored"] == 0.0  # B had no prior games
+    assert df.loc[1, "away_form_3_scored"] == 2.0  # A scored 2 in row 0
+    assert df.loc[1, "away_form_3_conceded"] == 0.0
 
 
 def test_team_decayed_form_weights_recent_more():

@@ -31,6 +31,7 @@ def train():
     df = features.calculate_rolling_stats(df)
 
     df = features.add_elo_difference(df)
+    df = features.add_multi_window_form(df)
 
     le = LabelEncoder()
     all_teams = pd.concat([df['home_team'], df['away_team']]).unique()

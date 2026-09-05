@@ -324,6 +324,15 @@ def predict_match(match_data):
                 'away_rolling_xg': a_xg
             }
 
+            # Multi-window form through the exact builder training uses,
+            # scoped to matches before the fixture (never the future).
+            fixture_date = match_data.get('date')
+            for _window in features.MULTI_WINDOWS:
+                for _side, _team_norm in (("home", home_team_norm), ("away", away_team_norm)):
+                    _form = features.team_window_form(training_df, _team_norm, _window, before=fixture_date)
+                    for _metric in ("scored", "conceded", "xg_for", "xg_against"):
+                        features_dict[f"{_side}_form_{_window}_{_metric}"] = _form[_metric]
+
             league_avg_goals = float(training_df['home_rolling_goals'].mean())
             league_avg_xg = float(training_df['home_rolling_xg'].mean())
 

@@ -121,7 +121,8 @@ _FEATURE_COLUMNS_V1 = [
 # Production feature set: V1 plus the Elo gap. This is the single canonical
 # definition used by BOTH training (train_model.py) and inference
 # (predictor.py) so the two can never drift apart.
-PRODUCTION_FEATURE_COLUMNS = _FEATURE_COLUMNS_V1 + ["elo_difference"]
+# (Full list assembled as PRODUCTION_FEATURE_COLUMNS below, after the
+# multi-window builders it depends on.)
 
 
 def add_elo_difference(df):
@@ -135,6 +136,83 @@ def add_elo_difference(df):
         - pd.to_numeric(df["away_elo"], errors="coerce").fillna(1500.0)
     )
     return df
+
+
+MULTI_WINDOWS = (3, 10)
+_MULTI_WINDOW_METRICS = ("scored", "conceded", "xg_for", "xg_against")
+
+
+def _multi_window_column(side, window, metric):
+    return f"{side}_form_{window}_{metric}"
+
+
+def multi_window_columns():
+    """The 16 rolling-form columns, in canonical order."""
+    return [
+        _multi_window_column(side, window, metric)
+        for window in MULTI_WINDOWS
+        for side in ("home", "away")
+        for metric in _MULTI_WINDOW_METRICS
+    ]
+
+
+def team_window_form(df, team, window, before=None):
+    """Mean scored/conceded/xG-for/xG-against over a team's last `window`
+    matches played strictly before `before`.
+
+    The one shared implementation for training and prediction: training
+    passes each row's own date, inference passes the fixture date (or None,
+    meaning the whole frame — valid when all of it predates the fixture).
+    Teams with fewer than `window` prior matches use whatever exists;
+    teams with none get 0.0. Never sees the fixture itself: same-date
+    matches are excluded, so no future information can leak.
+    """
+    d = df[(df["home_team"] == team) | (df["away_team"] == team)]
+    if before is not None:
+        d = d[pd.to_datetime(d["date"]) < pd.to_datetime(before)]
+    d = d.sort_values("date").tail(window)
+    if d.empty:
+        return {"scored": 0.0, "conceded": 0.0, "xg_for": 0.0, "xg_against": 0.0}
+    scored, conceded, xg_for, xg_against = [], [], [], []
+    for _, r in d.iterrows():
+        if r["home_team"] == team:
+            s, c = r["home_goals"], r["away_goals"]
+            xf, xa = r.get("home_xg"), r.get("away_xg")
+        else:
+            s, c = r["away_goals"], r["home_goals"]
+            xf, xa = r.get("away_xg"), r.get("home_xg")
+        scored.append(float(s))
+        conceded.append(float(c))
+        xg_for.append(0.0 if pd.isna(xf) else float(xf))
+        xg_against.append(0.0 if pd.isna(xa) else float(xa))
+    n = len(d)
+    return {
+        "scored": sum(scored) / n,
+        "conceded": sum(conceded) / n,
+        "xg_for": sum(xg_for) / n,
+        "xg_against": sum(xg_against) / n,
+    }
+
+
+def add_multi_window_form(df):
+    """Append all 16 multi-window rolling-form columns (prior matches only)."""
+    df = df.copy().sort_values("date").reset_index(drop=True)
+    cols = {c: [] for c in multi_window_columns()}
+    for _, row in df.iterrows():
+        for window in MULTI_WINDOWS:
+            for side, team in (("home", row["home_team"]), ("away", row["away_team"])):
+                form = team_window_form(df, team, window, before=row["date"])
+                for metric in _MULTI_WINDOW_METRICS:
+                    cols[_multi_window_column(side, window, metric)].append(form[metric])
+    for col, vals in cols.items():
+        df[col] = vals
+    return df
+
+
+# Production feature set: V1 plus the Elo gap plus multi-window form.
+# This is the single canonical definition used by BOTH training
+# (train_model.py) and inference (predictor.py) so the two can never drift.
+PRODUCTION_FEATURE_COLUMNS = _FEATURE_COLUMNS_V1 + ["elo_difference"] + multi_window_columns()
 _FEATURE_COLUMNS_V2 = _FEATURE_COLUMNS_V1 + ["elo_gap", "home_relative_goals", "away_relative_goals"]
 
 
