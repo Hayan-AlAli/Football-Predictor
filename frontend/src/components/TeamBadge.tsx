@@ -24,7 +24,7 @@ export default function TeamBadge({ team, info, size = 'md', className = '' }: T
   if (badge && !failed) {
     return (
       <span
-        className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-sm bg-paper-white border border-paper-line ${SIZES[size]} ${className}`}
+        className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-sm ${SIZES[size]} ${className}`}
       >
         <img
           src={badge}
