@@ -45,6 +45,23 @@ def get_result_file_path(date_str=None):
     return os.path.join(RESULTS_DIR, f"{date_str}.json")
 
 
+FIXTURES_FILE_PATH = os.path.join(DATA_DIR, "fixtures.json")
+
+
+def get_fixtures_file_path():
+    return FIXTURES_FILE_PATH
+
+
+def load_fixtures_file(from_date, team=None):
+    rows = load_json(FIXTURES_FILE_PATH) or []
+    out = [r for r in rows if r.get('date', '') >= from_date]
+    if team:
+        out = [r for r in out
+               if r.get('home_team') == team or r.get('away_team') == team]
+    out.sort(key=lambda r: (r.get('date', ''), r.get('time') or ''))
+    return out
+
+
 def save_json(data, path):
     try:
         with open(path, 'w', encoding='utf-8') as f:
@@ -81,8 +98,8 @@ def generate_predictions_for_date(date_str, upcoming_df):
             'home_team': home_team,
             'away_team': away_team,
             'date': row['date'],
-            'home_elo': row.get('home_elo', 1500),
-            'away_elo': row.get('away_elo', 1500)
+            'home_elo': utils.safe_elo(row.get('home_elo', 1500)),
+            'away_elo': utils.safe_elo(row.get('away_elo', 1500))
         }
         pred_result = predict_match(match_input)
         match_id = generate_match_id(row['date'], home_team, away_team)

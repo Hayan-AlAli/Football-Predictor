@@ -180,3 +180,18 @@ def test_jobs_db_require_postgres_url(monkeypatch):
         assert False, "expected RuntimeError"
     except RuntimeError as e:
         assert "POSTGRES_URL" in str(e)
+
+
+def test_fixtures_file_roundtrip(monkeypatch, tmp_path):
+    from backend import utils_data as ud
+    monkeypatch.setattr(ud, "FIXTURES_FILE_PATH", str(tmp_path / "fixtures.json"))
+    rows = [
+        {"id": "2099-01-01_a_b", "date": "2099-01-01", "time": "15:00",
+         "home_team": "A", "away_team": "B"},
+        {"id": "2099-01-03_b_c", "date": "2099-01-03", "time": "15:00",
+         "home_team": "B", "away_team": "C"},
+    ]
+    ud.save_json(rows, ud.get_fixtures_file_path())
+    assert ud.load_fixtures_file("2099-01-02") == [rows[1]]
+    assert ud.load_fixtures_file("2099-01-01", team="C") == [rows[1]]
+    assert ud.load_fixtures_file("2099-01-04") == []
