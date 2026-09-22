@@ -319,3 +319,49 @@ def test_head_to_head_self_pair_empty_record():
 def test_profile_and_h2h_guard_missing_training_frame():
     assert team_profile(None, "Arsenal") is None
     assert head_to_head(None, "Arsenal", "Chelsea") is None
+
+
+def test_upcoming_fixtures_joins_predictions_no_live_call(monkeypatch):
+    from backend import database as db
+    from backend.insights import upcoming_fixtures
+    monkeypatch.setattr(db, "DATABASE_URL", "postgres://fake")
+    fixtures = [
+        {"id": "f1", "date": "2099-01-01", "time": "15:00",
+         "home_team": "Arsenal", "away_team": "Chelsea"},
+        {"id": "f2", "date": "2099-01-01", "time": "17:30",
+         "home_team": "Arsenal", "away_team": "Liverpool"},
+    ]
+    monkeypatch.setattr(db, "load_fixtures", lambda from_date, team=None: fixtures)
+    monkeypatch.setattr(db, "load_predictions",
+                        lambda d: [{"id": "f1", "prediction": {"winner": "Arsenal"}}])
+
+    def _no_live(*a, **k):
+        raise AssertionError("live fetch in upcoming_fixtures")
+    monkeypatch.setattr(data_manager, "fetch_upcoming_matches", _no_live)
+    monkeypatch.setattr(predictor, "predict_match", _no_live)
+
+    out = upcoming_fixtures("Arsenal")
+    assert [r["id"] for r in out] == ["f1", "f2"]
+    assert out[0]["prediction"] == {"winner": "Arsenal"}
+    assert out[1]["prediction"] is None
+
+
+def test_upcoming_fixtures_file_mode(monkeypatch, tmp_path):
+    from backend import utils_data as ud
+    from backend.insights import upcoming_fixtures
+    from backend import database as db
+    monkeypatch.setattr(db, "DATABASE_URL", None)
+    monkeypatch.setattr(ud, "FIXTURES_FILE_PATH", str(tmp_path / "fixtures.json"))
+    monkeypatch.setattr(ud, "PREDICTIONS_DIR", str(tmp_path / "predictions"))
+    (tmp_path / "predictions").mkdir()
+    import json
+    (tmp_path / "fixtures.json").write_text(json.dumps([
+        {"id": "f1", "date": "2099-01-01", "time": "15:00",
+         "home_team": "Arsenal", "away_team": "Chelsea"},
+    ]))
+    (tmp_path / "predictions" / "2099-01-01.json").write_text(json.dumps([
+        {"id": "f1", "prediction": {"winner": "Draw"}},
+    ]))
+    out = upcoming_fixtures("Arsenal")
+    assert len(out) == 1
+    assert out[0]["prediction"] == {"winner": "Draw"}

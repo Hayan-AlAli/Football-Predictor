@@ -80,7 +80,11 @@ def simulate_season(standings, fixture_rows, n_sims=10000, seed=42):
     team_names = sorted({r["team"] for r in standings}
                         | {h for h, _, _, _ in rows}
                         | {a for _, a, _, _ in rows})
-    points = {t: np.zeros(n_sims) for t in team_names}
+    # Current points are the starting total: the sim only adds points earned
+    # in the remaining fixtures. Teams in fixtures but outside the standings
+    # (no games played yet) start from zero.
+    base_points = {r["team"]: float(r.get("points", 0) or 0) for r in standings}
+    points = {t: np.full(n_sims, base_points.get(t, 0.0)) for t in team_names}
 
     for idx, (home, away, hl, al) in enumerate(rows):
         if hl <= 0 and al <= 0:
@@ -565,32 +569,34 @@ def head_to_head(training_df, team_a, team_b):
 
 
 def upcoming_fixtures(team_name):
+    from backend import database as db
     norm = utils.normalize_team_name(team_name)
-    try:
-        upcoming = data_manager.fetch_upcoming_matches()
-    except Exception:
-        return []
-    if upcoming is None or upcoming.empty:
-        return []
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if db.DATABASE_URL:
+        fixtures = db.load_fixtures(today, team=norm)
+        preds_by_id = {}
+        seen_dates = set()
+        for f in fixtures:
+            if f["date"] in seen_dates:
+                continue
+            seen_dates.add(f["date"])
+            for p in db.load_predictions(f["date"]):
+                preds_by_id[p["id"]] = p.get("prediction")
+    else:
+        fixtures = utils_data.load_fixtures_file(today, team=norm)
+        preds_by_id = {}
+        for f in fixtures:
+            pred_path = os.path.join(utils_data.PREDICTIONS_DIR, f"{f['date']}.json")
+            for p in utils_data.load_json(pred_path) or []:
+                preds_by_id[p["id"]] = p.get("prediction")
     out = []
-    for _, row in upcoming.iterrows():
-        h = utils.normalize_team_name(row["home_team"])
-        a = utils.normalize_team_name(row["away_team"])
-        if norm not in (h, a):
-            continue
-        pred = predictor.predict_match({
-            "home_team": h,
-            "away_team": a,
-            "date": row["date"],
-            "home_elo": float(row.get("home_elo") or 1500),
-            "away_elo": float(row.get("away_elo") or 1500),
-        })
+    for f in fixtures:
         out.append({
-            "id": utils_data.generate_match_id(row["date"], h, a),
-            "date": row["date"].strftime("%Y-%m-%d"),
-            "time": row["date"].strftime("%H:%M"),
-            "home_team": h,
-            "away_team": a,
-            "prediction": pred,
+            "id": f["id"],
+            "date": f["date"],
+            "time": f.get("time") or "TBD",
+            "home_team": f["home_team"],
+            "away_team": f["away_team"],
+            "prediction": preds_by_id.get(f["id"]),
         })
     return out
