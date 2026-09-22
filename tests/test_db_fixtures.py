@@ -53,3 +53,21 @@ def test_load_fixtures_filters_by_team(clean_fixture_rows):
     assert {r["id"] for r in only_home} == {FIX_A["id"], FIX_B["id"]}
     assert db.load_fixtures(TEST_DATE, team="No Such Club") == []
     assert db.load_fixtures("2099-06-02") == []
+
+
+@needs_db
+def test_prune_fixtures_removes_stale_rows(clean_fixture_rows):
+    db.init_db()
+    db.save_fixtures([FIX_A, FIX_B])
+    ghost = dict(FIX_A, id=f"{TEST_DATE}_ghost_home_ghost-away",
+                 home_team="Ghost Home", away_team="Ghost Away")
+    db.save_fixtures([ghost])
+    try:
+        db.prune_fixtures([FIX_A["id"], FIX_B["id"]], TEST_DATE)
+        remaining = {r["id"] for r in db.load_fixtures(TEST_DATE)}
+        assert remaining == {FIX_A["id"], FIX_B["id"]}
+    finally:
+        if db.DATABASE_URL:
+            with db.get_db() as conn:
+                cur = conn.cursor()
+                cur.execute("DELETE FROM fixtures WHERE id = %s", (ghost["id"],))

@@ -279,6 +279,18 @@ def load_fixtures(from_date, team=None):
         return [_row_to_fixture(r) for r in cur.fetchall()]
 
 
+def prune_fixtures(keep_ids, from_date):
+    with get_db() as conn:
+        cur = conn.cursor()
+        if keep_ids:
+            cur.execute(
+                "DELETE FROM fixtures WHERE match_date >= %s AND NOT (id = ANY(%s))",
+                (from_date, list(keep_ids)),
+            )
+        else:
+            cur.execute("DELETE FROM fixtures WHERE match_date >= %s", (from_date,))
+
+
 def _row_to_fixture(row):
     return {
         'id': row['id'],

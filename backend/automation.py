@@ -58,6 +58,7 @@ def run_morning_job(use_db=False):
             raise RuntimeError("POSTGRES_URL not set")
         db.init_db()
         db.save_fixtures(fixtures)
+        db.prune_fixtures([f['id'] for f in fixtures], current_date_str)
     else:
         utils_data.ensure_directories()
         utils_data.save_json(fixtures, utils_data.get_fixtures_file_path())

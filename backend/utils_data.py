@@ -53,7 +53,7 @@ def get_fixtures_file_path():
 
 
 def load_fixtures_file(from_date, team=None):
-    rows = load_json(FIXTURES_FILE_PATH) or []
+    rows = load_json(get_fixtures_file_path()) or []
     out = [r for r in rows if r.get('date', '') >= from_date]
     if team:
         out = [r for r in out

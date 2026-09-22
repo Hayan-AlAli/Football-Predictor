@@ -117,6 +117,7 @@ def test_morning_job_db_success_writes_db_no_files(monkeypatch):
     calls = {}
     monkeypatch.setattr(db, "init_db", lambda: calls.setdefault("init", True))
     monkeypatch.setattr(db, "save_fixtures", lambda fx: calls.setdefault("fixtures", fx))
+    monkeypatch.setattr(db, "prune_fixtures", lambda ids, d: calls.setdefault("pruned", (ids, d)))
     monkeypatch.setattr(db, "save_predictions", lambda p: calls.setdefault("preds", p))
     monkeypatch.setattr(db, "load_latest_forecast", lambda: {"generated": "old"})
     monkeypatch.setattr(db, "save_forecast", lambda d, f: calls.setdefault("forecast", (d, f)))
@@ -134,6 +135,8 @@ def test_morning_job_db_success_writes_db_no_files(monkeypatch):
     assert summary["forecast"] == "regenerated"
     assert calls["preds"] == fake_preds
     assert calls["forecast"][1] == {"generated": "x"}
+    assert calls["pruned"][0] == [f["id"] for f in calls["fixtures"]]
+    assert calls["pruned"][1] == summary["date"]
 
 
 def test_evening_job_db_mirrors_raw_backfill(monkeypatch):

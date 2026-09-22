@@ -580,12 +580,16 @@ def upcoming_fixtures(team_name):
             if f["date"] in seen_dates:
                 continue
             seen_dates.add(f["date"])
-            for p in db.load_predictions(f["date"]):
+            for p in db.load_predictions(f["date"]) or []:
                 preds_by_id[p["id"]] = p.get("prediction")
     else:
         fixtures = utils_data.load_fixtures_file(today, team=norm)
         preds_by_id = {}
+        seen_dates = set()
         for f in fixtures:
+            if f["date"] in seen_dates:
+                continue
+            seen_dates.add(f["date"])
             pred_path = os.path.join(utils_data.PREDICTIONS_DIR, f"{f['date']}.json")
             for p in utils_data.load_json(pred_path) or []:
                 preds_by_id[p["id"]] = p.get("prediction")

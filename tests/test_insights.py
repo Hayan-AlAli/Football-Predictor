@@ -365,3 +365,16 @@ def test_upcoming_fixtures_file_mode(monkeypatch, tmp_path):
     out = upcoming_fixtures("Arsenal")
     assert len(out) == 1
     assert out[0]["prediction"] == {"winner": "Draw"}
+
+
+def test_upcoming_fixtures_tolerates_none_predictions(monkeypatch):
+    from backend import database as db
+    from backend.insights import upcoming_fixtures
+    monkeypatch.setattr(db, "DATABASE_URL", "postgres://fake")
+    monkeypatch.setattr(db, "load_fixtures",
+                        lambda from_date, team=None: [{"id": "f9", "date": "2099-01-01",
+                                                       "time": "15:00", "home_team": "Arsenal",
+                                                       "away_team": "Chelsea"}])
+    monkeypatch.setattr(db, "load_predictions", lambda d: None)
+    out = upcoming_fixtures("Arsenal")
+    assert out[0]["prediction"] is None

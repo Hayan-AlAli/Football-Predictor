@@ -238,6 +238,10 @@ def test_predictions_empty_db_returns_empty_without_live_fetch(monkeypatch):
     def _no_live(*a, **k):
         raise AssertionError("live generate on read path")
     monkeypatch.setattr(server, "_generate_predictions_for_date", _no_live)
+    monkeypatch.setattr(server.data_manager, "fetch_upcoming_matches",
+                        lambda: (_ for _ in ()).throw(AssertionError("live fetch on read path")))
+    monkeypatch.setattr(server.utils_data, "generate_predictions_for_date",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("live generate on read path")))
 
     res = server.get_predictions("2099-01-01")
     assert res == {"date": "2099-01-01", "predictions": []}
@@ -254,6 +258,8 @@ def test_forecast_unavailable_without_live_generate(monkeypatch):
     def _no_live(*a, **k):
         raise AssertionError("live generate on read path")
     monkeypatch.setattr(insights, "generate_forecast", _no_live)
+    monkeypatch.setattr(insights, "write_forecast_file",
+                        lambda f: (_ for _ in ()).throw(AssertionError("cache write on read path")))
     try:
         server.get_season_forecast()
         assert False, "expected HTTPException"
