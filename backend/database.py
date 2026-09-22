@@ -84,6 +84,22 @@ def init_db():
             );
         """)
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS fixtures (
+                id TEXT PRIMARY KEY,
+                match_date DATE NOT NULL,
+                match_time TEXT,
+                home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL,
+                gameweek INTEGER,
+                home_elo DOUBLE PRECISION,
+                away_elo DOUBLE PRECISION
+            );
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_fixtures_date
+            ON fixtures(match_date);
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS forecast_cache (
                 match_date DATE PRIMARY KEY,
                 payload JSONB NOT NULL,
@@ -203,6 +219,77 @@ def load_all_predictions():
         cur.execute("SELECT * FROM predictions ORDER BY match_date, match_time")
         rows = cur.fetchall()
         return [_row_to_prediction(r) for r in rows]
+
+
+def save_fixtures(fixtures):
+    with get_db() as conn:
+        cur = conn.cursor()
+        for f in fixtures:
+            gw = f.get('gameweek')
+            try:
+                gw = None if gw is None or gw != gw else int(gw)
+            except (TypeError, ValueError):
+                gw = None
+            cur.execute("""
+                INSERT INTO fixtures (
+                    id, match_date, match_time,
+                    home_team, away_team, gameweek,
+                    home_elo, away_elo
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    match_time = EXCLUDED.match_time,
+                    home_team = EXCLUDED.home_team,
+                    away_team = EXCLUDED.away_team,
+                    gameweek = EXCLUDED.gameweek,
+                    home_elo = EXCLUDED.home_elo,
+                    away_elo = EXCLUDED.away_elo
+            """, (
+                f['id'],
+                f['date'],
+                _to_native(f.get('time')),
+                f['home_team'],
+                f['away_team'],
+                gw,
+                _to_native(f.get('home_elo')),
+                _to_native(f.get('away_elo')),
+            ))
+
+
+def load_fixtures(from_date, team=None):
+    with get_db() as conn:
+        cur = conn.cursor()
+        if team:
+            cur.execute(
+                """SELECT id, match_date, match_time, home_team, away_team,
+                          gameweek, home_elo, away_elo
+                   FROM fixtures
+                   WHERE match_date >= %s AND (home_team = %s OR away_team = %s)
+                   ORDER BY match_date, match_time""",
+                (from_date, team, team),
+            )
+        else:
+            cur.execute(
+                """SELECT id, match_date, match_time, home_team, away_team,
+                          gameweek, home_elo, away_elo
+                   FROM fixtures
+                   WHERE match_date >= %s
+                   ORDER BY match_date, match_time""",
+                (from_date,),
+            )
+        return [_row_to_fixture(r) for r in cur.fetchall()]
+
+
+def _row_to_fixture(row):
+    return {
+        'id': row['id'],
+        'date': row['match_date'].isoformat() if hasattr(row['match_date'], 'isoformat') else str(row['match_date']),
+        'time': row.get('match_time') or 'TBD',
+        'home_team': row['home_team'],
+        'away_team': row['away_team'],
+        'gameweek': row.get('gameweek'),
+        'home_elo': row.get('home_elo'),
+        'away_elo': row.get('away_elo'),
+    }
 
 
 def _row_to_prediction(row):
