@@ -175,7 +175,10 @@ def _scrape_upcoming_matches():
             if todays_elo is not None and not todays_elo.empty:
                 for team, row in todays_elo.iterrows():
                     norm = utils.normalize_team_name(str(team))
-                    elo_lookup[norm] = row['elo']
+                    elo = utils.safe_elo(row['elo'], None)
+                    if elo is None:
+                        continue
+                    elo_lookup[norm] = elo
         except Exception as e:
             logger.warning(f"Live ELO unavailable ({e}); using training-data ELO.")
         if not elo_lookup:

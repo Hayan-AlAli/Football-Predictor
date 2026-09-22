@@ -77,3 +77,66 @@ def test_predict_match_unknown_team_still_1500(monkeypatch):
         "away_team": "Chelsea",
     })
     assert pred["features"]["home_elo"] == 1500
+
+
+def _assert_real_prediction(pred):
+    # Random fallback has no features and exact 0.33/0.34/0.33 probs.
+    assert "features" in pred
+    assert not (pred["prob_home"] == 0.33 and pred["prob_draw"] == 0.34
+                and pred["prob_away"] == 0.33)
+
+
+def test_predict_match_nan_elo_falls_back_to_1500():
+    import math
+    pred = predictor.predict_match({
+        "home_team": "Arsenal",
+        "away_team": "Chelsea",
+        "home_elo": float("nan"),
+        "away_elo": float("nan"),
+    })
+    _assert_real_prediction(pred)
+    assert pred["home_elo"] == 1500
+    assert pred["away_elo"] == 1500
+
+
+def test_predict_match_garbage_elo_falls_back_to_1500(monkeypatch):
+    # Block network so the test stays offline and deterministic.
+    monkeypatch.setattr(predictor, "_fetch_live_elo", lambda: None)
+    for bad in (float("inf"), float("-inf"), "garbage", 0):
+        pred = predictor.predict_match({
+            "home_team": "Arsenal",
+            "away_team": "Chelsea",
+            "home_elo": bad,
+            "away_elo": bad,
+        })
+        _assert_real_prediction(pred)
+        assert pred["home_elo"] == 1500
+        assert pred["away_elo"] == 1500
+
+
+def test_predict_match_none_elo_uses_training_lookup(monkeypatch):
+    monkeypatch.setattr(predictor, "_fetch_live_elo", lambda: None)
+    pred = predictor.predict_match({
+        "home_team": "Arsenal",
+        "away_team": "Chelsea",
+        "home_elo": None,
+        "away_elo": None,
+    })
+    _assert_real_prediction(pred)
+    assert pred["home_elo"] != 1500
+
+
+def test_resolve_elo_skips_nan_ratings():
+    assert predictor._resolve_elo({"Chelsea": float("nan")}, "Chelsea") == 1500
+    assert predictor._resolve_elo({"Arsenal": 1850.0}, "Arsenal") == 1850.0
+
+
+def test_safe_elo():
+    from backend import utils
+    assert utils.safe_elo(None) == 1500.0
+    assert utils.safe_elo(float("nan")) == 1500.0
+    assert utils.safe_elo(float("inf")) == 1500.0
+    assert utils.safe_elo("garbage") == 1500.0
+    assert utils.safe_elo(0) == 1500.0
+    assert utils.safe_elo(1900) == 1900.0
+    assert utils.safe_elo(1850.7) == 1850.7

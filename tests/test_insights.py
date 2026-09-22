@@ -378,3 +378,30 @@ def test_upcoming_fixtures_tolerates_none_predictions(monkeypatch):
     monkeypatch.setattr(db, "load_predictions", lambda d: None)
     out = upcoming_fixtures("Arsenal")
     assert out[0]["prediction"] is None
+
+
+def test_simulate_season_carries_current_points():
+    standings = [
+        {"team": "Arsenal", "points": 60},
+        {"team": "Chelsea", "points": 20},
+    ]
+    res = simulate_season(standings, [], n_sims=100, seed=1)["projected"]
+    by = {r["team"]: r for r in res}
+    # No fixtures left: projected totals are exactly today's totals.
+    assert by["Arsenal"]["points_p50"] == 60.0
+    assert by["Chelsea"]["points_p50"] == 20.0
+
+
+def test_simulate_season_adds_remaining_points_to_base():
+    standings = [
+        {"team": "Arsenal", "points": 60},
+        {"team": "Chelsea", "points": 20},
+    ]
+    fixtures = [
+        {"home": "Arsenal", "away": "Chelsea", "home_elo": 1900, "away_elo": 1800},
+    ]
+    res = simulate_season(standings, fixtures, n_sims=500, seed=3)["projected"]
+    by = {r["team"]: r for r in res}
+    # Sims only ever add 3/1/0, so no percentile can fall below today's total.
+    assert by["Arsenal"]["points_p50"] >= 60.0
+    assert by["Chelsea"]["points_p50"] >= 20.0

@@ -66,7 +66,10 @@ def _fetch_live_elo():
         if ratings is not None and not ratings.empty:
             lookup = {}
             for team, row in ratings.iterrows():
-                lookup[utils.normalize_team_name(str(team))] = row['elo']
+                elo = utils.safe_elo(row['elo'], None)
+                if elo is None:
+                    continue
+                lookup[utils.normalize_team_name(str(team))] = elo
             _live_elo_cache, _live_elo_cache_ts = lookup, now
             _save_elo_disk_cache(lookup)
             return lookup
@@ -127,7 +130,7 @@ def _resolve_elo(lookup, team_name):
         return 1500
     exact = utils.normalize_team_name(team_name)
     if exact in lookup:
-        return lookup[exact]
+        return utils.safe_elo(lookup[exact])
 
     team_tokens = _tokens(exact)
     if not team_tokens:
@@ -135,13 +138,16 @@ def _resolve_elo(lookup, team_name):
 
     best = (0, 1500)
     for key, val in lookup.items():
+        elo = utils.safe_elo(val, None)
+        if elo is None:
+            continue
         key_tokens = _tokens(key)
         if not key_tokens:
             continue
         if team_tokens.issuperset(key_tokens) or key_tokens.issuperset(team_tokens):
             shared = len(team_tokens & key_tokens)
             if shared > best[0]:
-                best = (shared, val)
+                best = (shared, elo)
     return best[1]
 
 
@@ -163,9 +169,74 @@ except Exception as e:
     print(f"Error loading models: {e}")
 
 
+if training_df is not None and not training_df.empty:
+    # The bundled frame predates consistent normalization (it stores e.g.
+    # 'Newcastle United' / 'Wolves' / 'Ipswich'). Normalize once so every
+    # lookup below compares like with like.
+    for _col in ("home_team", "away_team"):
+        if _col in training_df.columns:
+            training_df[_col] = training_df[_col].apply(utils.normalize_team_name)
+
+
+def _neutral_team_code():
+    """In-distribution fallback code for teams the encoder never saw.
+
+    Unknown teams must NOT map to 0 (Arsenal's code): that made every
+    newcomer bat like Arsenal. The median code is the least-biased single
+    value in a 0..N-1 label range.
+    """
+    try:
+        n = len(encoder.classes_)
+    except Exception:
+        return 0
+    import statistics
+    return int(statistics.median(range(n)))
+
+
+UNKNOWN_TEAM_CODE = _neutral_team_code()
+
+
+def _team_code(team_name):
+    """Trained code for a team, robust to spelling variants.
+
+    Tries the normalized name, then any encoder class that normalizes to
+    the same value (e.g. query 'Newcastle' -> stored 'Newcastle United').
+    Unseen teams get UNKNOWN_TEAM_CODE, never another club's identity.
+    """
+    if encoder is None:
+        return UNKNOWN_TEAM_CODE
+    norm = utils.normalize_team_name(team_name)
+    try:
+        return int(encoder.transform([norm])[0])
+    except Exception:
+        pass
+    try:
+        for cls in encoder.classes_:
+            if utils.normalize_team_name(str(cls)) == norm:
+                return int(encoder.transform([cls])[0])
+    except Exception:
+        pass
+    return UNKNOWN_TEAM_CODE
+
+
+def team_has_history(team_name, df=None):
+    """Whether a (possibly un-normalized) team appears anywhere in df."""
+    frame = training_df if df is None else df
+    if frame is None or frame.empty:
+        return False
+    norm = utils.normalize_team_name(team_name)
+    try:
+        home = frame["home_team"].apply(utils.normalize_team_name) == norm
+        away = frame["away_team"].apply(utils.normalize_team_name) == norm
+        return bool((home | away).any())
+    except Exception:
+        return False
+
+
 def get_latest_stats(team_name, df, window=5):
-    home_matches = df[df['home_team'] == team_name]
-    away_matches = df[df['away_team'] == team_name]
+    norm = utils.normalize_team_name(team_name)
+    home_matches = df[df['home_team'].apply(utils.normalize_team_name) == norm]
+    away_matches = df[df['away_team'].apply(utils.normalize_team_name) == norm]
 
     all_matches = pd.concat([home_matches, away_matches]).sort_values(by='date')
 
@@ -178,7 +249,7 @@ def get_latest_stats(team_name, df, window=5):
     xg = []
 
     for _, match in recent.iterrows():
-        if match['home_team'] == team_name:
+        if utils.normalize_team_name(match['home_team']) == norm:
             goals.append(match['home_goals'])
             xg.append(match['home_xg'] if not pd.isna(match.get('home_xg')) else 0.0)
         else:
@@ -282,14 +353,8 @@ def predict_match(match_data):
             home_team_norm = utils.normalize_team_name(home_team)
             away_team_norm = utils.normalize_team_name(away_team)
 
-            try:
-                home_code = encoder.transform([home_team_norm])[0]
-            except Exception:
-                home_code = 0
-            try:
-                away_code = encoder.transform([away_team_norm])[0]
-            except Exception:
-                away_code = 0
+            home_code = _team_code(home_team_norm)
+            away_code = _team_code(away_team_norm)
 
             home_elo = match_data.get('home_elo')
             away_elo = match_data.get('away_elo')
@@ -300,8 +365,11 @@ def predict_match(match_data):
                         home_elo = _resolve_elo(live_elo, home_team_norm)
                     if away_elo is None:
                         away_elo = _resolve_elo(live_elo, away_team_norm)
-                home_elo = home_elo or 1500
-                away_elo = away_elo or 1500
+            # Sanitize AFTER the lookup: None/NaN/inf/garbage all become
+            # 1500.0. (`x or 1500` missed NaN since NaN is truthy, and the
+            # resulting int(NaN) ValueError produced random 33/33/34 odds.)
+            home_elo = utils.safe_elo(home_elo)
+            away_elo = utils.safe_elo(away_elo)
 
             h_g, h_xg = get_latest_stats(home_team_norm, training_df)
             a_g, a_xg = get_latest_stats(away_team_norm, training_df)
@@ -326,15 +394,23 @@ def predict_match(match_data):
 
             # Multi-window form through the exact builder training uses,
             # scoped to matches before the fixture (never the future).
+            # Teams with no history at all get league-average form: feeding
+            # all-zero vectors made the forest extrapolate to ~3.4 goals.
+            league_avg_goals = float(training_df['home_rolling_goals'].mean())
+            league_avg_xg = float(training_df['home_rolling_xg'].mean())
+            _neutral_form = {
+                "scored": league_avg_goals, "conceded": league_avg_goals,
+                "xg_for": league_avg_xg, "xg_against": league_avg_xg,
+            }
             fixture_date = match_data.get('date')
             for _window in features.MULTI_WINDOWS:
                 for _side, _team_norm in (("home", home_team_norm), ("away", away_team_norm)):
-                    _form = features.team_window_form(training_df, _team_norm, _window, before=fixture_date)
+                    if team_has_history(_team_norm):
+                        _form = features.team_window_form(training_df, _team_norm, _window, before=fixture_date)
+                    else:
+                        _form = _neutral_form
                     for _metric in ("scored", "conceded", "xg_for", "xg_against"):
                         features_dict[f"{_side}_form_{_window}_{_metric}"] = _form[_metric]
-
-            league_avg_goals = float(training_df['home_rolling_goals'].mean())
-            league_avg_xg = float(training_df['home_rolling_xg'].mean())
 
             X_pred = features.add_elo_difference(pd.DataFrame([features_dict]))
             X_pred = X_pred[features.PRODUCTION_FEATURE_COLUMNS]
@@ -375,6 +451,9 @@ def predict_match(match_data):
             }
 
         except Exception as e:
+            import traceback as _tb
+            print(f"predict_match failed for {home_team} vs {away_team}: {e}")
+            _tb.print_exc()
             return random_prediction(home_team, away_team)
     else:
         return random_prediction(home_team, away_team)
