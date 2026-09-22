@@ -84,36 +84,30 @@ async def get_teams():
 @app.get("/api/matches/upcoming")
 def get_upcoming_matches():
     try:
-        upcoming_df = data_manager.fetch_upcoming_matches()
-
-        if upcoming_df.empty:
-            return {"matches": [], "message": "No upcoming matches found"}
+        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        if DB_AVAILABLE:
+            fixtures = db.load_fixtures(today)
+        else:
+            fixtures = utils_data.load_fixtures_file(today)
 
         matches = []
-        for _, row in upcoming_df.iterrows():
-            home_team = utils.normalize_team_name(row['home_team'])
-            away_team = utils.normalize_team_name(row['away_team'])
-
-            time_str = row['date'].strftime('%H:%M') if 'date' in row else 'TBD'
-            date_str = row['date'].strftime('%Y-%m-%d')
-
-            match_data = {
-                "id": utils_data.generate_match_id(row['date'], home_team, away_team),
-                "date": date_str,
-                "time": time_str,
-                "gameweek": row.get('gameweek', None),
-                "home_elo": row.get('home_elo', None),
-                "away_elo": row.get('away_elo', None),
+        for f in fixtures:
+            matches.append({
+                "id": f["id"],
+                "date": f["date"],
+                "time": f.get("time") or "TBD",
+                "gameweek": f.get("gameweek", None),
+                "home_elo": f.get("home_elo", None),
+                "away_elo": f.get("away_elo", None),
                 "home_team": {
-                    **get_team_info(home_team),
-                    "name": home_team
+                    **get_team_info(f["home_team"]),
+                    "name": f["home_team"]
                 },
                 "away_team": {
-                    **get_team_info(away_team),
-                    "name": away_team
+                    **get_team_info(f["away_team"]),
+                    "name": f["away_team"]
                 }
-            }
-            matches.append(match_data)
+            })
 
         return {"matches": matches}
 
@@ -128,29 +122,15 @@ def get_predictions(date: Optional[str] = None):
             date = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         target_date = date
 
+        predictions = []
         if DB_AVAILABLE:
-            predictions = db.load_predictions(target_date)
-        else:
-            predictions = _generate_predictions_for_date(target_date)
-
+            try:
+                predictions = db.load_predictions(target_date) or []
+            except Exception:
+                predictions = []
         if not predictions:
             pred_path = utils_data.get_prediction_file_path(target_date)
-            if os.path.exists(pred_path):
-                predictions = utils_data.load_json(pred_path) or []
-
-        if not predictions:
-            predictions = _generate_predictions_for_date(target_date)
-            if not predictions:
-                upcoming_df = data_manager.fetch_upcoming_matches()
-                if upcoming_df is not None and not upcoming_df.empty:
-                    upcoming_df['date_str'] = upcoming_df['date'].dt.strftime('%Y-%m-%d')
-                    for nd in sorted(upcoming_df['date_str'].unique()):
-                        predictions = utils_data.generate_predictions_for_date(nd, upcoming_df)
-                        if predictions:
-                            target_date = nd
-                            break
-            if predictions and DB_AVAILABLE:
-                db.save_predictions(predictions)
+            predictions = utils_data.load_json(pred_path) or []
 
         enriched = []
         for pred in predictions:
@@ -446,12 +426,7 @@ def get_season_forecast():
     cached = insights._today_forecast()
     if cached is not None:
         return _forecast_with_team_info(cached)
-    forecast = insights.generate_forecast()
-    if forecast is None:
-        raise HTTPException(status_code=503, detail="Forecast unavailable")
-    forecast = _forecast_with_team_info(forecast)
-    insights.write_forecast_file(forecast)
-    return forecast
+    raise HTTPException(status_code=503, detail="Forecast unavailable")
 
 
 def _forecast_with_team_info(forecast):

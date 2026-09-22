@@ -10,19 +10,15 @@ def _client():
     return TestClient(server.app)
 
 
-def test_season_forecast_ok(monkeypatch):
+def test_season_forecast_empty_returns_503_without_live_generate(monkeypatch):
     monkeypatch.setattr(server, "DB_AVAILABLE", False)
-    payload = {
-        "generated": "2026-08-15", "season_year": 2026, "n_sims": 10000,
-        "season_complete": False, "standings": [], "projected": [],
-        "fixtures_remaining": 0,
-    }
     monkeypatch.setattr(insights, "_today_forecast", lambda: None)
-    monkeypatch.setattr(insights, "generate_forecast", lambda *a, **k: payload)
-    monkeypatch.setattr(insights, "write_forecast_file", lambda f: None)
+    monkeypatch.setattr(insights, "generate_forecast",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("live generate on read path")))
+    monkeypatch.setattr(insights, "write_forecast_file",
+                        lambda f: (_ for _ in ()).throw(AssertionError("cache write on read path")))
     r = _client().get("/api/season/forecast")
-    assert r.status_code == 200
-    assert r.json()["season_year"] == 2026
+    assert r.status_code == 503
 
 
 def test_season_forecast_unavailable(monkeypatch):
@@ -50,20 +46,15 @@ def test_season_forecast_serves_today_cache(monkeypatch, tmp_path):
     assert r.json()["generated"] == today
 
 
-def test_season_forecast_writes_cache_on_miss(monkeypatch, tmp_path):
+def test_season_forecast_miss_writes_no_cache_file(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "DB_AVAILABLE", False)
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    payload = {
-        "generated": today, "season_year": 2026, "n_sims": 10000,
-        "season_complete": False, "standings": [], "projected": [],
-        "fixtures_remaining": 0,
-    }
     monkeypatch.setattr(insights, "FORECAST_DIR", str(tmp_path))
     monkeypatch.setattr(insights, "_today_forecast", lambda: None)
-    monkeypatch.setattr(insights, "generate_forecast", lambda *a, **k: payload)
+    monkeypatch.setattr(insights, "generate_forecast",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("live generate on read path")))
     r = _client().get("/api/season/forecast")
-    assert r.status_code == 200
-    assert (tmp_path / f"{today}.json").exists()
+    assert r.status_code == 503
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_calibration_ok(monkeypatch):
@@ -218,3 +209,53 @@ def test_season_forecast_serves_latest_when_today_missing(monkeypatch):
     r = _client().get("/api/season/forecast")
     assert r.status_code == 200
     assert r.json()["generated"] == "2026-01-02"
+
+
+def test_upcoming_serves_db_without_live_fetch(monkeypatch):
+    from backend import database as db
+    monkeypatch.setattr(server, "DB_AVAILABLE", True)
+    rows = [{"id": "2099-01-01_arsenal_chelsea", "date": "2099-01-01", "time": "15:00",
+             "home_team": "Arsenal", "away_team": "Chelsea",
+             "gameweek": 1, "home_elo": 1900.0, "away_elo": 1800.0}]
+    monkeypatch.setattr(db, "load_fixtures", lambda from_date, team=None: rows)
+
+    def _no_live():
+        raise AssertionError("live fetch on read path")
+    monkeypatch.setattr(server.data_manager, "fetch_upcoming_matches", _no_live)
+
+    res = server.get_upcoming_matches()
+    assert len(res["matches"]) == 1
+    assert res["matches"][0]["home_team"]["name"] == "Arsenal"
+    assert res["matches"][0]["away_team"]["name"] == "Chelsea"
+
+
+def test_predictions_empty_db_returns_empty_without_live_fetch(monkeypatch):
+    from backend import database as db
+    monkeypatch.setattr(server, "DB_AVAILABLE", True)
+    monkeypatch.setattr(db, "load_predictions", lambda d: [])
+    monkeypatch.setattr(server.utils_data, "load_json", lambda p: None)
+
+    def _no_live(*a, **k):
+        raise AssertionError("live generate on read path")
+    monkeypatch.setattr(server, "_generate_predictions_for_date", _no_live)
+
+    res = server.get_predictions("2099-01-01")
+    assert res == {"date": "2099-01-01", "predictions": []}
+
+
+def test_forecast_unavailable_without_live_generate(monkeypatch):
+    from fastapi import HTTPException
+    from backend import database as db
+    monkeypatch.setattr(server, "DB_AVAILABLE", True)
+    monkeypatch.setattr(db, "load_forecast", lambda d: None)
+    monkeypatch.setattr(db, "load_latest_forecast", lambda: None)
+    monkeypatch.setattr(insights, "_today_forecast", lambda: None)
+
+    def _no_live(*a, **k):
+        raise AssertionError("live generate on read path")
+    monkeypatch.setattr(insights, "generate_forecast", _no_live)
+    try:
+        server.get_season_forecast()
+        assert False, "expected HTTPException"
+    except HTTPException as e:
+        assert e.status_code == 503
