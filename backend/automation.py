@@ -7,6 +7,17 @@ from backend import data_manager
 from backend import insights
 
 
+def _should_regenerate_forecast(has_forecast, weekday=None):
+    """True on Mondays or when no forecast is stored at all.
+
+    weekday is injectable (0=Monday) so the policy is unit-testable
+    without patching datetime.
+    """
+    if weekday is None:
+        weekday = datetime.now(timezone.utc).weekday()
+    return weekday == 0 or not has_forecast
+
+
 def run_morning_job(use_db=False):
     print("Starting Morning Job (Prediction)...")
 
@@ -17,40 +28,80 @@ def run_morning_job(use_db=False):
 
     if upcoming_df.empty:
         print("No matches found from data manager.")
-        return {"date": current_date_str, "predictions": 0, "forecast": None}
+        return {"date": current_date_str, "fixtures_synced": 0,
+                "dates_predicted": 0, "predictions": 0, "forecast": None}
 
-    predictions = utils_data.generate_predictions_for_date(current_date_str, upcoming_df)
+    from backend import utils
+    upcoming_df = upcoming_df.copy()
+    upcoming_df['date_str'] = upcoming_df['date'].dt.strftime('%Y-%m-%d')
+    upcoming_df = upcoming_df[upcoming_df['date_str'] >= current_date_str].sort_values('date')
 
-    if not predictions:
-        print(f"No matches scheduled for today ({current_date_str}).")
-        return {"date": current_date_str, "predictions": 0, "forecast": None}
-
-    print(f"Found {len(predictions)} matches for today.")
+    fixtures = []
+    for _, row in upcoming_df.iterrows():
+        home_team = utils.normalize_team_name(row['home_team'])
+        away_team = utils.normalize_team_name(row['away_team'])
+        fixtures.append({
+            'id': utils_data.generate_match_id(row['date'], home_team, away_team),
+            'date': row['date'].strftime('%Y-%m-%d'),
+            'time': row['date'].strftime('%H:%M'),
+            'home_team': home_team,
+            'away_team': away_team,
+            'gameweek': row.get('gameweek', None),
+            'home_elo': utils.safe_elo(row.get('home_elo', 1500)),
+            'away_elo': utils.safe_elo(row.get('away_elo', 1500)),
+        })
+    print(f"Synced {len(fixtures)} fixtures.")
 
     if use_db:
         from backend import database as db
         if not db.DATABASE_URL:
             raise RuntimeError("POSTGRES_URL not set")
         db.init_db()
-        db.save_predictions(predictions)
-        forecast = insights.generate_forecast()
-        if forecast:
-            db.save_forecast(current_date_str, forecast)
-            print(f"Forecast cached in DB for {current_date_str}")
-        print("Morning job completed successfully.")
-        return {"date": current_date_str, "predictions": len(predictions),
-                "forecast": bool(forecast)}
+        db.save_fixtures(fixtures)
+    else:
+        utils_data.ensure_directories()
+        utils_data.save_json(fixtures, utils_data.get_fixtures_file_path())
 
-    utils_data.ensure_directories()
-    output_path = utils_data.get_prediction_file_path(current_date_str)
-    utils_data.save_json(predictions, output_path)
+    dates_done = 0
+    total = 0
+    for date_str in sorted(upcoming_df['date_str'].unique()):
+        predictions = utils_data.generate_predictions_for_date(date_str, upcoming_df)
+        if not predictions:
+            continue
+        if use_db:
+            db.save_predictions(predictions)
+        else:
+            utils_data.save_json(predictions, utils_data.get_prediction_file_path(date_str))
+        dates_done += 1
+        total += len(predictions)
+    print(f"Predicted {total} matches across {dates_done} dates.")
 
-    forecast_path = insights.write_forecast_file()
-    if forecast_path:
-        print(f"Forecast cache written to {forecast_path}")
+    forecast_status = None
+    try:
+        if use_db:
+            has_forecast = db.load_latest_forecast() is not None
+        else:
+            has_forecast = insights._today_forecast() is not None
+        if _should_regenerate_forecast(has_forecast):
+            forecast = insights.generate_forecast()
+            if forecast:
+                if use_db:
+                    db.save_forecast(current_date_str, forecast)
+                else:
+                    insights.write_forecast_file(forecast)
+                forecast_status = "regenerated"
+                print("Forecast regenerated.")
+            else:
+                print("Forecast unavailable.")
+        else:
+            forecast_status = "reused"
+            print("Reusing stored forecast.")
+    except Exception as e:
+        print(f"Forecast step failed (predictions already saved): {e}")
     print("Morning job completed successfully.")
-    return {"date": current_date_str, "predictions": len(predictions),
-            "forecast": bool(forecast_path)}
+    return {"date": current_date_str, "fixtures_synced": len(fixtures),
+            "dates_predicted": dates_done, "predictions": total,
+            "forecast": forecast_status}
 
 
 def run_evening_job(use_db=False, lookback_days=3):

@@ -78,26 +78,30 @@ def test_morning_job_returns_summary(monkeypatch):
     import pandas as pd
     monkeypatch.setattr(automation.data_manager, "fetch_upcoming_matches", lambda: pd.DataFrame())
     summary = automation.run_morning_job(use_db=False)
-    assert summary == {"date": summary["date"], "predictions": 0, "forecast": None}
+    assert summary == {"date": summary["date"], "fixtures_synced": 0,
+                       "dates_predicted": 0, "predictions": 0, "forecast": None}
 
 
-def test_morning_job_file_success_forecast_is_bool(monkeypatch, tmp_path):
+def test_morning_job_file_success_regenerates(monkeypatch, tmp_path):
     import pandas as pd
-    res_dir = _patch_results_dir(monkeypatch, tmp_path)
     pred_dir = tmp_path / "predictions"
     pred_dir.mkdir()
     monkeypatch.setattr(utils_data, "PREDICTIONS_DIR", str(pred_dir))
+    monkeypatch.setattr(utils_data, "get_fixtures_file_path",
+                        lambda: str(tmp_path / "fixtures.json"))
     df = pd.DataFrame([{"date": pd.Timestamp.now(tz="UTC"), "home_team": "Arsenal",
                         "away_team": "Chelsea", "home_elo": 1500, "away_elo": 1500}])
     monkeypatch.setattr(data_manager, "fetch_upcoming_matches", lambda: df)
     fake_preds = [{"id": "x", "date": "2026-01-01", "home_team": "Arsenal",
                    "away_team": "Chelsea", "prediction": {}}]
     monkeypatch.setattr(utils_data, "generate_predictions_for_date", lambda d, f: fake_preds)
-    monkeypatch.setattr(insights, "write_forecast_file", lambda *a, **k: str(tmp_path / "f.json"))
+    monkeypatch.setattr(automation, "_should_regenerate_forecast", lambda has: True)
+    monkeypatch.setattr(insights, "write_forecast_file", lambda f: str(tmp_path / "f.json"))
     summary = automation.run_morning_job(use_db=False)
     assert summary["predictions"] == 1
-    assert summary["forecast"] is True
-    assert isinstance(summary["forecast"], bool)
+    assert summary["dates_predicted"] == 1
+    assert summary["fixtures_synced"] == 1
+    assert summary["forecast"] == "regenerated"
 
 
 def test_morning_job_db_success_writes_db_no_files(monkeypatch):
@@ -112,8 +116,11 @@ def test_morning_job_db_success_writes_db_no_files(monkeypatch):
     monkeypatch.setattr(db, "DATABASE_URL", "postgres://fake")
     calls = {}
     monkeypatch.setattr(db, "init_db", lambda: calls.setdefault("init", True))
+    monkeypatch.setattr(db, "save_fixtures", lambda fx: calls.setdefault("fixtures", fx))
     monkeypatch.setattr(db, "save_predictions", lambda p: calls.setdefault("preds", p))
+    monkeypatch.setattr(db, "load_latest_forecast", lambda: {"generated": "old"})
     monkeypatch.setattr(db, "save_forecast", lambda d, f: calls.setdefault("forecast", (d, f)))
+    monkeypatch.setattr(automation, "_should_regenerate_forecast", lambda has: True)
     monkeypatch.setattr(automation.insights, "generate_forecast", lambda *a, **k: {"generated": "x"})
 
     def _no_file(*a, **k):
@@ -123,7 +130,8 @@ def test_morning_job_db_success_writes_db_no_files(monkeypatch):
 
     summary = automation.run_morning_job(use_db=True)
     assert summary["predictions"] == 1
-    assert summary["forecast"] is True
+    assert summary["fixtures_synced"] == 1
+    assert summary["forecast"] == "regenerated"
     assert calls["preds"] == fake_preds
     assert calls["forecast"][1] == {"generated": "x"}
 
@@ -195,3 +203,58 @@ def test_fixtures_file_roundtrip(monkeypatch, tmp_path):
     assert ud.load_fixtures_file("2099-01-02") == [rows[1]]
     assert ud.load_fixtures_file("2099-01-01", team="C") == [rows[1]]
     assert ud.load_fixtures_file("2099-01-04") == []
+
+
+def test_should_regenerate_forecast_gate():
+    assert automation._should_regenerate_forecast(False, weekday=0) is True
+    assert automation._should_regenerate_forecast(True, weekday=0) is True
+    assert automation._should_regenerate_forecast(False, weekday=2) is True
+    assert automation._should_regenerate_forecast(True, weekday=2) is False
+
+
+def test_morning_job_predicts_each_upcoming_date(monkeypatch, tmp_path):
+    import pandas as pd
+    from datetime import datetime, timezone
+    pred_dir = tmp_path / "predictions"
+    pred_dir.mkdir()
+    monkeypatch.setattr(utils_data, "PREDICTIONS_DIR", str(pred_dir))
+    monkeypatch.setattr(utils_data, "get_fixtures_file_path",
+                        lambda: str(tmp_path / "fixtures.json"))
+    today = datetime.now(timezone.utc)
+    df = pd.DataFrame([
+        {"date": today, "home_team": "Arsenal", "away_team": "Chelsea",
+         "home_elo": 1500, "away_elo": 1500},
+        {"date": today + pd.Timedelta(days=3), "home_team": "Arsenal",
+         "away_team": "Liverpool", "home_elo": 1500, "away_elo": 1500},
+    ])
+    monkeypatch.setattr(data_manager, "fetch_upcoming_matches", lambda: df)
+    monkeypatch.setattr(utils_data, "generate_predictions_for_date",
+                        lambda d, f: [{"id": f"m-{d}", "date": d, "prediction": {}}])
+    monkeypatch.setattr(automation, "_should_regenerate_forecast", lambda has: False)
+    summary = automation.run_morning_job(use_db=False)
+    assert summary["dates_predicted"] == 2
+    assert summary["predictions"] == 2
+    assert summary["fixtures_synced"] == 2
+    assert summary["forecast"] == "reused"
+
+
+def test_morning_job_forecast_failure_keeps_predictions(monkeypatch, tmp_path):
+    import pandas as pd
+    pred_dir = tmp_path / "predictions"
+    pred_dir.mkdir()
+    monkeypatch.setattr(utils_data, "PREDICTIONS_DIR", str(pred_dir))
+    monkeypatch.setattr(utils_data, "get_fixtures_file_path",
+                        lambda: str(tmp_path / "fixtures.json"))
+    df = pd.DataFrame([{"date": pd.Timestamp.now(tz="UTC"), "home_team": "Arsenal",
+                        "away_team": "Chelsea", "home_elo": 1500, "away_elo": 1500}])
+    monkeypatch.setattr(data_manager, "fetch_upcoming_matches", lambda: df)
+    fake_preds = [{"id": "x", "date": "2026-01-01", "prediction": {}}]
+    monkeypatch.setattr(utils_data, "generate_predictions_for_date", lambda d, f: fake_preds)
+    monkeypatch.setattr(automation, "_should_regenerate_forecast", lambda has: True)
+
+    def _boom(*a, **k):
+        raise RuntimeError("sim exploded")
+    monkeypatch.setattr(automation.insights, "generate_forecast", _boom)
+    summary = automation.run_morning_job(use_db=False)
+    assert summary["predictions"] == 1
+    assert summary["forecast"] is None
