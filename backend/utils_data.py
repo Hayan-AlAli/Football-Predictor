@@ -33,6 +33,59 @@ def generate_match_id(date, home_team, away_team):
     return clean_id
 
 
+def _season_of(date_str):
+    year, month = int(date_str[:4]), int(date_str[5:7])
+    return year if month >= 8 else year - 1
+
+
+def canonical_predictions(preds):
+    """One prediction per season per (home, away) pairing.
+
+    Past rows are never pruned, so a match that was renamed ("Leeds" ->
+    "Leeds United") or rescheduled leaves a stale twin behind. The real
+    row is the latest-dated one: a match moved earlier leaves its stale
+    twin in the future, where the morning job prunes it. On a same-day
+    tie the row already using the canonical team names wins."""
+    best = {}
+    for p in preds:
+        home = utils.normalize_team_name(p['home_team'])
+        away = utils.normalize_team_name(p['away_team'])
+        key = (_season_of(p['date']), home, away)
+        rank = (p['date'], p['home_team'] == home and p['away_team'] == away)
+        if key not in best or rank > best[key][0]:
+            best[key] = (rank, p)
+    kept = {id(p) for _, p in best.values()}
+    return [p for p in preds if id(p) in kept]
+
+
+def assign_gameweeks(preds):
+    """Map prediction id -> matchweek number, built from the match dates.
+
+    A matchweek is a run of consecutive match days; a new one starts after
+    a day with no games, or on a day where a team would play a second time
+    in the current one (a Tuesday round right after a Monday game). A whole
+    day always lands in one matchweek. Numbering follows the fixtures as
+    listed, so a feed missing a whole round shifts the numbers after it."""
+    by_date = {}
+    for p in preds:
+        by_date.setdefault(p['date'], []).append(p)
+    gws = {}
+    gw, teams, prev = 0, set(), None
+    for date_str in sorted(by_date):
+        day = by_date[date_str]
+        day_teams = {utils.normalize_team_name(t)
+                     for p in day for t in (p['home_team'], p['away_team'])}
+        d = datetime.strptime(date_str, '%Y-%m-%d')
+        if prev is None or (d - prev).days > 1 or teams & day_teams:
+            gw += 1
+            teams = set()
+        teams |= day_teams
+        prev = d
+        for p in day:
+            gws[p['id']] = gw
+    return gws
+
+
 def get_prediction_file_path(date_str=None):
     if date_str is None:
         date_str = datetime.utcnow().strftime('%Y-%m-%d')

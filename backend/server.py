@@ -210,14 +210,15 @@ async def get_all_matches_with_predictions():
         if DB_AVAILABLE:
             all_preds = db.load_all_predictions()
             latest_year = _latest_season_year(all_preds)
-            ordered = [
+            ordered = utils_data.canonical_predictions([
                 p for p in all_preds
                 if _season_year(datetime.strptime(p['date'], '%Y-%m-%d')) == latest_year
-            ]
+            ])
             ordered.sort(key=lambda p: (p['date'], p.get('time') or ''))
+            gw_by_id = utils_data.assign_gameweeks(ordered)
 
-            for idx, pred in enumerate(ordered):
-                gw = (idx // 10) + 1
+            for pred in ordered:
+                gw = gw_by_id[pred['id']]
                 gameweeks.add(gw)
                 matches.append({
                     **pred,
@@ -251,6 +252,11 @@ async def get_results(date: Optional[str] = None):
         if DB_AVAILABLE:
             try:
                 predictions = db.load_predictions(date) or []
+                # Hide stale twins of renamed/rescheduled matches, which
+                # would otherwise sit as PENDING (or double-count) forever.
+                live_ids = {p['id'] for p in
+                            utils_data.canonical_predictions(db.load_all_predictions())}
+                predictions = [p for p in predictions if p['id'] in live_ids]
             except Exception:
                 predictions = []
         if not predictions:
