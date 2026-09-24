@@ -487,11 +487,13 @@ def _require_cron_secret(request: Request):
 
 
 @app.api_route("/api/jobs/morning", methods=["GET", "POST"])
-def run_morning_job_endpoint(request: Request):
+def run_morning_job_endpoint(request: Request, forecast: bool = False):
+    """forecast=true rebuilds the season forecast now instead of waiting
+    for the weekly (Monday) refresh."""
     _require_cron_secret(request)
     from backend import automation
     try:
-        summary = automation.run_morning_job(use_db=DB_AVAILABLE)
+        summary = automation.run_morning_job(use_db=DB_AVAILABLE, force_forecast=forecast)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:

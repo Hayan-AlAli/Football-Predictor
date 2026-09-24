@@ -156,7 +156,7 @@ def test_morning_job_ok(monkeypatch):
     from backend import automation
     monkeypatch.setenv("CRON_SECRET", "test-secret")
     monkeypatch.setattr(automation, "run_morning_job",
-                        lambda use_db: {"date": "2026-01-03", "predictions": 5, "forecast": True})
+                        lambda use_db, force_forecast=False: {"date": "2026-01-03", "predictions": 5, "forecast": True})
     r = _client().post("/api/jobs/morning", headers={"Authorization": "Bearer test-secret"})
     assert r.status_code == 200
     assert r.json()["predictions"] == 5
@@ -182,7 +182,7 @@ def test_jobs_accept_get_with_secret(monkeypatch):
     from backend import automation
     monkeypatch.setenv("CRON_SECRET", "test-secret")
     monkeypatch.setattr(automation, "run_morning_job",
-                        lambda use_db: {"date": "2026-01-03", "predictions": 5, "forecast": True})
+                        lambda use_db, force_forecast=False: {"date": "2026-01-03", "predictions": 5, "forecast": True})
     monkeypatch.setattr(automation, "run_evening_job",
                         lambda use_db, lookback_days=3: {"saved": []})
     headers = {"Authorization": "Bearer test-secret"}

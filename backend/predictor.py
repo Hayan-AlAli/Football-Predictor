@@ -3,117 +3,15 @@ import pandas as pd
 import os
 import random
 import re
-import time
+from backend import elo
 from backend import utils
 from backend import features
 import math
-import concurrent.futures
 
-_ELO_TIMEOUT = 15
-_ELO_CACHE_TTL = 24 * 3600  # re-hit the live API at most once a day per process
-_ELO_CACHE_PATH = os.path.join(os.path.dirname(__file__), '..', 'elo_state.pkl')
+def resolve_elo(team_name, lookup=None):
+    """Current Elo for a team (see backend/elo.py); 1500 when unknown."""
+    return _resolve_elo(lookup if lookup is not None else elo.current_ratings(), team_name)
 
-_live_elo_cache = None
-_live_elo_cache_ts = 0.0
-_live_elo_failed_ts = 0.0
-_LIVE_ELO_RETRY_AFTER = 3600  # don't hammer a dead API: retry at most hourly
-
-
-def _load_elo_disk_cache():
-    try:
-        if not os.path.exists(_ELO_CACHE_PATH):
-            return None
-        if time.time() - os.path.getmtime(_ELO_CACHE_PATH) > _ELO_CACHE_TTL:
-            return None
-        cached = joblib.load(_ELO_CACHE_PATH)
-        if isinstance(cached, dict) and cached:
-            return cached
-    except Exception:
-        pass
-    return None
-
-
-def _save_elo_disk_cache(lookup):
-    try:
-        joblib.dump(lookup, _ELO_CACHE_PATH)
-    except Exception:
-        pass
-
-
-def _fetch_live_elo():
-    """Live ClubElo ratings, memoized in-process and cached on disk (24h).
-
-    Returns None when the API is unreachable so callers can fall back
-    to training-data Elo instead of hammering a dead endpoint.
-    """
-    global _live_elo_cache, _live_elo_cache_ts, _live_elo_failed_ts
-    now = time.time()
-    if _live_elo_cache is not None and now - _live_elo_cache_ts < _ELO_CACHE_TTL:
-        return _live_elo_cache
-    if now - _live_elo_failed_ts < _LIVE_ELO_RETRY_AFTER:
-        return None
-    disk = _load_elo_disk_cache()
-    if disk is not None:
-        _live_elo_cache, _live_elo_cache_ts = disk, now
-        return disk
-    try:
-        import soccerdata
-        import datetime
-        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        future = pool.submit(lambda: soccerdata.ClubElo().read_by_date(datetime.date.today().strftime('%Y-%m-%d')))
-        ratings = future.result(timeout=_ELO_TIMEOUT)
-        pool.shutdown(wait=False)
-        if ratings is not None and not ratings.empty:
-            lookup = {}
-            for team, row in ratings.iterrows():
-                elo = utils.safe_elo(row['elo'], None)
-                if elo is None:
-                    continue
-                lookup[utils.normalize_team_name(str(team))] = elo
-            _live_elo_cache, _live_elo_cache_ts = lookup, now
-            _save_elo_disk_cache(lookup)
-            return lookup
-    except Exception:
-        pass
-    _live_elo_failed_ts = time.time()
-    return None
-
-
-def training_elo_lookup():
-    """Latest known Elo per team from the bundled training data.
-
-    Offline fallback for when the live ClubElo API is unreachable.
-    Exact-1500.0 readings are skipped: they are fallback artifacts
-    written when Elo was unavailable, not genuine ratings.
-    """
-    if training_df is None or training_df.empty:
-        return {}
-    try:
-        df = training_df.copy()
-        df['date'] = pd.to_datetime(df['date'])
-        lookup = {}
-        ordered = df.sort_values('date')
-        for _, row in ordered.iterrows():
-            for team_col, elo_col in (('home_team', 'home_elo'), ('away_team', 'away_elo')):
-                try:
-                    elo = float(row[elo_col])
-                except (KeyError, TypeError, ValueError):
-                    continue
-                if pd.isna(elo) or elo == 1500.0:
-                    continue
-                lookup[utils.normalize_team_name(str(row[team_col]))] = elo
-        return lookup
-    except Exception:
-        return {}
-
-
-def resolve_elo(team_name, live_lookup=None):
-    """Best-effort Elo for a team: live ratings → training data → 1500."""
-    if live_lookup:
-        elo = _resolve_elo(live_lookup, team_name)
-        if elo != 1500:
-            return elo
-    return _resolve_elo(training_elo_lookup(), team_name)
 
 MODEL_PATH_HOME = os.path.join(os.path.dirname(__file__), '..', 'model_home.pkl')
 MODEL_PATH_AWAY = os.path.join(os.path.dirname(__file__), '..', 'model_away.pkl')
@@ -176,6 +74,56 @@ if training_df is not None and not training_df.empty:
     for _col in ("home_team", "away_team"):
         if _col in training_df.columns:
             training_df[_col] = training_df[_col].apply(utils.normalize_team_name)
+
+
+_FORM_CACHE_TTL = 3600
+_form_cache = None
+_form_cache_ts = 0.0
+
+
+def form_frame():
+    """Match history for form features: training data plus every stored
+    result played since it was built.
+
+    The bundled frame is frozen at train time, so on its own every team's
+    "recent form" is months old and promoted sides have none at all.
+    """
+    global _form_cache, _form_cache_ts
+    if training_df is None or training_df.empty:
+        return training_df
+    import time
+    now = time.time()
+    if _form_cache is not None and now - _form_cache_ts < _FORM_CACHE_TTL:
+        return _form_cache
+    frame = training_df
+    try:
+        since = pd.to_datetime(training_df['date']).max().strftime('%Y-%m-%d')
+        stored = elo.stored_results_since(since)
+        if stored:
+            extra = pd.DataFrame(stored)[['date', 'home_team', 'away_team', 'home_goals', 'away_goals']]
+            extra = extra.dropna(subset=['home_goals', 'away_goals'])
+            extra['date'] = pd.to_datetime(extra['date'])
+            for col in ('home_team', 'away_team'):
+                extra[col] = extra[col].apply(utils.normalize_team_name)
+            extra = extra.drop_duplicates(subset=['date', 'home_team', 'away_team'], keep='last')
+            frame = pd.concat([training_df, extra], ignore_index=True).sort_values('date', kind='stable')
+    except Exception as e:
+        print(f"form_frame: stored results unavailable ({e}); using training data only.")
+    _form_cache, _form_cache_ts = frame, now
+    return frame
+
+
+def _elo_range():
+    """Elo span the models were trained on: inputs outside it land in
+    sparse forest leaves and produce wild goal estimates."""
+    try:
+        vals = pd.concat([training_df['home_elo'], training_df['away_elo']])
+        return float(vals.min()), float(vals.max())
+    except Exception:
+        return None
+
+
+ELO_RANGE = _elo_range()
 
 
 def _neutral_team_code():
@@ -251,13 +199,16 @@ def get_latest_stats(team_name, df, window=5):
     for _, match in recent.iterrows():
         if utils.normalize_team_name(match['home_team']) == norm:
             goals.append(match['home_goals'])
-            xg.append(match['home_xg'] if not pd.isna(match.get('home_xg')) else 0.0)
+            side_xg = match.get('home_xg')
         else:
             goals.append(match['away_goals'])
-            xg.append(match['away_xg'] if not pd.isna(match.get('away_xg')) else 0.0)
+            side_xg = match.get('away_xg')
+        if not pd.isna(side_xg):
+            xg.append(side_xg)
 
     avg_goals = sum(goals) / len(goals) if goals else 0.0
-    avg_xg = sum(xg) / len(xg) if xg else 0.0
+    # Stored live results have no xG: use goals when no recent row has it.
+    avg_xg = sum(xg) / len(xg) if xg else avg_goals
 
     return avg_goals, avg_xg
 
@@ -359,20 +310,26 @@ def predict_match(match_data):
             home_elo = match_data.get('home_elo')
             away_elo = match_data.get('away_elo')
             if home_elo is None or away_elo is None:
-                live_elo = _fetch_live_elo() or training_elo_lookup()
-                if live_elo:
-                    if home_elo is None:
-                        home_elo = _resolve_elo(live_elo, home_team_norm)
-                    if away_elo is None:
-                        away_elo = _resolve_elo(live_elo, away_team_norm)
+                ratings = elo.current_ratings()
+                if home_elo is None:
+                    home_elo = _resolve_elo(ratings, home_team_norm)
+                if away_elo is None:
+                    away_elo = _resolve_elo(ratings, away_team_norm)
             # Sanitize AFTER the lookup: None/NaN/inf/garbage all become
             # 1500.0. (`x or 1500` missed NaN since NaN is truthy, and the
             # resulting int(NaN) ValueError produced random 33/33/34 odds.)
             home_elo = utils.safe_elo(home_elo)
             away_elo = utils.safe_elo(away_elo)
+            if ELO_RANGE:
+                lo, hi = ELO_RANGE
+                model_home_elo = min(max(home_elo, lo), hi)
+                model_away_elo = min(max(away_elo, lo), hi)
+            else:
+                model_home_elo, model_away_elo = home_elo, away_elo
+            history = form_frame()
 
-            h_g, h_xg = get_latest_stats(home_team_norm, training_df)
-            a_g, a_xg = get_latest_stats(away_team_norm, training_df)
+            h_g, h_xg = get_latest_stats(home_team_norm, history)
+            a_g, a_xg = get_latest_stats(away_team_norm, history)
 
             if h_g == 0.0 and h_xg == 0.0:
                 h_g = training_df['home_rolling_goals'].mean()
@@ -384,8 +341,8 @@ def predict_match(match_data):
             features_dict = {
                 'home_team_code': home_code,
                 'away_team_code': away_code,
-                'home_elo': home_elo,
-                'away_elo': away_elo,
+                'home_elo': model_home_elo,
+                'away_elo': model_away_elo,
                 'home_rolling_goals': h_g,
                 'away_rolling_goals': a_g,
                 'home_rolling_xg': h_xg,
@@ -405,8 +362,8 @@ def predict_match(match_data):
             fixture_date = match_data.get('date')
             for _window in features.MULTI_WINDOWS:
                 for _side, _team_norm in (("home", home_team_norm), ("away", away_team_norm)):
-                    if team_has_history(_team_norm):
-                        _form = features.team_window_form(training_df, _team_norm, _window, before=fixture_date)
+                    if team_has_history(_team_norm, history):
+                        _form = features.team_window_form(history, _team_norm, _window, before=fixture_date)
                     else:
                         _form = _neutral_form
                     for _metric in ("scored", "conceded", "xg_for", "xg_against"):

@@ -50,6 +50,33 @@ def build_standings(training_df, season_year):
     return rows
 
 
+def standings_for_season(training_df, season_year, results=None):
+    """League table for a season from training rows plus stored results.
+
+    The bundled training frame is frozen at train time, so on its own it
+    misses every match played since (a new season's table came out empty
+    and the forecast started all 20 teams from zero points). Stored results
+    ([{date, home_team, away_team, home_goals, away_goals}]) fill that gap;
+    a match present in both is counted once.
+    """
+    cols = ["date", "home_team", "away_team", "home_goals", "away_goals"]
+    frames = []
+    if training_df is not None and not training_df.empty:
+        frames.append(training_df[cols].copy())
+    if results:
+        frames.append(pd.DataFrame(list(results))[cols])
+    if not frames:
+        return []
+    df = pd.concat(frames, ignore_index=True)
+    df = df.dropna(subset=["home_goals", "away_goals"])
+    df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_localize(None)
+    df["home_team"] = df["home_team"].apply(utils.normalize_team_name)
+    df["away_team"] = df["away_team"].apply(utils.normalize_team_name)
+    df["_day"] = df["date"].dt.date
+    df = df.drop_duplicates(subset=["_day", "home_team", "away_team"], keep="last")
+    return build_standings(df.drop(columns="_day"), season_year)
+
+
 import numpy as np
 
 from backend import data_manager
@@ -138,7 +165,33 @@ def _safe_elo(value):
     return float(value)
 
 
-def generate_forecast(n_sims=10000, seed=42):
+def _stored_season_results(season_year):
+    """This season's results from the local results files (dev mode)."""
+    rows = []
+    if not os.path.isdir(utils_data.RESULTS_DIR):
+        return rows
+    for fname in sorted(os.listdir(utils_data.RESULTS_DIR)):
+        if not fname.endswith(".json"):
+            continue
+        date_str = fname[:-5]
+        try:
+            if season_year_of(pd.Timestamp(date_str)) != season_year:
+                continue
+        except ValueError:
+            continue
+        for r in utils_data.load_json(os.path.join(utils_data.RESULTS_DIR, fname)) or []:
+            if "home_team" in r:
+                rows.append({"date": date_str, **r})
+    return rows
+
+
+def generate_forecast(n_sims=10000, seed=42, results=None):
+    """Monte Carlo season forecast.
+
+    results: this season's played matches ([{date, home_team, away_team,
+    home_goals, away_goals}]), e.g. from the DB. Defaults to the local
+    results files.
+    """
     try:
         today = datetime.now(timezone.utc)
         today_str = today.strftime("%Y-%m-%d")
@@ -167,8 +220,10 @@ def generate_forecast(n_sims=10000, seed=42):
             season_year = season_year_of(df["date"].max())
 
         standings = []
-        if df is not None and not df.empty:
-            standings = build_standings(df, season_year) if season_year is not None else []
+        if season_year is not None:
+            if results is None:
+                results = _stored_season_results(season_year)
+            standings = standings_for_season(df, season_year, results)
 
         if not fixtures:
             if standings:

@@ -18,7 +18,7 @@ def _should_regenerate_forecast(has_forecast, weekday=None):
     return weekday == 0 or not has_forecast
 
 
-def run_morning_job(use_db=False):
+def run_morning_job(use_db=False, force_forecast=False):
     print("Starting Morning Job (Prediction)...")
 
     current_date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -83,8 +83,13 @@ def run_morning_job(use_db=False):
             has_forecast = db.load_latest_forecast() is not None
         else:
             has_forecast = insights._today_forecast() is not None
-        if _should_regenerate_forecast(has_forecast):
-            forecast = insights.generate_forecast()
+        if force_forecast or _should_regenerate_forecast(has_forecast):
+            if use_db:
+                season = insights.season_year_of(datetime.now(timezone.utc))
+                forecast = insights.generate_forecast(
+                    results=db.load_results_since(f"{season}-07-01"))
+            else:
+                forecast = insights.generate_forecast()
             if forecast:
                 if use_db:
                     db.save_forecast(current_date_str, forecast)

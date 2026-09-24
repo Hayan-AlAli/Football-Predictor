@@ -50,33 +50,23 @@ def test_predict_match_returns_features():
         assert isinstance(v, (int, float))
 
 
-def test_training_elo_lookup_has_real_ratings():
-    lookup = predictor.training_elo_lookup()
-    assert lookup, "expected offline Elo fallback from training data"
-    assert lookup.get("Arsenal", 1500) > 1900
-    for team, elo in lookup.items():
-        assert elo != 1500.0
-
-
-def test_predict_match_falls_back_to_training_elo(monkeypatch):
-    monkeypatch.setattr(predictor, "_fetch_live_elo", lambda: None)
+def test_predict_match_without_elo_uses_current_ratings():
+    from backend import elo
     pred = predictor.predict_match({
         "home_team": "Arsenal",
         "away_team": "Chelsea",
     })
     assert "features" in pred
-    assert pred["features"]["home_elo"] != 1500
-    assert pred["features"]["home_elo"] == int(predictor.training_elo_lookup()["Arsenal"])
+    assert pred["features"]["home_elo"] == int(elo.rating("Arsenal"))
+    assert pred["features"]["away_elo"] == int(elo.rating("Chelsea"))
 
 
-def test_predict_match_unknown_team_still_1500(monkeypatch):
-    monkeypatch.setattr(predictor, "_fetch_live_elo", lambda: None)
-    monkeypatch.setattr(predictor, "training_elo_lookup", lambda: {})
+def test_predict_match_unknown_team_still_1500():
     pred = predictor.predict_match({
         "home_team": "Arsenal",
-        "away_team": "Chelsea",
+        "away_team": "Grimsby Town",
     })
-    assert pred["features"]["home_elo"] == 1500
+    assert pred["features"]["away_elo"] == 1500
 
 
 def _assert_real_prediction(pred):
@@ -100,8 +90,6 @@ def test_predict_match_nan_elo_falls_back_to_1500():
 
 
 def test_predict_match_garbage_elo_falls_back_to_1500(monkeypatch):
-    # Block network so the test stays offline and deterministic.
-    monkeypatch.setattr(predictor, "_fetch_live_elo", lambda: None)
     for bad in (float("inf"), float("-inf"), "garbage", 0):
         pred = predictor.predict_match({
             "home_team": "Arsenal",
@@ -114,8 +102,7 @@ def test_predict_match_garbage_elo_falls_back_to_1500(monkeypatch):
         assert pred["away_elo"] == 1500
 
 
-def test_predict_match_none_elo_uses_training_lookup(monkeypatch):
-    monkeypatch.setattr(predictor, "_fetch_live_elo", lambda: None)
+def test_predict_match_none_elo_uses_current_ratings():
     pred = predictor.predict_match({
         "home_team": "Arsenal",
         "away_team": "Chelsea",

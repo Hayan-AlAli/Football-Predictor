@@ -74,52 +74,83 @@ def fetch_training_data(years=5):
     return merge_data_with_elo(completed_matches)
 
 
-def merge_data_with_elo(matches_df):
+# First 20-team season. Starting here reproduces sinceawin.com's ratings to
+# within 0.5 points; including the 22-team 1993-95 seasons drifts ~13.
+FOOTBALL_DATA_FIRST_SEASON = 1995
+FOOTBALL_DATA_URL = "https://football-data.co.uk/mmz4281"
+
+
+def _football_data_csv(season_code, attempts=3):
+    """Raw E0.csv text for one season (e.g. '2526'), retried on timeouts."""
+    import requests
+    url = f"{FOOTBALL_DATA_URL}/{season_code}/E0.csv"
+    for attempt in range(attempts):
+        try:
+            resp = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            return resp.content.decode('latin1')
+        except requests.RequestException:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(2 * (attempt + 1))
+
+
+def fetch_historical_results(last_season_start=None):
+    """Every Premier League result since 1995/96 from football-data.co.uk.
+
+    The Elo system (backend/elo.py) needs the full history: ratings are a
+    running total, so starting later gives different numbers.
+    """
+    import io
+    if last_season_start is None:
+        now = datetime.datetime.now()
+        last_season_start = now.year if now.month >= 8 else now.year - 1
+    frames = []
+    for y in range(FOOTBALL_DATA_FIRST_SEASON, last_season_start + 1):
+        code = f"{str(y)[2:]}{str(y + 1)[2:]}"
+        raw = pd.read_csv(io.StringIO(_football_data_csv(code)),
+                          usecols=lambda c: c in ('Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG'),
+                          on_bad_lines='skip')
+        raw = raw.dropna(subset=['HomeTeam', 'FTHG', 'FTAG'])
+        frames.append(pd.DataFrame({
+            'date': pd.to_datetime(raw['Date'], dayfirst=True, format='mixed'),
+            'home_team': raw['HomeTeam'],
+            'away_team': raw['AwayTeam'],
+            'home_goals': raw['FTHG'].astype(int),
+            'away_goals': raw['FTAG'].astype(int),
+            'season': y,
+        }))
+    return pd.concat(frames, ignore_index=True)
+
+
+def merge_data_with_elo(matches_df, history=None):
+    """Attach each match's pre-match Elo (our own system, see backend/elo.py)."""
     if matches_df.empty:
         return matches_df
 
-    logger.info("Merging ELO ratings...")
+    from backend import elo
+    logger.info("Computing Elo ratings from full results history...")
+    if history is None:
+        history = fetch_historical_results()
+    _, pre_match, ordered = elo.replay(history)
+    lookup = {
+        (r.date.date(), r.home_team, r.away_team): pre
+        for r, pre in zip(ordered.itertuples(), pre_match)
+    }
 
-    elo_scraper = soccerdata.ClubElo()
-
-    unique_dates = matches_df['date'].dt.date.unique()
-
-    count = 0
-    total = len(unique_dates)
-
-    home_elos = []
-    away_elos = []
-
-    lookup = {}
-
-    for d in unique_dates:
-        try:
-            d_str = d.strftime('%Y-%m-%d')
-            daily_ratings = _run_with_timeout(lambda: elo_scraper.read_by_date(d_str))
-            if daily_ratings is None or daily_ratings.empty:
-                continue
-
-            for team_idx, row in daily_ratings.iterrows():
-                norm_name = utils.normalize_team_name(str(team_idx))
-                lookup[(d, norm_name)] = row['elo']
-
-        except Exception as e:
-            logger.warning(f"Failed to get ELO for {d}: {e}")
-
-        count += 1
-        if count % 20 == 0:
-            logger.info(f"Processed {count}/{total} dates for ELO...")
-
-    for idx, row in matches_df.iterrows():
-        d = row['date'].date()
-        h_team = utils.normalize_team_name(row['home_team'])
-        a_team = utils.normalize_team_name(row['away_team'])
-
-        h_elo = lookup.get((d, h_team), 1500)
-        a_elo = lookup.get((d, a_team), 1500)
-
-        home_elos.append(h_elo)
-        away_elos.append(a_elo)
+    home_elos, away_elos, missing = [], [], 0
+    for _, row in matches_df.iterrows():
+        key = (pd.Timestamp(row['date']).date(),
+               utils.normalize_team_name(row['home_team']),
+               utils.normalize_team_name(row['away_team']))
+        pre = lookup.get(key)
+        if pre is None:
+            missing += 1
+            pre = (elo.BASE, elo.BASE)
+        home_elos.append(pre[0])
+        away_elos.append(pre[1])
+    if missing:
+        logger.warning(f"{missing} matches not found in results history; Elo set to {elo.BASE}.")
 
     matches_df['home_elo'] = home_elos
     matches_df['away_elo'] = away_elos
@@ -165,24 +196,8 @@ def _scrape_upcoming_matches():
 
         upcoming = upcoming.sort_values('date')
 
-        today = datetime.date.today()
-        today_str = today.strftime('%Y-%m-%d')
-        elo_lookup = {}
-        try:
-            elo_scraper = soccerdata.ClubElo()
-            logger.info(f"Fetching current ELO for {today_str}...")
-            todays_elo = _run_with_timeout(lambda: elo_scraper.read_by_date(today_str))
-            if todays_elo is not None and not todays_elo.empty:
-                for team, row in todays_elo.iterrows():
-                    norm = utils.normalize_team_name(str(team))
-                    elo = utils.safe_elo(row['elo'], None)
-                    if elo is None:
-                        continue
-                    elo_lookup[norm] = elo
-        except Exception as e:
-            logger.warning(f"Live ELO unavailable ({e}); using training-data ELO.")
-        if not elo_lookup:
-            elo_lookup = predictor.training_elo_lookup()
+        from backend import elo
+        elo_lookup = elo.current_ratings()
 
         h_elos = []
         a_elos = []
@@ -236,12 +251,8 @@ def _fetch_football_data_results(date_str):
     football-data.co.uk posts E0.csv within days of each matchweek; Understat
     can lag by weeks at season start (e.g. season 2026 returns ~empty).
     """
-    import requests
     code = _football_data_season_code(date_str)
-    url = f"https://www.football-data.co.uk/mmz4281/{code}/E0.csv"
-    resp = requests.get(url, timeout=25)
-    resp.raise_for_status()
-    return _parse_football_data_csv(resp.text, date_str)
+    return _parse_football_data_csv(_football_data_csv(code), date_str)
 
 
 def fetch_latest_results(date_str):

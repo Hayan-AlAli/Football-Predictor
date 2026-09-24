@@ -121,8 +121,15 @@ def test_morning_job_db_success_writes_db_no_files(monkeypatch):
     monkeypatch.setattr(db, "save_predictions", lambda p: calls.setdefault("preds", p))
     monkeypatch.setattr(db, "load_latest_forecast", lambda: {"generated": "old"})
     monkeypatch.setattr(db, "save_forecast", lambda d, f: calls.setdefault("forecast", (d, f)))
+    stored = [{"date": "2026-08-21", "home_team": "Arsenal", "away_team": "Chelsea",
+               "home_goals": 1, "away_goals": 0}]
+    monkeypatch.setattr(db, "load_results_since", lambda d: stored)
     monkeypatch.setattr(automation, "_should_regenerate_forecast", lambda has: True)
-    monkeypatch.setattr(automation.insights, "generate_forecast", lambda *a, **k: {"generated": "x"})
+
+    def _forecast(*a, **k):
+        calls["forecast_results"] = k.get("results")
+        return {"generated": "x"}
+    monkeypatch.setattr(automation.insights, "generate_forecast", _forecast)
 
     def _no_file(*a, **k):
         raise AssertionError("file write in db mode")
@@ -135,6 +142,7 @@ def test_morning_job_db_success_writes_db_no_files(monkeypatch):
     assert summary["forecast"] == "regenerated"
     assert calls["preds"] == fake_preds
     assert calls["forecast"][1] == {"generated": "x"}
+    assert calls["forecast_results"] == stored  # table seeded from stored results
     assert calls["pruned"][0] == [f["id"] for f in calls["fixtures"]]
     assert calls["pruned"][1] == summary["date"]
 

@@ -8,6 +8,7 @@ if _root not in sys.path:
 from backend import database as db
 from backend import utils_data
 from backend import predictor
+from backend import elo
 
 
 def regenerate():
@@ -19,8 +20,8 @@ def regenerate():
     dates = db.get_available_dates()
     print(f"Found {len(dates)} dates with predictions")
 
-    print("Fetching live club Elo...")
-    live_elo = predictor._fetch_live_elo() or predictor.training_elo_lookup()
+    print("Computing current Elo ratings...")
+    live_elo = elo.current_ratings()
 
     total = 0
     for date_str in dates:

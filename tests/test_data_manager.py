@@ -99,14 +99,15 @@ def test_football_data_season_code():
     assert data_manager._football_data_season_code("2026-05-25") == "2526"
 
 
-def test_scrape_upcoming_matches_survives_dead_elo(monkeypatch):
+def test_scrape_upcoming_matches_uses_inhouse_elo(monkeypatch):
     import soccerdata
+    from backend import elo
 
     future = pd.Timestamp.now(tz="UTC") + pd.Timedelta(days=3)
     schedule = pd.DataFrame([{
         "date": future,
         "home_team": "Arsenal",
-        "away_team": "Chelsea",
+        "away_team": "Coventry",
     }])
 
     class FakeESPN:
@@ -116,19 +117,10 @@ def test_scrape_upcoming_matches_survives_dead_elo(monkeypatch):
         def read_schedule(self):
             return schedule
 
-    class DeadClubElo:
-        def __init__(self, *a, **k):
-            pass
-
-        def read_by_date(self, *a, **k):
-            raise ConnectionError("api.clubelo.com is down")
-
     monkeypatch.setattr(soccerdata, "ESPN", FakeESPN)
-    monkeypatch.setattr(soccerdata, "ClubElo", DeadClubElo)
 
     result = data_manager._scrape_upcoming_matches()
-    assert not result.empty
     assert len(result) == 1
-    # Offline fallback Elo, not the flat 1500 that a dead API used to force.
-    assert result.iloc[0]["home_elo"] != 1500
-    assert result.iloc[0]["home_elo"] == data_manager.predictor.training_elo_lookup()["Arsenal"]
+    assert result.iloc[0]["home_elo"] == elo.rating("Arsenal")
+    assert result.iloc[0]["away_elo"] == elo.rating("Coventry City")
+    assert result.iloc[0]["home_elo"] > result.iloc[0]["away_elo"]

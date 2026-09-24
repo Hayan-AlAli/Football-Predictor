@@ -359,6 +359,23 @@ def load_results(date_str):
         return [dict(r) for r in cur.fetchall()]
 
 
+def load_results_since(from_date):
+    """All stored results on/after from_date, oldest first, with dates."""
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT match_date, home_team, away_team, home_goals, away_goals "
+            "FROM results WHERE match_date >= %s ORDER BY match_date",
+            (from_date,)
+        )
+        rows = []
+        for r in cur.fetchall():
+            row = dict(r)
+            row['date'] = row.pop('match_date').isoformat()
+            rows.append(row)
+        return rows
+
+
 def load_result_dates():
     with get_db() as conn:
         cur = conn.cursor()

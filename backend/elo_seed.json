@@ -1,0 +1,26 @@
+{
+ "source": "https://sinceawin.com/elo-ratings/premier-league",
+ "as_of": "2026-09-20",
+ "ratings": {
+  "Arsenal": 1714,
+  "Manchester City": 1714,
+  "Liverpool": 1576,
+  "Manchester United": 1575,
+  "Brighton": 1541,
+  "Bournemouth": 1539,
+  "Brentford": 1533,
+  "Aston Villa": 1531,
+  "Chelsea": 1499,
+  "Newcastle": 1497,
+  "Everton": 1497,
+  "Leeds United": 1485,
+  "Nottingham Forest": 1466,
+  "Fulham": 1450,
+  "Sunderland": 1450,
+  "Crystal Palace": 1443,
+  "Hull": 1394,
+  "Tottenham": 1383,
+  "Ipswich Town": 1368,
+  "Coventry City": 1345
+ }
+}

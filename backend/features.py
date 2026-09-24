@@ -1,5 +1,16 @@
 import pandas as pd
 
+from backend import utils
+
+
+def _naive_utc(value):
+    """Datetime(s) as tz-naive UTC so tz-aware fixture dates (ESPN) and
+    tz-naive training dates can be compared without a TypeError."""
+    ts = pd.to_datetime(value, utc=True)
+    if isinstance(ts, pd.Series):
+        return ts.dt.tz_localize(None)
+    return ts.tz_localize(None)
+
 
 def calculate_rolling_stats(df, window=5):
     team_stats = {}
@@ -168,14 +179,20 @@ def team_window_form(df, team, window, before=None):
     matches are excluded, so no future information can leak.
     """
     d = df[(df["home_team"] == team) | (df["away_team"] == team)]
+    if d.empty:
+        # The stored frame may use a different spelling variant
+        # ('Wolves' vs 'Wolverhampton'): retry on normalized names.
+        norm = utils.normalize_team_name(team)
+        d = df[(df["home_team"].apply(utils.normalize_team_name) == norm)
+               | (df["away_team"].apply(utils.normalize_team_name) == norm)]
     if before is not None:
-        d = d[pd.to_datetime(d["date"]) < pd.to_datetime(before)]
+        d = d[_naive_utc(d["date"]) < _naive_utc(before)]
     d = d.sort_values("date").tail(window)
     if d.empty:
         return {"scored": 0.0, "conceded": 0.0, "xg_for": 0.0, "xg_against": 0.0}
     scored, conceded, xg_for, xg_against = [], [], [], []
     for _, r in d.iterrows():
-        if r["home_team"] == team:
+        if utils.normalize_team_name(r["home_team"]) == utils.normalize_team_name(team):
             s, c = r["home_goals"], r["away_goals"]
             xf, xa = r.get("home_xg"), r.get("away_xg")
         else:
@@ -183,14 +200,17 @@ def team_window_form(df, team, window, before=None):
             xf, xa = r.get("away_xg"), r.get("home_xg")
         scored.append(float(s))
         conceded.append(float(c))
-        xg_for.append(0.0 if pd.isna(xf) else float(xf))
-        xg_against.append(0.0 if pd.isna(xa) else float(xa))
+        if not (pd.isna(xf) or pd.isna(xa)):
+            xg_for.append(float(xf))
+            xg_against.append(float(xa))
     n = len(d)
+    # Stored live results carry goals but no xG: average xG over the rows
+    # that have it, and use goals when none do, rather than counting 0 xG.
     return {
         "scored": sum(scored) / n,
         "conceded": sum(conceded) / n,
-        "xg_for": sum(xg_for) / n,
-        "xg_against": sum(xg_against) / n,
+        "xg_for": sum(xg_for) / len(xg_for) if xg_for else sum(scored) / n,
+        "xg_against": sum(xg_against) / len(xg_against) if xg_against else sum(conceded) / n,
     }
 
 
