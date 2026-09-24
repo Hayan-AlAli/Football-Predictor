@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from backend import evaluate
@@ -50,3 +51,25 @@ def test_run_all_returns_rows():
     assert isinstance(rows, list)
     assert len(rows) >= 1
     assert all({"spec", "brier", "log_loss", "accuracy", "n_matches"} <= set(r) for r in rows)
+
+
+def test_model_specs_has_challengers():
+    specs = evaluate.model_specs()
+    assert "challenger_v2_hgb" in specs
+    assert "challenger_v2_hgb_calib" in specs
+
+
+def test_calibrate_clamps_and_order_preserved():
+    preds = np.array([[0.05, 0.45, 0.98], [0.3, 0.4, 0.9]])
+    fit_probs = np.array([[0.1, 0.5, 0.9], [0.2, 0.6, 0.95]])
+    fit_out = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    out = evaluate.calibrate_probs(preds, fit_probs, fit_out)
+    assert out.shape == preds.shape
+    assert (out >= 0.01).all() and (out <= 0.99).all()
+    assert out[0, 2] > out[0, 0]  # away more likely than home, order preserved
+
+
+def test_calibrated_v2_runs_end_to_end():
+    train, test = evaluate.split_by_season(pd.read_pickle("tests/_mini.pkl"))
+    row = evaluate.score_test(train, test, "challenger_v2_hgb_calib")
+    assert row["n_matches"] == len(test) // 2  # calibration scores the first half only

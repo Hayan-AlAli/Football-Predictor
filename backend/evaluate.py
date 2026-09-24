@@ -2,7 +2,8 @@ import random
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
+from sklearn.isotonic import IsotonicRegression
 from sklearn.preprocessing import LabelEncoder
 
 from backend import features, insights, predictor, utils
@@ -25,6 +26,8 @@ def split_by_season(df):
 def model_specs():
     return {
         "baseline_rf": {"spec": "v1", "model": "rf"},
+        "challenger_v2_hgb": {"spec": "v2", "model": "hgb"},
+        "challenger_v2_hgb_calib": {"spec": "v2", "model": "hgb", "calibrate": True},
     }
 
 
@@ -36,7 +39,32 @@ def _fit_pair(X_train, y_home, y_away, spec_key):
         mh.fit(X_train, y_home)
         ma.fit(X_train, y_away)
         return mh, ma
+    if cfg["model"] == "hgb":
+        try:
+            mh = HistGradientBoostingRegressor(loss="poisson", max_iter=200, random_state=SEED)
+            ma = HistGradientBoostingRegressor(loss="poisson", max_iter=200, random_state=SEED)
+        except TypeError:
+            mh = HistGradientBoostingRegressor(max_iter=200, random_state=SEED)
+            ma = HistGradientBoostingRegressor(max_iter=200, random_state=SEED)
+        mh.fit(X_train, y_home)
+        ma.fit(X_train, y_away)
+        return mh, ma
     raise ValueError(f"unknown model: {cfg['model']}")
+
+
+def calibrate_probs(pred_matrix, fit_matrix, fit_targets, clamp=(0.01, 0.99)):
+    """Isotonic calibration per outcome column.
+    pred_matrix: (n, 3) home/away/draw probabilities to transform.
+    fit_matrix: (m, 3) probabilities used to fit the maps.
+    fit_targets: (m, 3) one-hot actual outcomes.
+    Returns a (n, 3) array, columns order preserved, clamped to [clamp].
+    """
+    out = np.empty_like(np.asarray(pred_matrix, dtype=float))
+    for col in range(3):
+        iso = IsotonicRegression(out_of_bounds="clip", y_min=clamp[0], y_max=clamp[1])
+        iso.fit(np.asarray(fit_matrix)[:, col], np.asarray(fit_targets)[:, col])
+        out[:, col] = np.clip(iso.predict(np.asarray(pred_matrix)[:, col]), clamp[0], clamp[1])
+    return out
 
 
 def _predict_pair(pair, X_test):
@@ -87,20 +115,31 @@ def score_test(train_df, test_df, spec_key):
     X_test = test[cols]
     pred_home, pred_away = _predict_pair(pair, X_test)
 
-    brier, logloss, correct, n = 0.0, 0.0, 0, len(test)
+    n = len(test)
+    probs_matrix = np.zeros((n, 3))
+    outcomes = np.zeros((n, 3))
     for i in range(n):
         ph, pd_, pa = _outcome_probs(float(pred_home[i]), float(pred_away[i]))
-        actual = _actual_outcome(int(test.iloc[i]["home_goals"]), int(test.iloc[i]["away_goals"]))
-        probs = [ph, pa, pd_]
-        brier += sum((probs[k] - (1.0 if k == actual else 0.0)) ** 2 for k in range(3))
-        logloss += -np.log(max(1e-9, probs[actual]))
-        if max(range(3), key=lambda k: probs[k]) == actual:
-            correct += 1
+        probs_matrix[i] = [ph, pa, pd_]          # home, away, draw
+        a = _actual_outcome(int(test.iloc[i]["home_goals"]), int(test.iloc[i]["away_goals"]))
+        outcomes[i, a] = 1.0
+
+    scored_probs = probs_matrix
+    scored_outcomes = outcomes
+    if cfg.get("calibrate"):
+        half = n // 2
+        scored_probs = calibrate_probs(probs_matrix[:half], probs_matrix[half:], outcomes[half:])
+        scored_outcomes = outcomes[:half]
+
+    brier = float(np.mean(np.sum((scored_probs - scored_outcomes) ** 2, axis=1)))
+    logloss = -np.mean(np.log(np.clip(np.sum(scored_probs * scored_outcomes, axis=1), 1e-9, 1.0)))
+    correct = int(np.sum(np.argmax(scored_probs, axis=1) == np.argmax(scored_outcomes, axis=1)))
+    n_scored = len(scored_probs)
     return {
-        "brier": round(brier / n, 4),
-        "log_loss": round(logloss / n, 4),
-        "accuracy": round(correct / n, 4),
-        "n_matches": n,
+        "brier": round(brier, 4),
+        "log_loss": round(logloss, 4),
+        "accuracy": round(correct / n_scored, 4),
+        "n_matches": n_scored,
     }
 
 
