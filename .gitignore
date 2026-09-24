@@ -2,8 +2,9 @@
 __pycache__/
 *.pyc
 
-# Environment variables
+# Environment variables (incl. `vercel env pull` output)
 .env
+.env.*
 
 # Machine Learning Models
 *.pkl
@@ -17,6 +18,8 @@ team_encoder.pkl
 !model_away.pkl
 !team_encoder.pkl
 !training_data.pkl
+# Small fixture the evaluation tests load
+!tests/_mini.pkl
 
 # Virtual Environments
 venv/
@@ -27,8 +30,11 @@ env/
 .vscode/
 .idea/
 
-# opencode skills
+# Local AI tooling state
 .opencode/
+.superpowers/
+.claude/
+graphify-out/
 
 # impeccable design artifacts
 .impeccable/
@@ -53,3 +59,11 @@ data/forecast/
 PRODUCT.md
 DESIGN.md
 docs/
+
+# Test / tool caches
+.pytest_cache/
+
+# Local-only scripts (deployment history cleanup, fake-results generator)
+clean-github-deployments.ps1
+clean-vercel-deployments.ps1
+generate_results.py
