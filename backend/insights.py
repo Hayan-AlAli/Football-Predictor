@@ -50,8 +50,8 @@ def build_standings(training_df, season_year):
     return rows
 
 
-def standings_for_season(training_df, season_year, results=None):
-    """League table for a season from training rows plus stored results.
+def _season_matches(training_df, season_year, results=None):
+    """A season's played matches from training rows plus stored results.
 
     The bundled training frame is frozen at train time, so on its own it
     misses every match played since (a new season's table came out empty
@@ -66,7 +66,7 @@ def standings_for_season(training_df, season_year, results=None):
     if results:
         frames.append(pd.DataFrame(list(results))[cols])
     if not frames:
-        return []
+        return pd.DataFrame(columns=cols)
     df = pd.concat(frames, ignore_index=True)
     df = df.dropna(subset=["home_goals", "away_goals"])
     df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_localize(None)
@@ -74,7 +74,44 @@ def standings_for_season(training_df, season_year, results=None):
     df["away_team"] = df["away_team"].apply(utils.normalize_team_name)
     df["_day"] = df["date"].dt.date
     df = df.drop_duplicates(subset=["_day", "home_team", "away_team"], keep="last")
-    return build_standings(df.drop(columns="_day"), season_year)
+    df = df.drop(columns="_day")
+    return df[_season_col(df) == season_year]
+
+
+def standings_for_season(training_df, season_year, results=None):
+    """League table for a season (see _season_matches)."""
+    df = _season_matches(training_df, season_year, results)
+    return build_standings(df, season_year) if not df.empty else []
+
+
+LEAGUE_SIZE = 20
+
+
+def complete_fixtures(fixtures, teams, played):
+    """Add every unplayed pairing the fixture feed is missing.
+
+    In a double round-robin each ordered (home, away) pair meets exactly
+    once, so the remaining fixtures are all pairs minus those played. ESPN
+    omits matches awaiting a date (TV picks, cup clashes): ~48 in Sept 2026,
+    which the forecast then silently never simulated.
+    fixtures: [{home, away, home_elo, away_elo}]; teams: the league's
+    clubs; played: iterable of (home, away) already played.
+    """
+    from backend import elo
+    if len(teams) != LEAGUE_SIZE:
+        return fixtures
+    norm = utils.normalize_team_name
+    known = {(norm(f["home"]), norm(f["away"])) for f in fixtures}
+    known |= {(norm(h), norm(a)) for h, a in played}
+    ratings = elo.current_ratings()
+    out = list(fixtures)
+    for h in sorted(teams):
+        for a in sorted(teams):
+            if h != a and (h, a) not in known:
+                out.append({"home": h, "away": a,
+                            "home_elo": elo.rating(h, ratings),
+                            "away_elo": elo.rating(a, ratings)})
+    return out
 
 
 import numpy as np
@@ -223,7 +260,12 @@ def generate_forecast(n_sims=10000, seed=42, results=None):
         if season_year is not None:
             if results is None:
                 results = _stored_season_results(season_year)
-            standings = standings_for_season(df, season_year, results)
+            played = _season_matches(df, season_year, results)
+            standings = build_standings(played, season_year) if not played.empty else []
+            if fixtures:
+                fixtures = complete_fixtures(
+                    fixtures, {r["team"] for r in standings},
+                    zip(played["home_team"], played["away_team"]))
 
         if not fixtures:
             if standings:

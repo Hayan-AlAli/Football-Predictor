@@ -119,6 +119,8 @@ def test_morning_job_db_success_writes_db_no_files(monkeypatch):
     monkeypatch.setattr(db, "save_fixtures", lambda fx: calls.setdefault("fixtures", fx))
     monkeypatch.setattr(db, "prune_fixtures", lambda ids, d: calls.setdefault("pruned", (ids, d)))
     monkeypatch.setattr(db, "save_predictions", lambda p: calls.setdefault("preds", p))
+    monkeypatch.setattr(db, "prune_predictions",
+                        lambda ids, d: calls.setdefault("pruned_preds", (ids, d)))
     monkeypatch.setattr(db, "load_latest_forecast", lambda: {"generated": "old"})
     monkeypatch.setattr(db, "save_forecast", lambda d, f: calls.setdefault("forecast", (d, f)))
     stored = [{"date": "2026-08-21", "home_team": "Arsenal", "away_team": "Chelsea",
@@ -145,6 +147,7 @@ def test_morning_job_db_success_writes_db_no_files(monkeypatch):
     assert calls["forecast_results"] == stored  # table seeded from stored results
     assert calls["pruned"][0] == [f["id"] for f in calls["fixtures"]]
     assert calls["pruned"][1] == summary["date"]
+    assert calls["pruned_preds"] == calls["pruned"]  # stale upcoming predictions dropped
 
 
 def test_evening_job_db_mirrors_raw_backfill(monkeypatch):

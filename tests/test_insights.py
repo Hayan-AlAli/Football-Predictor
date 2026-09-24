@@ -405,3 +405,22 @@ def test_simulate_season_adds_remaining_points_to_base():
     # Sims only ever add 3/1/0, so no percentile can fall below today's total.
     assert by["Arsenal"]["points_p50"] >= 60.0
     assert by["Chelsea"]["points_p50"] >= 20.0
+
+
+def test_complete_fixtures_adds_unlisted_pairings():
+    from backend.insights import complete_fixtures
+    teams = {f"T{i:02d}" for i in range(20)}
+    played = [("T00", "T01"), ("T02", "T03")]
+    listed = [{"home": "T01", "away": "T00", "home_elo": 1500, "away_elo": 1500}]
+    out = complete_fixtures(listed, teams, played)
+    pairs = [(f["home"], f["away"]) for f in out]
+    assert len(pairs) == 380 - len(played)          # full double round-robin
+    assert len(set(pairs)) == len(pairs)            # no duplicates
+    assert ("T00", "T01") not in pairs              # played stays played
+    assert out[0] is listed[0]                      # feed fixtures kept as-is
+
+
+def test_complete_fixtures_waits_for_full_league():
+    from backend.insights import complete_fixtures
+    listed = [{"home": "A", "away": "B", "home_elo": 1500, "away_elo": 1500}]
+    assert complete_fixtures(listed, {"A", "B", "C"}, []) == listed

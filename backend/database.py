@@ -291,6 +291,21 @@ def prune_fixtures(keep_ids, from_date):
             cur.execute("DELETE FROM fixtures WHERE match_date >= %s", (from_date,))
 
 
+def prune_predictions(keep_ids, from_date):
+    """Drop predictions for upcoming matches that are no longer fixtures
+    (rescheduled or renamed), so each match is predicted once. Past
+    predictions are kept: they are the results record."""
+    with get_db() as conn:
+        cur = conn.cursor()
+        if keep_ids:
+            cur.execute(
+                "DELETE FROM predictions WHERE match_date >= %s AND NOT (id = ANY(%s))",
+                (from_date, list(keep_ids)),
+            )
+        else:
+            cur.execute("DELETE FROM predictions WHERE match_date >= %s", (from_date,))
+
+
 def _row_to_fixture(row):
     return {
         'id': row['id'],

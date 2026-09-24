@@ -76,6 +76,8 @@ def run_morning_job(use_db=False, force_forecast=False):
         dates_done += 1
         total += len(predictions)
     print(f"Predicted {total} matches across {dates_done} dates.")
+    if use_db:
+        db.prune_predictions([f['id'] for f in fixtures], current_date_str)
 
     forecast_status = None
     try:
