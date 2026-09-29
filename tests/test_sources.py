@@ -117,3 +117,28 @@ def test_football_data_parse_results_normalizes_and_skips_blanks():
 def test_football_data_season_code():
     assert football_data.season_code(2026) == "2627"
     assert football_data.season_code(1999) == "9900"
+
+
+def test_fetch_season_requests_months_in_parallel(monkeypatch):
+    import threading
+    import time as _time
+    events = season_events()
+    in_flight, peak, lock = [0], [0], threading.Lock()
+
+    def slow_get(params, attempts=3):
+        with lock:
+            in_flight[0] += 1
+            peak[0] = max(peak[0], in_flight[0])
+        _time.sleep(0.2)
+        with lock:
+            in_flight[0] -= 1
+        a, b = params["dates"].split("-")
+        return {"events": [e for e in events if a <= e["date"][:10].replace("-", "") <= b]}
+
+    monkeypatch.setattr(espn, "_get", slow_get)
+    started = _time.time()
+    rows, _, complete = espn.fetch_season(2026)
+    elapsed = _time.time() - started
+    assert len(rows) == 380 and complete
+    assert peak[0] > 1                                   # months really overlap
+    assert elapsed < 0.2 * len(espn.season_windows(2026)) / 2  # well under sequential

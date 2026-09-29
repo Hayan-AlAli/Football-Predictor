@@ -163,17 +163,20 @@ def test_bad_row_falls_back_without_sinking_the_batch(monkeypatch):
 
 
 def test_read_endpoints_do_not_load_the_model():
-    """A cold start serving /api/matches must not unpickle the forests."""
+    """Read endpoints, team pages included, never unpickle the forests."""
     import subprocess
     import sys
     code = (
         "import sys, backend.server as s\n"
         "from fastapi.testclient import TestClient\n"
         "c = TestClient(s.app)\n"
-        "for p in ('/api/matches', '/api/teams', '/api/calibration', '/api/health'):\n"
+        "for p in ('/api/matches', '/api/teams', '/api/calibration', '/api/health',\n"
+        "          '/api/teams/arsenal', '/api/teams/arsenal/h2h?vs=chelsea'):\n"
         "    assert c.get(p).status_code == 200, p\n"
         "assert 'sklearn' not in sys.modules, 'scikit-learn was imported'\n"
-        "assert s.predictor._state is None, 'models were loaded'\n"
+        "assert s.predictor._models is None, 'models were loaded'\n"
+        "assert c.get('/api/predict?home=arsenal&away=chelsea').status_code == 200\n"
+        "assert s.predictor._models is not None\n"
     )
     import os
     import tempfile

@@ -48,28 +48,27 @@ def _resolve_elo(lookup, team_name):
     return best[1]
 
 
-_LAZY = ('model_home', 'model_away', 'encoder', 'training_df', 'ELO_RANGE', 'UNKNOWN_TEAM_CODE')
-_state = None
+_DATA_KEYS = ('training_df', 'ELO_RANGE')
+_MODEL_KEYS = ('model_home', 'model_away', 'encoder', 'UNKNOWN_TEAM_CODE')
+_data = None
+_models = None
 
 
-def _load():
-    """Models, encoder and training frame, loaded on first use.
+def _load_data():
+    """The training frame, loaded on first use.
 
-    Unpickling them (and importing scikit-learn) costs ~2s, which read-only
-    requests like /api/matches never need, so cold starts skip it.
+    Team pages and head-to-heads only need this, and it is quick to load:
+    keeping it apart from the forests means they never import scikit-learn.
     """
-    global _state
-    if _state is not None:
-        return _state
-    s = dict.fromkeys(_LAZY)
-    for key, path in (('model_home', MODEL_PATH_HOME), ('model_away', MODEL_PATH_AWAY),
-                      ('encoder', ENCODER_PATH), ('training_df', TRAINING_DATA_PATH)):
-        try:
-            if os.path.exists(path):
-                s[key] = joblib.load(path)
-        except Exception as e:
-            print(f"Error loading {path}: {e}")
-    df = s['training_df']
+    global _data
+    if _data is not None:
+        return _data
+    df = None
+    try:
+        if os.path.exists(TRAINING_DATA_PATH):
+            df = joblib.load(TRAINING_DATA_PATH)
+    except Exception as e:
+        print(f"Error loading {TRAINING_DATA_PATH}: {e}")
     if df is not None and not df.empty:
         # The bundled frame predates consistent normalization (it stores e.g.
         # 'Newcastle United' / 'Wolves' / 'Ipswich'). Normalize once so every
@@ -77,16 +76,43 @@ def _load():
         for col in ("home_team", "away_team"):
             if col in df.columns:
                 df[col] = utils.normalize_column(df[col])
-    s['ELO_RANGE'] = _elo_range(df)
-    s['UNKNOWN_TEAM_CODE'] = _neutral_team_code(s['encoder'])
-    _state = s
-    return s
+    _data = {'training_df': df, 'ELO_RANGE': _elo_range(df)}
+    return _data
+
+
+def _load_models():
+    """The forests and team encoder, loaded on first prediction.
+
+    Unpickling them imports scikit-learn (~1s), which only prediction and
+    the sync job need; read-only requests never pay for it.
+    """
+    global _models
+    if _models is not None:
+        return _models
+    m = dict.fromkeys(_MODEL_KEYS)
+    for key, path in (('model_home', MODEL_PATH_HOME), ('model_away', MODEL_PATH_AWAY),
+                      ('encoder', ENCODER_PATH)):
+        try:
+            if os.path.exists(path):
+                m[key] = joblib.load(path)
+        except Exception as e:
+            print(f"Error loading {path}: {e}")
+    m['UNKNOWN_TEAM_CODE'] = _neutral_team_code(m['encoder'])
+    _models = m
+    return _models
+
+
+def _load():
+    """Everything prediction needs: training frame plus models."""
+    return {**_load_data(), **_load_models()}
 
 
 def __getattr__(name):
     """predictor.model_home, predictor.training_df, ... load on first access."""
-    if name in _LAZY:
-        return _load()[name]
+    if name in _DATA_KEYS:
+        return _load_data()[name]
+    if name in _MODEL_KEYS:
+        return _load_models()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -103,7 +129,7 @@ def form_frame():
     "recent form" is months old and promoted sides have none at all.
     """
     global _form_cache, _form_cache_ts
-    training_df = _load()['training_df']
+    training_df = _load_data()['training_df']
     if training_df is None or training_df.empty:
         return training_df
     import time
@@ -162,7 +188,7 @@ def _team_code(team_name):
     the same value (e.g. query 'Newcastle' -> stored 'Newcastle United').
     Unseen teams get UNKNOWN_TEAM_CODE, never another club's identity.
     """
-    state = _load()
+    state = _load_models()
     encoder, unknown = state['encoder'], state['UNKNOWN_TEAM_CODE']
     if encoder is None:
         return unknown
@@ -182,7 +208,7 @@ def _team_code(team_name):
 
 def team_has_history(team_name, df=None):
     """Whether a (possibly un-normalized) team appears anywhere in df."""
-    frame = _load()['training_df'] if df is None else df
+    frame = _load_data()['training_df'] if df is None else df
     if frame is None or frame.empty:
         return False
     norm = utils.normalize_team_name(team_name)

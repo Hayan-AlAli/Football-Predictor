@@ -8,6 +8,7 @@ football-data.co.uk for results) and keeps team identity id-based.
 """
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 
 import requests
@@ -25,11 +26,18 @@ class FeedError(RuntimeError):
     pass
 
 
+# Months are fetched concurrently; one shared session keeps the TLS
+# connections to ESPN alive between them.
+PARALLEL_REQUESTS = 6
+_session = requests.Session()
+_session.headers['User-Agent'] = 'football-predictor/2.0'
+_session.mount('https://', requests.adapters.HTTPAdapter(pool_maxsize=PARALLEL_REQUESTS))
+
+
 def _get(params, attempts=3):
     for attempt in range(attempts):
         try:
-            resp = requests.get(SCOREBOARD_URL, params=params, timeout=TIMEOUT,
-                                headers={'User-Agent': 'football-predictor/2.0'})
+            resp = _session.get(SCOREBOARD_URL, params=params, timeout=TIMEOUT)
             resp.raise_for_status()
             return resp.json()
         except (requests.RequestException, ValueError) as e:
@@ -166,15 +174,22 @@ def fetch_season(season):
     Raises FeedError when no window could be read at all; a failed month is
     logged and skipped, and `complete` is False so callers know not to treat
     the missing fixtures as removed."""
-    events, failures = [], 0
     windows = season_windows(season)
-    for start, end in windows:
+
+    def fetch(window):
+        start, end = window
         try:
-            data = _get({'dates': f"{start:%Y%m%d}-{end:%Y%m%d}", 'limit': 500})
-            events.extend(data.get('events') or [])
+            return _get({'dates': f"{start:%Y%m%d}-{end:%Y%m%d}", 'limit': 500}).get('events') or []
         except FeedError as e:
-            failures += 1
             logger.warning(str(e))
+            return None
+
+    # All months at once: the pull takes about as long as its slowest month
+    # instead of the sum of all of them. Results keep the calendar order.
+    with ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS) as pool:
+        pages = list(pool.map(fetch, windows))
+    failures = sum(page is None for page in pages)
+    events = [e for page in pages if page for e in page]
     if failures == len(windows):
         raise FeedError(f"ESPN unavailable for season {season}")
     matches, team_rows = parse_events(events, season=season)
