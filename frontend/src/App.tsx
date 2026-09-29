@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import DataProvider from './lib/data-provider';
 import { BookContext } from './lib/book';
 import RunningHead from './components/RunningHead';
+import StatsStrip from './components/StatsStrip';
 import { useThisWeek } from './lib/gameweek';
 import SectionFooter from './components/SectionFooter';
 import Press from './components/Press';
@@ -28,11 +29,12 @@ function Shell() {
     <BookContext.Provider value={{ selectedGameweek, setSelectedGameweek }}>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-rubric focus:text-paper focus:px-4 focus:py-2 focus:font-mono focus:text-sm focus:uppercase focus:tracking-wider-caps focus:no-underline"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-chalk focus:text-ground focus:px-4 focus:py-2 focus:font-mono focus:text-sm focus:uppercase focus:tracking-wider-caps focus:no-underline"
       >
         Skip to content
       </a>
       <RunningHead gameweek={selectedGameweek ?? thisWeek ?? undefined} />
+      <StatsStrip gameweek={selectedGameweek ?? thisWeek ?? undefined} />
       <main id="main-content" className="flex-1">
         <Suspense fallback={<Press />}>
           <Routes>

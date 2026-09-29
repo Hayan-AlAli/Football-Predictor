@@ -55,6 +55,33 @@ export function clubTextColor(hex: string): string {
   return l > 0.15 ? '#2A2A29' : '#FBF7EC';
 }
 
+/** Names as fans say them — long official names don't fit a fixture card. */
+const DISPLAY_NAMES: Record<string, string> = {
+  'Manchester United': 'Man Utd',
+  'Manchester City': 'Man City',
+  'Newcastle United': 'Newcastle',
+  'Tottenham Hotspur': 'Spurs',
+  'Tottenham': 'Spurs',
+  'Brighton and Hove Albion': 'Brighton',
+  'Brighton & Hove Albion': 'Brighton',
+  'Wolverhampton Wanderers': 'Wolves',
+  'Nottingham Forest': "Nott'm Forest",
+  "Nott'ham Forest": "Nott'm Forest",
+  'West Ham United': 'West Ham',
+  'AFC Bournemouth': 'Bournemouth',
+  'Leicester City': 'Leicester',
+  'Leeds United': 'Leeds',
+  'Ipswich Town': 'Ipswich',
+  'Sheffield United': 'Sheffield Utd',
+  'West Bromwich Albion': 'West Brom',
+};
+
+/** The short, spoken form of a club name for cards and call stamps. */
+export function displayName(team: string | Team): string {
+  const name = teamName(team);
+  return DISPLAY_NAMES[name] ?? name.replace(/\s+(F\.?C\.?|A\.?F\.?C\.?)$/i, '');
+}
+
 export function teamName(team: string | Team): string {
   return typeof team === 'string' ? team : team.name;
 }

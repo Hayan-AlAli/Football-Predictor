@@ -13,8 +13,8 @@ describe('TeamBadge', () => {
 
     expect(markup).toContain('inline-flex');
     expect(markup).toContain('rounded-sm');
-    expect(markup).not.toContain('bg-paper-white');
-    expect(markup).not.toContain('border-paper-line');
+    expect(markup).not.toContain('bg-raised');
+    expect(markup).not.toContain('border-line');
     expect(markup).not.toMatch(/\bborder\b/);
   });
 });

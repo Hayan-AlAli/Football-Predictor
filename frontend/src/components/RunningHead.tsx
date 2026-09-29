@@ -4,14 +4,15 @@ import { headVariants, getReducedMotionVariants } from '../lib/motion';
 import { gameweekLabel } from '../lib/format';
 import { useBook } from '../lib/book';
 import { useThisWeek } from '../lib/gameweek';
+import TouchlineMark from './TouchlineMark';
 
 const SECTIONS = [
-  { to: '/', label: 'MATCHDAY', folio: (gw?: number) => (gw == null ? '1' : gameweekLabel(gw)) },
-  { to: '/method', label: 'METHOD', folio: () => '2' },
-  { to: '/records', label: 'RECORDS', folio: () => '3' },
-  { to: '/teams', label: 'TEAMS INDEX', folio: () => '4' },
-  { to: '/forecast', label: 'FORECAST', folio: () => '5' },
-  { to: '/calibration', label: 'CALIBRATION', folio: () => '6' },
+  { to: '/', label: 'Matchday' },
+  { to: '/method', label: 'Method' },
+  { to: '/records', label: 'Records' },
+  { to: '/teams', label: 'Teams' },
+  { to: '/forecast', label: 'Forecast' },
+  { to: '/calibration', label: 'Calibration' },
 ] as const;
 
 interface RunningHeadProps {
@@ -19,80 +20,65 @@ interface RunningHeadProps {
   isCurrentWeek?: boolean;
 }
 
-/** The almanack's running head: masthead rule, section nav, folio. */
+function SectionLinks({ className }: { className: string }) {
+  return (
+    <nav aria-label="Sections" className={className}>
+      {SECTIONS.map((s) => (
+        <NavLink
+          key={s.to}
+          to={s.to}
+          end={s.to === '/'}
+          className={({ isActive }) =>
+            `flex min-h-[44px] items-center whitespace-nowrap border-b-[3px] font-display text-[1.0625rem] font-bold uppercase tracking-caps no-underline transition-colors ${
+              isActive ? 'border-amber text-chalk' : 'border-transparent text-chalk-faint hover:text-chalk'
+            }`
+          }
+        >
+          {s.label}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+/** The desk's masthead: mark, wordmark, sections, and the matchweek on view. */
 export default function RunningHead({ gameweek, isCurrentWeek }: RunningHeadProps) {
   const reduce = useReducedMotion();
   const variants = reduce ? getReducedMotionVariants(headVariants) : headVariants;
   const location = useLocation();
-  // The head is rendered by App (not MatchdayPage), so when no explicit prop
-  // is passed, derive the same selected === thisWeek expression here — gated
-  // to the matchday leaf so other sections' folios are unaffected.
   const { selectedGameweek } = useBook();
   const thisWeek = useThisWeek();
-  const showStamp =
+  const showThisWeek =
     isCurrentWeek ?? (location.pathname === '/' && thisWeek != null && (selectedGameweek ?? thisWeek) === thisWeek);
-
-  const activeSection =
-    SECTIONS.find((s) =>
-      s.to === '/' ? location.pathname === '/' : location.pathname.startsWith(s.to)
-    ) ?? SECTIONS[0];
 
   return (
     <motion.header
       variants={variants}
       initial="hidden"
       animate="show"
-      className="sticky top-0 z-40 bg-paper/92 backdrop-blur-sm border-b border-paper-line"
+      className="sticky top-0 z-40 bg-ground/95 backdrop-blur-sm"
     >
-      <div className="mx-auto max-w-5xl px-4">
-        <div className="flex items-center justify-between gap-4 py-2.5">
-          <NavLink to="/" className="group flex min-w-0 items-center gap-2.5 no-underline">
-            <span className="stamp group-hover:bg-ink transition-colors" aria-hidden="true">
-              FP
-            </span>
-            <span className="truncate font-sans text-[0.8125rem] font-extrabold uppercase tracking-caps text-ink group-hover:text-rubric transition-colors">
-              The Matchday Almanack
-            </span>
-          </NavLink>
-          <span className="hidden sm:block font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">
-            Premier League · the model prints
-          </span>
-        </div>
-
-        <div className="flex items-end justify-between gap-4 pb-2.5">
-          <nav aria-label="Book sections" className="flex items-center gap-4 sm:gap-6 overflow-x-auto">
-            {SECTIONS.map((s) => (
-              <NavLink
-                key={s.to}
-                to={s.to}
-                end={s.to === '/'}
-                className={({ isActive }) =>
-                  `whitespace-nowrap font-mono text-[0.75rem] uppercase tracking-wider-caps py-3 no-underline transition-colors min-h-[44px] flex items-center ${
-                    isActive
-                      ? 'text-rubric border-b-2 border-rubric font-semibold'
-                      : 'text-ink-soft border-b-2 border-transparent hover:text-ink'
-                  }`
-                }
-              >
-                {s.label}
-              </NavLink>
-            ))}
-          </nav>
-          <span className="flex items-baseline gap-1.5 shrink-0" aria-label={`Page ${activeSection.folio(gameweek)}`}>
-            <span className="hidden md:inline font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">
-              folio
-            </span>
-            <span key={activeSection.to + gameweek} className="folio-tick font-mono text-lg font-semibold text-ink tnum">
-              {activeSection.folio(gameweek)}
-            </span>
-            {showStamp && (
-              <span className="stamp" style={{ background: 'var(--rubric)' }}>
-                This week
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex min-w-0 items-center gap-8 xl:gap-10">
+            <NavLink to="/" className="group flex min-h-[56px] shrink-0 items-center gap-3 no-underline" aria-label="Touchline — matchday">
+              <TouchlineMark size={30} />
+              <span className="font-display text-[1.875rem] font-black leading-none text-chalk">TOUCHLINE</span>
+              <span className="hidden border border-line-strong px-1.5 py-0.5 font-mono text-[0.625rem] tracking-wider-caps text-chalk-faint xl:inline">
+                MATCHDAY DESK
               </span>
-            )}
+            </NavLink>
+            <SectionLinks className="hidden items-center gap-6 lg:flex" />
+          </div>
+          <span className="hidden shrink-0 items-center gap-2 font-mono text-xs text-chalk-faint md:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber" aria-hidden="true" />
+            {gameweek != null ? `MATCHWEEK ${gameweekLabel(gameweek)}` : 'PREMIER LEAGUE'}
+            {showThisWeek && <span className="chip ml-1">This week</span>}
           </span>
         </div>
+        <SectionLinks className="-mb-px flex items-center gap-6 overflow-x-auto lg:hidden" />
       </div>
+      <div className="h-1 bg-amber" aria-hidden="true" />
     </motion.header>
   );
 }

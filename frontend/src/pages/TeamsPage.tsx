@@ -85,10 +85,10 @@ export default function TeamsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 pb-4">
       <motion.div variants={headV} initial="hidden" animate="show" className="pt-8">
-        <h1 className="mt-1 font-sans text-2xl sm:text-3xl font-extrabold uppercase tracking-caps text-ink">
+        <h1 className="mt-1 font-display text-[2.75rem] sm:text-[3.5rem] font-black uppercase leading-[0.9] text-chalk">
           The Teams Index
         </h1>
-        <p className="mt-2 font-serif text-sm italic text-ink-soft sm:text-base">
+        <p className="mt-2 font-sans text-sm italic text-chalk-soft sm:text-base">
           Each club's page of the ledger: the fixtures the press has set them in, their average expected goals,
           and their latest club rating.
         </p>
@@ -114,7 +114,7 @@ export default function TeamsPage() {
                   <a
                     key={l}
                     href={`#letter-${l}`}
-                    className="flex h-7 w-7 items-center justify-center border border-paper-line bg-paper-white font-mono text-xs text-ink-soft no-underline transition-colors hover:border-rubric hover:text-rubric"
+                    className="flex h-7 w-7 items-center justify-center border border-line bg-raised font-mono text-xs text-chalk-soft no-underline transition-colors hover:border-chalk hover:text-chalk"
                   >
                     {l}
                   </a>
@@ -123,7 +123,7 @@ export default function TeamsPage() {
 
               {groups.map(([letter, list]) => (
                 <section key={letter} id={`letter-${letter}`} className="mt-6 scroll-mt-24" style={{ contentVisibility: 'auto' }}>
-                  <h2 className="rule-double pt-3 font-mono text-xl font-semibold text-rubric">{letter}</h2>
+                  <h2 className="rule-double pt-3 font-display text-[1.75rem] font-extrabold uppercase leading-none text-chalk">{letter}</h2>
                   <motion.div variants={staggerV} initial="hidden" animate="show">
                     {list.map((club) => {
                       const ink = teamInk(club.name);
@@ -134,7 +134,7 @@ export default function TeamsPage() {
                           variants={rowV}
                           initial="hidden"
                           animate="show"
-                          className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 border-t border-paper-line py-3.5"
+                          className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 border-t border-line py-3.5"
                         >
                           <Link
                             to={`/teams/${encodeURIComponent(club.name)}`}
@@ -143,7 +143,7 @@ export default function TeamsPage() {
                           <TeamBadge team={club.name} info={club} size="md" />
                           <span className="min-w-0">
                             <span className="flex items-center gap-2">
-                              <span className="truncate font-sans text-sm font-bold uppercase tracking-caps text-ink">
+                              <span className="truncate font-sans text-sm font-bold uppercase tracking-caps text-chalk">
                                 {club.name}
                               </span>
                               <span
@@ -153,7 +153,7 @@ export default function TeamsPage() {
                                 {short}
                               </span>
                             </span>
-                            <span className="mt-0.5 block font-mono text-[0.625rem] uppercase tracking-wider-caps text-ink-faint">
+                            <span className="mt-0.5 block font-mono text-[0.625rem] uppercase tracking-wider-caps text-chalk-faint">
                               {club.fixtures} fixture{club.fixtures === 1 ? '' : 's'} in the ledger
                               {club.expFor != null && ` · expected gf ${club.expFor.toFixed(1)}`}
                               {club.elo != null && ` · club rating ${club.elo}`}

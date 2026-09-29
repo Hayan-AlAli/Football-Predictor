@@ -7,35 +7,40 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Archivo', ...['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']],
-        mono: ['Fragment Mono', ...['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monospace']],
-        serif: ['Spectral', ...['Georgia', 'Cambria', 'Times New Roman', 'serif']],
+        sans: ['Instrument Sans', ...['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif']],
+        mono: ['IBM Plex Mono', ...['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']],
+        display: ['Big Shoulders Display', ...['Impact', 'Arial Narrow', 'sans-serif']],
       },
       colors: {
-        paper: {
-          DEFAULT: '#F1E9D8',
-          deep: '#E9DFC8',
-          white: '#FFFFFF',
-          line: '#C9BD9F',
+        ground: {
+          DEFAULT: '#0F1114',
+          deep: '#0A0B0D',
         },
-        ink: {
-          DEFAULT: '#2A2A29',
-          soft: '#4A463F',
-          faint: '#6A6355',
+        panel: '#171A1F',
+        raised: '#1D2127',
+        line: {
+          DEFAULT: '#262B33',
+          strong: '#3A404A',
         },
-        rubric: {
-          DEFAULT: '#B93B2F',
-          deep: '#A0392D',
+        chalk: {
+          DEFAULT: '#E9E6DF',
+          soft: '#B5B8BE',
+          faint: '#8C919A',
         },
-        ledger: {
-          DEFAULT: '#2F6E48',
-          deep: '#316B4A',
-          bright: '#3E9C6E',
+        amber: {
+          DEFAULT: '#FFB547',
+          deep: '#E89A2C',
         },
+        signal: {
+          DEFAULT: '#6FA8FF',
+          deep: '#4F8DEB',
+          bright: '#9CC3FF',
+        },
+        draw: '#4B515C',
       },
       boxShadow: {
-        'plate': '0 1px 0 rgba(42, 42, 41, 0.08), 0 8px 24px -12px rgba(42, 42, 41, 0.3)',
-        'press': '0 2px 0 rgba(42, 42, 41, 0.16)',
+        'plate': '0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -16px rgba(0, 0, 0, 0.6)',
+        'press': '0 2px 0 rgba(0, 0, 0, 0.35)',
       },
       fontSize: {
         'micro': '0.6875rem',
