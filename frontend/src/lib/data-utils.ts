@@ -1,4 +1,4 @@
-import type { Match, Team } from '../types';
+import type { Match, ResultEntry, Team } from '../types';
 
 /** Season of a "YYYY-MM-DD" date (August cut, as the backend computes it). */
 export function seasonOf(date: string): string {
@@ -14,8 +14,7 @@ export function seasonFromMatches(matches: Match[]): string {
   return seasonOf(dates[0]) || seasonOf(dates[dates.length - 1]);
 }
 
-export interface TeamMeta {
-  name: string;
+export interface TeamMeta extends Team {
   short_name: string;
   badge_url: string | null;
 }
@@ -29,10 +28,24 @@ export function teamsFromMatches(matches: Match[]): TeamMeta[] {
       if (!name || map.has(name)) continue;
       map.set(name, {
         name,
+        ...(typeof side === 'string' ? {} : side),
         short_name: typeof side === 'string' ? '' : (side.short_name ?? ''),
         badge_url: typeof side === 'string' ? null : (side.badge_url ?? null),
       });
     }
   }
   return [...map.values()];
+}
+
+/** The predicted matches that can be judged (played, or due to have been), as records entries. */
+export function resultEntries(matches: Match[], today: string): ResultEntry[] {
+  return matches
+    .filter((m) => m.verdict != null && (m.status === 'finished' || m.date <= today))
+    .map((m) => ({ match: m, actual: m.actual ?? null, status: m.verdict! }));
+}
+
+/** URL segment for a club page: its slug when known, else its name. */
+export function teamPath(team: string | Team): string {
+  const slug = typeof team === 'string' ? null : team.slug;
+  return `/teams/${encodeURIComponent(slug || (typeof team === 'string' ? team : team.name))}`;
 }

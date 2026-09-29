@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import Press from '../components/Press';
@@ -7,7 +7,8 @@ import EmptyState from '../components/EmptyState';
 import TeamBadge from '../components/TeamBadge';
 import FeatureReveal from '../components/FeatureReveal';
 import { SvgLineChart } from '../lib/charts';
-import { getHeadToHead, getTeamProfile, getTeams } from '../api/matches';
+import { getHeadToHead, getTeamProfile } from '../api/matches';
+import { useData } from '../lib/data-context';
 import { teamShort } from '../lib/teams';
 import { percent, printDate } from '../lib/format';
 import { getReducedMotionVariants, headVariants } from '../lib/motion';
@@ -18,21 +19,6 @@ type LoadState =
   | { status: 'loading' }
   | { status: 'error' }
   | { status: 'ready'; data: TeamProfileData };
-
-/** Bridges /api/teams display names ("Arsenal F.C.") to match-derived slugs
- *  ("Arsenal") the same way backend.utils.normalize_team_name does. */
-function canonicalClubName(name: string): string {
-  return name
-    .replace(/\s*[AF]\.?C\.?$/i, '')
-    .replace(/^AFC\s+/i, '')
-    .replace(/^Brighton (&|and) Hove Albion$/i, 'Brighton')
-    .replace(/^Tottenham Hotspur$/i, 'Tottenham')
-    .replace(/^Newcastle United$/i, 'Newcastle')
-    .replace(/^Wolverhampton Wanderers$/i, 'Wolverhampton')
-    .replace(/^West Ham United$/i, 'West Ham')
-    .replace(/^Leeds United$/i, 'Leeds')
-    .replace(/^Hull City$/i, 'Hull');
-}
 
 export default function TeamDetailPage() {
   const { teamName = '' } = useParams();
@@ -49,46 +35,38 @@ export default function TeamDetailPage() {
     return () => { cancelled = true; };
   }, [teamName, reloadKey]);
 
-  const [vsList, setVsList] = useState<string[]>([]);
-  const [vs, setVs] = useState<string>('');
-  const [h2h, setH2h] = useState<H2HData | null>(null);
-  const [h2hLoading, setH2hLoading] = useState(false);
-  const [h2hError, setH2hError] = useState(false);
+  const { teams } = useData();
+  const profileTeam = state.status === 'ready' ? state.data.team : null;
+  // Opponents by slug; the club itself is excluded once its profile names it.
+  const vsList = useMemo(
+    () => teams
+      .filter((t) => t.name !== profileTeam && t.slug !== teamName && t.name !== teamName)
+      .map((t) => ({ value: t.slug || t.name, label: t.name }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [teams, profileTeam, teamName],
+  );
+  const [picked, setPicked] = useState<string>('');
+  const vs = picked || vsList[0]?.value || '';
+  const h2hKey = vs ? `${teamName}|${vs}` : '';
+  const [h2hState, setH2hState] = useState<{ key: string; data: H2HData | null; error: boolean }>(
+    { key: '', data: null, error: false },
+  );
 
   useEffect(() => {
+    if (!h2hKey) return;
     let cancelled = false;
-    getTeams()
-      .then((teams) => {
-        if (cancelled) return;
-        const others = teams
-          .map((t) => t.name)
-          .filter((n) => canonicalClubName(n) !== canonicalClubName(teamName))
-          .sort();
-        setVsList(others);
-        if (others.length > 0) {
-          setVs(others[0]);
-          setH2hLoading(true);
-          setH2hError(false);
-        }
-      })
-      .catch(() => {});
+    getHeadToHead(teamName, vs)
+      .then((data) => { if (!cancelled) setH2hState({ key: h2hKey, data, error: false }); })
+      .catch(() => { if (!cancelled) setH2hState({ key: h2hKey, data: null, error: true }); });
     return () => { cancelled = true; };
-  }, [teamName]);
+  }, [teamName, vs, h2hKey]);
 
-  useEffect(() => {
-    if (!vs) return;
-    let cancelled = false;
-    getHeadToHead(teamName, canonicalClubName(vs))
-      .then((res) => { if (!cancelled) setH2h(res); })
-      .catch(() => { if (!cancelled) setH2hError(true); })
-      .finally(() => { if (!cancelled) setH2hLoading(false); });
-    return () => { cancelled = true; };
-  }, [teamName, vs]);
+  const h2hLoading = !!h2hKey && h2hState.key !== h2hKey;
+  const h2hError = !h2hLoading && h2hState.error;
+  const h2h = h2hState.key === h2hKey ? h2hState.data : null;
 
   const onVsChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
-    setH2hLoading(true);
-    setH2hError(false);
-    setVs(e.target.value);
+    setPicked(e.target.value);
   }, []);
 
   if (state.status === 'loading') return <div className="mx-auto max-w-3xl px-4 pb-4"><Press /></div>;
@@ -237,7 +215,7 @@ export default function TeamDetailPage() {
               onChange={onVsChange}
               className="border border-line bg-raised px-2 py-1 font-mono text-xs uppercase tracking-wider-caps text-chalk"
             >
-              {vsList.map((n) => <option key={n} value={n}>{n}</option>)}
+              {vsList.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </label>
         </div>

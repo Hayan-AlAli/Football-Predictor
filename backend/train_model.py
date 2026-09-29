@@ -23,8 +23,8 @@ def train():
     df['home_xg'] = pd.to_numeric(df['home_xg'])
     df['away_xg'] = pd.to_numeric(df['away_xg'])
 
-    df['home_team'] = df['home_team'].apply(utils.normalize_team_name)
-    df['away_team'] = df['away_team'].apply(utils.normalize_team_name)
+    df['home_team'] = utils.normalize_column(df['home_team'])
+    df['away_team'] = utils.normalize_column(df['away_team'])
 
     print("Engineering features (Rolling Stats, Encoded Teams)...")
 

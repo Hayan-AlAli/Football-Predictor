@@ -2,6 +2,8 @@ import { createContext, useContext } from 'react';
 import type { Match } from '../types';
 import type { TeamMeta } from './data-utils';
 
+export type { TeamMeta };
+
 export interface DataState {
   status: 'loading' | 'online' | 'offline';
   matches: Match[];

@@ -1,64 +1,15 @@
-from datetime import datetime
-from backend import config
+from backend import teams
 
 
 def normalize_team_name(name):
-    mapping = {
-        "Manchester Utd": "Manchester United",
-        "Man United": "Manchester United",
-        "Man Utd": "Manchester United",
-        "Man City": "Manchester City",
-        "Manchester City F.C.": "Manchester City",
-        "Newcastle Utd": "Newcastle",
-        "Newcastle United": "Newcastle",
-        "Newcastle United F.C.": "Newcastle",
-        "Nott'ham Forest": "Nottingham Forest",
-        "Nott'm Forest": "Nottingham Forest",
-        "Nottm Forest": "Nottingham Forest",
-        "Ipswich": "Ipswich Town",
-        "Coventry": "Coventry City",
-        "Forest": "Nottingham Forest",
-        "Nottingham Forest F.C.": "Nottingham Forest",
-        "Wolverhampton Wanderers": "Wolverhampton",
-        "Wolverhampton": "Wolverhampton",
-        "Wolves": "Wolverhampton",
-        "Wolverhampton Wanderers F.C.": "Wolverhampton",
-        "West Ham United": "West Ham",
-        "West Ham United F.C.": "West Ham",
-        "Brighton & Hove Albion": "Brighton",
-        "Brighton and Hove Albion": "Brighton",
-        "Brighton & Hove Albion F.C.": "Brighton",
-        "Tottenham Hotspur": "Tottenham",
-        "Tottenham Hotspur F.C.": "Tottenham",
-        "Leicester": "Leicester City",
-        "Leicester City F.C.": "Leicester City",
-        "AFC Bournemouth": "Bournemouth",
-        "Aston Villa F.C.": "Aston Villa",
-        "Liverpool F.C.": "Liverpool",
-        "Chelsea F.C.": "Chelsea",
-        "Arsenal F.C.": "Arsenal",
-        "Everton F.C.": "Everton",
-        "Ipswich Town": "Ipswich Town",
-        "Ipswich Town F.C.": "Ipswich Town",
-        "Sheffield Utd": "Sheffield United",
-        "Leeds": "Leeds United",
-        "Norwich City": "Norwich",
-        "West Brom": "West Bromwich Albion",
-        "West Bromwich": "West Bromwich Albion",
-        "Stoke City": "Stoke",
-        "Swansea City": "Swansea",
-        "Cardiff City": "Cardiff",
-        "Huddersfield Town": "Huddersfield",
-        "Hull City": "Hull",
-        "Derby County": "Derby",
-        "Blackburn Rovers": "Blackburn",
-        "Bolton Wanderers": "Bolton",
-        "Wigan Athletic": "Wigan",
-        "Queens Park Rangers": "QPR",
-        "Luton Town": "Luton",
-        "Sheffield Weds": "Sheffield Wednesday",
-    }
-    return mapping.get(name, name)
+    """Canonical team name (see backend/teams.py and data/teams.json)."""
+    return teams.normalize(name)
+
+
+def normalize_column(series):
+    """normalize_team_name over a pandas Series, one lookup per distinct name."""
+    mapping = {n: teams.normalize(n) for n in series.dropna().unique()}
+    return series.map(mapping)
 
 
 def safe_elo(value, default=1500.0):

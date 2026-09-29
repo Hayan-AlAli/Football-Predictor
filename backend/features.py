@@ -183,8 +183,8 @@ def team_window_form(df, team, window, before=None):
         # The stored frame may use a different spelling variant
         # ('Wolves' vs 'Wolverhampton'): retry on normalized names.
         norm = utils.normalize_team_name(team)
-        d = df[(df["home_team"].apply(utils.normalize_team_name) == norm)
-               | (df["away_team"].apply(utils.normalize_team_name) == norm)]
+        d = df[(utils.normalize_column(df["home_team"]) == norm)
+               | (utils.normalize_column(df["away_team"]) == norm)]
     if before is not None:
         d = d[_naive_utc(d["date"]) < _naive_utc(before)]
     d = d.sort_values("date").tail(window)

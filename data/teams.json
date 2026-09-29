@@ -1,122 +1,425 @@
 {
+  "teams": {
     "Arsenal": {
-        "name": "Arsenal F.C.",
-        "short_name": "ARS",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t3.png"
+      "slug": "arsenal",
+      "full_name": "Arsenal",
+      "short_name": "ARS",
+      "espn_id": "359",
+      "pl_id": "3",
+      "color": "#EF0107",
+      "aliases": [
+        "Arsenal F.C.",
+        "Arsenal FC"
+      ]
     },
     "Aston Villa": {
-        "name": "Aston Villa F.C.",
-        "short_name": "AVL",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t7.png"
+      "slug": "aston-villa",
+      "full_name": "Aston Villa",
+      "short_name": "AVL",
+      "espn_id": "362",
+      "pl_id": "7",
+      "color": "#670E36",
+      "aliases": [
+        "Aston Villa F.C.",
+        "Aston Villa FC"
+      ]
     },
     "Bournemouth": {
-        "name": "AFC Bournemouth",
-        "short_name": "BOU",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t91.png"
+      "slug": "bournemouth",
+      "full_name": "AFC Bournemouth",
+      "short_name": "BOU",
+      "espn_id": "349",
+      "pl_id": "91",
+      "color": "#DA291C",
+      "aliases": [
+        "AFC Bournemouth",
+        "AFC Bournemouth F.C.",
+        "AFC Bournemouth FC"
+      ]
     },
     "Brentford": {
-        "name": "Brentford F.C.",
-        "short_name": "BRE",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t94.png"
+      "slug": "brentford",
+      "full_name": "Brentford",
+      "short_name": "BRE",
+      "espn_id": "337",
+      "pl_id": "94",
+      "color": "#D30000",
+      "aliases": [
+        "Brentford F.C.",
+        "Brentford FC"
+      ]
     },
     "Brighton": {
-        "name": "Brighton & Hove Albion F.C.",
-        "short_name": "BHA",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t36.png"
+      "slug": "brighton",
+      "full_name": "Brighton & Hove Albion",
+      "short_name": "BHA",
+      "espn_id": "331",
+      "pl_id": "36",
+      "color": "#0057B8",
+      "aliases": [
+        "Brighton & Hove Albion",
+        "Brighton & Hove Albion F.C.",
+        "Brighton & Hove Albion FC",
+        "Brighton and Hove Albion"
+      ]
+    },
+    "Burnley": {
+      "slug": "burnley",
+      "full_name": "Burnley",
+      "short_name": "BUR",
+      "espn_id": "379",
+      "pl_id": "90",
+      "color": "#6C1D45",
+      "aliases": [
+        "Burnley F.C.",
+        "Burnley FC"
+      ]
     },
     "Chelsea": {
-        "name": "Chelsea F.C.",
-        "short_name": "CHE",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t8.png"
-    },
-    "Crystal Palace": {
-        "name": "Crystal Palace F.C.",
-        "short_name": "CRY",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t31.png"
-    },
-    "Everton": {
-        "name": "Everton F.C.",
-        "short_name": "EVE",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t11.png"
-    },
-    "Fulham": {
-        "name": "Fulham F.C.",
-        "short_name": "FUL",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t54.png"
-    },
-    "Ipswich Town": {
-        "name": "Ipswich Town F.C.",
-        "short_name": "IPS",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t40.png"
-    },
-    "Leicester City": {
-        "name": "Leicester City F.C.",
-        "short_name": "LEI",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t13.png"
-    },
-    "Liverpool": {
-        "name": "Liverpool F.C.",
-        "short_name": "LIV",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t14.png"
-    },
-    "Manchester City": {
-        "name": "Manchester City F.C.",
-        "short_name": "MCI",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t43.png"
-    },
-    "Manchester United": {
-        "name": "Manchester United F.C.",
-        "short_name": "MUN",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t1.png"
-    },
-    "Newcastle": {
-        "name": "Newcastle United F.C.",
-        "short_name": "NEW",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t4.png"
-    },
-    "Nottingham Forest": {
-        "name": "Nottingham Forest F.C.",
-        "short_name": "NFO",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t17.png"
-    },
-    "Southampton": {
-        "name": "Southampton F.C.",
-        "short_name": "SOU",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t20.png"
-    },
-    "Tottenham": {
-        "name": "Tottenham Hotspur F.C.",
-        "short_name": "TOT",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t6.png"
-    },
-    "West Ham": {
-        "name": "West Ham United F.C.",
-        "short_name": "WHU",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t21.png"
-    },
-    "Wolverhampton": {
-        "name": "Wolverhampton Wanderers F.C.",
-        "short_name": "WOL",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t39.png"
+      "slug": "chelsea",
+      "full_name": "Chelsea",
+      "short_name": "CHE",
+      "espn_id": "363",
+      "pl_id": "8",
+      "color": "#034694",
+      "aliases": [
+        "Chelsea F.C.",
+        "Chelsea FC"
+      ]
     },
     "Coventry City": {
-        "name": "Coventry City F.C.",
-        "short_name": "COV",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t5.png"
+      "slug": "coventry-city",
+      "full_name": "Coventry City",
+      "short_name": "COV",
+      "espn_id": "388",
+      "pl_id": "5",
+      "color": "#339ACC",
+      "aliases": [
+        "Coventry",
+        "Coventry City F.C.",
+        "Coventry City FC"
+      ]
+    },
+    "Crystal Palace": {
+      "slug": "crystal-palace",
+      "full_name": "Crystal Palace",
+      "short_name": "CRY",
+      "espn_id": "384",
+      "pl_id": "31",
+      "color": "#1B458F",
+      "aliases": [
+        "Crystal Palace F.C.",
+        "Crystal Palace FC"
+      ]
+    },
+    "Everton": {
+      "slug": "everton",
+      "full_name": "Everton",
+      "short_name": "EVE",
+      "espn_id": "368",
+      "pl_id": "11",
+      "color": "#003399",
+      "aliases": [
+        "Everton F.C.",
+        "Everton FC"
+      ]
+    },
+    "Fulham": {
+      "slug": "fulham",
+      "full_name": "Fulham",
+      "short_name": "FUL",
+      "espn_id": "370",
+      "pl_id": "54",
+      "color": "#333333",
+      "aliases": [
+        "Fulham F.C.",
+        "Fulham FC"
+      ]
     },
     "Hull": {
-        "name": "Hull City A.F.C.",
-        "short_name": "HUL",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t88.png"
+      "slug": "hull-city",
+      "full_name": "Hull City",
+      "short_name": "HUL",
+      "espn_id": "306",
+      "pl_id": "88",
+      "color": "#FF6600",
+      "aliases": [
+        "Hull City",
+        "Hull City A.F.C.",
+        "Hull City F.C.",
+        "Hull City FC"
+      ]
     },
-    "Leeds": {
-        "name": "Leeds United F.C.",
-        "short_name": "LEE",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t9.png"
+    "Ipswich Town": {
+      "slug": "ipswich-town",
+      "full_name": "Ipswich Town",
+      "short_name": "IPS",
+      "espn_id": "373",
+      "pl_id": "40",
+      "color": "#003399",
+      "aliases": [
+        "Ipswich",
+        "Ipswich Town F.C.",
+        "Ipswich Town FC"
+      ]
+    },
+    "Leeds United": {
+      "slug": "leeds-united",
+      "full_name": "Leeds United",
+      "short_name": "LEE",
+      "espn_id": "357",
+      "pl_id": "2",
+      "color": "#1D4491",
+      "aliases": [
+        "Leeds",
+        "Leeds United F.C.",
+        "Leeds United FC"
+      ]
+    },
+    "Leicester City": {
+      "slug": "leicester-city",
+      "full_name": "Leicester City",
+      "short_name": "LEI",
+      "espn_id": "375",
+      "pl_id": "13",
+      "color": "#003090",
+      "aliases": [
+        "Leicester",
+        "Leicester City F.C.",
+        "Leicester City FC"
+      ]
+    },
+    "Liverpool": {
+      "slug": "liverpool",
+      "full_name": "Liverpool",
+      "short_name": "LIV",
+      "espn_id": "364",
+      "pl_id": "14",
+      "color": "#C8102E",
+      "aliases": [
+        "Liverpool F.C.",
+        "Liverpool FC"
+      ]
+    },
+    "Luton": {
+      "slug": "luton-town",
+      "full_name": "Luton Town",
+      "short_name": "LUT",
+      "espn_id": "301",
+      "pl_id": "102",
+      "color": "#F78F1E",
+      "aliases": [
+        "Luton Town",
+        "Luton Town F.C.",
+        "Luton Town FC"
+      ]
+    },
+    "Manchester City": {
+      "slug": "manchester-city",
+      "full_name": "Manchester City",
+      "short_name": "MCI",
+      "espn_id": "382",
+      "pl_id": "43",
+      "color": "#6CABDD",
+      "aliases": [
+        "Man City",
+        "Manchester City F.C.",
+        "Manchester City FC"
+      ]
+    },
+    "Manchester United": {
+      "slug": "manchester-united",
+      "full_name": "Manchester United",
+      "short_name": "MUN",
+      "espn_id": "360",
+      "pl_id": "1",
+      "color": "#DA291C",
+      "aliases": [
+        "Man United",
+        "Man Utd",
+        "Manchester United F.C.",
+        "Manchester United FC",
+        "Manchester Utd"
+      ]
+    },
+    "Newcastle": {
+      "slug": "newcastle-united",
+      "full_name": "Newcastle United",
+      "short_name": "NEW",
+      "espn_id": "361",
+      "pl_id": "4",
+      "color": "#241F20",
+      "aliases": [
+        "Newcastle United",
+        "Newcastle United F.C.",
+        "Newcastle United FC",
+        "Newcastle Utd"
+      ]
+    },
+    "Norwich": {
+      "slug": "norwich-city",
+      "full_name": "Norwich City",
+      "short_name": "NOR",
+      "espn_id": "381",
+      "pl_id": "45",
+      "color": "#00A650",
+      "aliases": [
+        "Norwich City",
+        "Norwich City F.C.",
+        "Norwich City FC"
+      ]
+    },
+    "Nottingham Forest": {
+      "slug": "nottingham-forest",
+      "full_name": "Nottingham Forest",
+      "short_name": "NFO",
+      "espn_id": "393",
+      "pl_id": "17",
+      "color": "#DD0000",
+      "aliases": [
+        "Forest",
+        "Nott'ham Forest",
+        "Nott'm Forest",
+        "Nottingham Forest F.C.",
+        "Nottingham Forest FC",
+        "Nottm Forest"
+      ]
+    },
+    "Sheffield United": {
+      "slug": "sheffield-united",
+      "full_name": "Sheffield United",
+      "short_name": "SHU",
+      "espn_id": "398",
+      "pl_id": "49",
+      "color": "#EE2737",
+      "aliases": [
+        "Sheffield United F.C.",
+        "Sheffield United FC",
+        "Sheffield Utd"
+      ]
+    },
+    "Southampton": {
+      "slug": "southampton",
+      "full_name": "Southampton",
+      "short_name": "SOU",
+      "espn_id": "376",
+      "pl_id": "20",
+      "color": "#D71920",
+      "aliases": [
+        "Southampton F.C.",
+        "Southampton FC"
+      ]
     },
     "Sunderland": {
-        "name": "Sunderland A.F.C.",
-        "short_name": "SUN",
-        "badge_url": "https://resources.premierleague.com/premierleague/badges/50/t56.png"
+      "slug": "sunderland",
+      "full_name": "Sunderland",
+      "short_name": "SUN",
+      "espn_id": "366",
+      "pl_id": "56",
+      "color": "#EB172B",
+      "aliases": [
+        "Sunderland A.F.C.",
+        "Sunderland F.C.",
+        "Sunderland FC"
+      ]
+    },
+    "Tottenham": {
+      "slug": "tottenham-hotspur",
+      "full_name": "Tottenham Hotspur",
+      "short_name": "TOT",
+      "espn_id": "367",
+      "pl_id": "6",
+      "color": "#132257",
+      "aliases": [
+        "Tottenham Hotspur",
+        "Tottenham Hotspur F.C.",
+        "Tottenham Hotspur FC"
+      ]
+    },
+    "Watford": {
+      "slug": "watford",
+      "full_name": "Watford",
+      "short_name": "WAT",
+      "espn_id": "395",
+      "pl_id": "57",
+      "color": "#FBEE23",
+      "aliases": [
+        "Watford F.C.",
+        "Watford FC"
+      ]
+    },
+    "West Bromwich Albion": {
+      "slug": "west-bromwich-albion",
+      "full_name": "West Bromwich Albion",
+      "short_name": "WBA",
+      "espn_id": "383",
+      "pl_id": "35",
+      "color": "#122F67",
+      "aliases": [
+        "West Brom",
+        "West Bromwich",
+        "West Bromwich Albion F.C.",
+        "West Bromwich Albion FC"
+      ]
+    },
+    "West Ham": {
+      "slug": "west-ham-united",
+      "full_name": "West Ham United",
+      "short_name": "WHU",
+      "espn_id": "371",
+      "pl_id": "21",
+      "color": "#7A263A",
+      "aliases": [
+        "West Ham United",
+        "West Ham United F.C.",
+        "West Ham United FC"
+      ]
+    },
+    "Wolverhampton": {
+      "slug": "wolverhampton-wanderers",
+      "full_name": "Wolverhampton Wanderers",
+      "short_name": "WOL",
+      "espn_id": "380",
+      "pl_id": "39",
+      "color": "#FDB913",
+      "aliases": [
+        "Wolverhampton Wanderers",
+        "Wolverhampton Wanderers F.C.",
+        "Wolverhampton Wanderers FC",
+        "Wolves"
+      ]
     }
+  },
+  "aliases_only": {
+    "Stoke": [
+      "Stoke City"
+    ],
+    "Swansea": [
+      "Swansea City"
+    ],
+    "Cardiff": [
+      "Cardiff City"
+    ],
+    "Huddersfield": [
+      "Huddersfield Town"
+    ],
+    "Derby": [
+      "Derby County"
+    ],
+    "Blackburn": [
+      "Blackburn Rovers"
+    ],
+    "Bolton": [
+      "Bolton Wanderers"
+    ],
+    "Wigan": [
+      "Wigan Athletic"
+    ],
+    "QPR": [
+      "Queens Park Rangers"
+    ],
+    "Sheffield Wednesday": [
+      "Sheffield Weds"
+    ]
+  }
 }

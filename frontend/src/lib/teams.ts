@@ -1,46 +1,27 @@
 import type { Team } from '../types';
 
 /**
- * Club ink — the printed colors of the Premier League.
- * Team identities are real product data, kept here once instead of
- * duplicated across components.
+ * Club identity comes from the API (backend data/teams.json, refreshed from
+ * the fixtures feed). The data provider registers every club it loads, so
+ * code holding only a team's name can still find its colour and badge.
  */
-export const TEAM_COLORS: Record<string, string> = {
-  'Manchester United': '#DA291C',
-  'Manchester City': '#6CABDD',
-  'Liverpool': '#C8102E',
-  'Arsenal': '#EF0107',
-  'Chelsea': '#034694',
-  'Tottenham Hotspur': '#132257',
-  'Tottenham': '#132257',
-  'Newcastle United': '#241F20',
-  'Newcastle': '#241F20',
-  'Aston Villa': '#670E36',
-  'Brighton': '#0057B8',
-  'Brighton and Hove Albion': '#0057B8',
-  'West Ham': '#7A263A',
-  'West Ham United': '#7A263A',
-  'Everton': '#003399',
-  'Wolves': '#FDB913',
-  'Wolverhampton Wanderers': '#FDB913',
-  'Crystal Palace': '#1B458F',
-  'Nottingham Forest': '#DD0000',
-  'Fulham': '#333333',
-  'Brentford': '#D30000',
-  'Leicester': '#003090',
-  'Leicester City': '#003090',
-  'Southampton': '#D71920',
-  'Bournemouth': '#DA291C',
-  'AFC Bournemouth': '#DA291C',
-  'Ipswich': '#003399',
-  'Ipswich Town': '#003399',
-  'Coventry City': '#339ACC',
-  'Hull City': '#FF6600',
-  'Hull': '#FF6600',
-  'Leeds United': '#1D4491',
-  'Leeds': '#1D4491',
-  'Sunderland': '#EB172B',
-};
+const registry = new Map<string, Team>();
+
+export function registerTeams(teams: Team[]): void {
+  for (const t of teams) {
+    registry.set(t.name, t);
+    if (t.slug) registry.set(t.slug, t);
+    if (t.full_name) registry.set(t.full_name, t);
+  }
+}
+
+/** The fullest description known for a team: the given object merged over the registry entry. */
+export function teamInfo(team: string | Team): Team {
+  const name = typeof team === 'string' ? team : team.name;
+  const known = registry.get(name);
+  if (typeof team === 'string') return known ?? { name };
+  return { ...known, ...Object.fromEntries(Object.entries(team).filter(([, v]) => v != null && v !== '')), name };
+}
 
 export const DEFAULT_CLUB_INK = '#6A6355';
 
@@ -87,7 +68,7 @@ export function teamName(team: string | Team): string {
 }
 
 export function teamShort(team: string | Team): string {
-  const info = typeof team === 'string' ? null : team;
+  const info = teamInfo(team);
   if (info?.short_name) return info.short_name;
   const name = teamName(team);
   return name
@@ -101,17 +82,14 @@ export function teamShort(team: string | Team): string {
 }
 
 export function teamInk(team: string | Team): string {
-  const name = teamName(team);
-  const lower = name.toLowerCase();
-  for (const [key, color] of Object.entries(TEAM_COLORS)) {
-    if (lower.includes(key.toLowerCase())) return color;
-  }
-  return DEFAULT_CLUB_INK;
+  const color = teamInfo(team).color;
+  return color && /^#[0-9a-f]{6}$/i.test(color) ? color : DEFAULT_CLUB_INK;
 }
 
-export function teamBadge(team: string | Team): string | null {
-  const info = typeof team === 'string' ? null : team;
-  return info?.badge_url ?? null;
+/** Badge sources in the order to try them: the primary crest, then the fallback. */
+export function teamBadges(team: string | Team): string[] {
+  const info = teamInfo(team);
+  return [info.badge_url, info.badge_fallback_url].filter((u): u is string => !!u);
 }
 
 /** The team's short name for a fixture row (favours the backend's short_name). */

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import FixtureCard from '../components/FixtureCard';
 import RecordPanel from '../components/RecordPanel';
@@ -8,44 +8,10 @@ import EmptyState from '../components/EmptyState';
 import { useData } from '../lib/data-context';
 import { useBook } from '../lib/book';
 import { useThisWeek } from '../lib/gameweek';
-import { getResultEntries } from '../api/matches';
+import { resultEntries } from '../lib/data-utils';
 import { gameweekLabel, kickoffDay, sortMatchesByDate } from '../lib/format';
-import { teamName } from '../lib/teams';
 import { staggerContainer, getReducedMotionVariants } from '../lib/motion';
-import type { Match, ResultEntry } from '../types';
-
-function useVerdicts(dates: string[]) {
-  const [state, setState] = useState<{ key: string; entries: ResultEntry[] }>({
-    key: '',
-    entries: [],
-  });
-  const key = dates.join(',');
-  useEffect(() => {
-    let cancelled = false;
-    if (!key) return;
-    (async () => {
-      const res = await Promise.allSettled(dates.map((d) => getResultEntries(d)));
-      if (cancelled) return;
-      setState({
-        key,
-        entries: res
-          .filter((r) => r.status === 'fulfilled')
-          .flatMap((r) => r.value),
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [key, dates]);
-  return {
-    entries: state.entries,
-    loading: key ? state.key !== key : false,
-  };
-}
-
-function verdictKey(m: Match): string {
-  return `${m.date}|${teamName(m.home_team)}|${teamName(m.away_team)}`;
-}
+import type { ResultEntry } from '../types';
 
 /** The matchday page: this matchweek's fixtures as cards, with the model's record alongside. */
 export default function MatchdayPage() {
@@ -62,15 +28,10 @@ export default function MatchdayPage() {
     [matches, view]
   );
   const weekDates = useMemo(() => [...new Set(weekMatches.map((m) => m.date))], [weekMatches]);
-  const { entries: verdicts, loading: verdictsLoading } = useVerdicts(weekDates);
-  const verdictByMatch = useMemo(() => {
-    const map = new Map<string, ResultEntry>();
-    for (const v of verdicts) {
-      map.set(v.match.id, v);
-      map.set(verdictKey(v.match), v);
-    }
-    return map;
-  }, [verdicts]);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const verdicts = useMemo(() => resultEntries(weekMatches, today), [weekMatches, today]);
+  const verdictsLoading = false;
+  const verdictByMatch = useMemo(() => new Map<string, ResultEntry>(verdicts.map((v) => [v.match.id, v])), [verdicts]);
 
   const correct = verdicts.filter((v) => v.status === 'CORRECT').length;
   const incorrect = verdicts.filter((v) => v.status === 'INCORRECT').length;
@@ -187,7 +148,7 @@ export default function MatchdayPage() {
                 className="grid gap-5 sm:grid-cols-2"
               >
                 {weekMatches.map((m) => (
-                  <FixtureCard key={m.id} match={m} verdict={verdictByMatch.get(m.id) ?? verdictByMatch.get(verdictKey(m))} />
+                  <FixtureCard key={m.id} match={m} verdict={verdictByMatch.get(m.id)} />
                 ))}
               </motion.div>
             )}
