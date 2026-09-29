@@ -85,10 +85,10 @@ export default function RecordsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 pb-4">
       <motion.div variants={headV} initial="hidden" animate="show" className="pt-8">
-        <h1 className="mt-1 font-sans text-2xl sm:text-3xl font-extrabold uppercase tracking-caps text-ink">
+        <h1 className="mt-1 font-display text-[2.75rem] sm:text-[3.5rem] font-black uppercase leading-[0.9] text-chalk">
           The Records
         </h1>
-        <p className="mt-2 font-serif text-sm italic text-ink-soft sm:text-base">
+        <p className="mt-2 font-sans text-sm italic text-chalk-soft sm:text-base">
           The evening press keeps every verdict against the actual result. Hits and misses are both printed here —
           the record is honest by design.
         </p>
@@ -117,11 +117,11 @@ export default function RecordsPage() {
             </div>
           ) : (
             <>
-              <p className="mt-4 font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
+              <p className="mt-4 font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">
                 Called = the model&apos;s print · bold = what happened
               </p>
-              <nav aria-label="Index of matchweeks" className="sticky top-[112px] z-10 -mx-4 border-y border-paper-line bg-paper px-4 py-2">
-                <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Index</span>
+              <nav aria-label="Index of matchweeks" className="sticky top-[112px] z-10 -mx-4 border-y border-line bg-ground px-4 py-2">
+                <span className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">Index</span>
                 <span className="ml-3 inline-flex max-w-full items-center gap-x-1 overflow-x-auto">
                   {grouped.map((group) => {
                     const id = group.gw != null ? `gw-${group.gw}` : `date-${group.date}`;
@@ -133,7 +133,7 @@ export default function RecordsPage() {
                         href={`#${id}`}
                         data-index-link={id}
                         aria-current={active ? 'true' : undefined}
-                        className={`inline-flex min-h-[44px] items-center whitespace-nowrap px-2 font-mono text-[0.625rem] uppercase tracking-widest hover:text-rubric ${active ? 'text-rubric' : 'text-ink-soft'}`}
+                        className={`inline-flex min-h-[44px] items-center whitespace-nowrap px-2 font-mono text-[0.625rem] uppercase tracking-widest hover:text-chalk ${active ? 'text-chalk font-semibold' : 'text-chalk-soft'}`}
                       >
                         {label}
                       </a>
@@ -143,13 +143,13 @@ export default function RecordsPage() {
               </nav>
               {/* Summary */}
               <div className="rule-draw mt-6 flex flex-wrap items-center justify-between gap-2 py-3">
-                <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">
+                <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">
                   The record so far
                 </span>
                 <span className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[0.6875rem] uppercase tracking-wider-caps">
-                  <span className="text-ledger">✓ {correct} correct</span>
-                  <span className="text-rubric">✗ {incorrect} incorrect</span>
-                  {pending > 0 && <span className="text-ink-faint">{pending} pending</span>}
+                  <span className="text-chalk">✓ {correct} right</span>
+                  <span className="text-chalk-faint">✗ {incorrect} wrong</span>
+                  {pending > 0 && <span className="text-chalk-faint">{pending} pending</span>}
                   {accuracy != null && <span className="chip" title="Pending verdicts excluded">{decided} decided · {accuracy}%</span>}
                 </span>
               </div>
@@ -160,14 +160,14 @@ export default function RecordsPage() {
                 const groupIncorrect = group.list.filter((e) => e.status === 'INCORRECT').length;
                 return (
                 <section key={group.gw != null ? `gw-${group.gw}` : `date-${group.date}`} id={sectionId} className="mt-4 scroll-mt-40" style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 480px' }}>
-                  <h2 className="rule-double rule-press-scroll flex items-baseline justify-between gap-2 pt-3 font-sans text-lg font-bold uppercase tracking-caps text-ink">
+                  <h2 className="rule-double rule-press-scroll flex items-baseline justify-between gap-2 pt-3 font-display text-2xl font-extrabold uppercase text-chalk">
                     {group.gw != null ? (
-                      <span className="font-mono text-rubric">Matchweek {group.gw}</span>
+                      <span className="font-mono text-chalk">Matchweek {group.gw}</span>
                     ) : (
-                      <span className="font-mono text-rubric">{group.date}</span>
+                      <span className="font-mono text-chalk">{group.date}</span>
                     )}
                     {(groupCorrect > 0 || groupIncorrect > 0) && (
-                      <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
+                      <span className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">
                         {groupCorrect} correct · {groupIncorrect} incorrect
                       </span>
                     )}
@@ -187,37 +187,37 @@ export default function RecordsPage() {
                           variants={rowV}
                           initial="hidden"
                           animate="show"
-                          className="border-t border-paper-line py-3.5"
+                          className="border-t border-line py-3.5"
                         >
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span
-                              className="flex min-w-0 items-center gap-1.5 truncate font-sans text-sm font-bold uppercase tracking-caps text-ink"
+                              className="flex min-w-0 items-center gap-1.5 truncate font-sans text-sm font-bold uppercase tracking-caps text-chalk"
                               title={`${homeName} vs ${awayName}`}
                             >
                               <TeamBadge team={m.home_team} info={m.home_team_info} size="md" />
                               {homeName}
-                              <span className="font-mono font-normal lowercase text-ink-faint">vs</span>
+                              <span className="font-mono font-normal lowercase text-chalk-faint">vs</span>
                               {awayName}
                               <TeamBadge team={m.away_team} info={m.away_team_info} size="md" />
                             </span>
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <span className="flex items-center gap-2 font-mono text-xs text-ink-soft tnum">
-                              <span className="uppercase tracking-wider-caps text-[0.625rem] text-ink-faint">Called</span>
+                            <span className="flex items-center gap-2 font-mono text-xs text-chalk-soft tnum">
+                              <span className="uppercase tracking-wider-caps text-[0.625rem] text-chalk-faint">Called</span>
                               {pred ? `${pred.winner === 'Draw' ? 'Draw' : teamShort(pred.winner ?? '')} ${scoreline(pred.score)}` : '—'}
                             </span>
-                            <span className="flex items-center gap-2 font-mono text-xs font-semibold text-ink tnum">
-                              <span className="uppercase tracking-wider-caps text-[0.625rem] font-normal text-ink-faint">Actual</span>
-                              {actualScore ?? <span className="text-ink-faint">—</span>}
+                            <span className="flex items-center gap-2 font-mono text-xs font-semibold text-chalk tnum">
+                              <span className="uppercase tracking-wider-caps text-[0.625rem] font-normal text-chalk-faint">Actual</span>
+                              {actualScore ?? <span className="text-chalk-faint">—</span>}
                             </span>
                             <span>
                               {entry.status === 'CORRECT' && (
-                                <motion.span variants={stampV} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-10% 0px' }} className="stamp" style={{ background: 'var(--ledger)' }}>
-                                  ✓ Correct
+                                <motion.span variants={stampV} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-10% 0px' }} className="stamp-right">
+                                  ✓ Right
                                 </motion.span>
                               )}
                               {entry.status === 'INCORRECT' && (
-                                <motion.span variants={stampV} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-10% 0px' }} className="stamp">✗ Incorrect</motion.span>
+                                <motion.span variants={stampV} initial="hidden" whileInView="show" viewport={{ once: true, margin: '-10% 0px' }} className="stamp-wrong">✗ Wrong</motion.span>
                               )}
                               {entry.status === 'PENDING' && (
                                 <span className="chip">Pending</span>

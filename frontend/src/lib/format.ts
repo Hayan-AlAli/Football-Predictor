@@ -30,6 +30,15 @@ export function printDate(date: string): string {
   });
 }
 
+/** "Sat 4 Oct" — the kickoff day on a fixture card. */
+export function kickoffDay(date: string): string {
+  const d = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return date;
+  const day = d.toLocaleDateString('en-GB', { weekday: 'short' });
+  const month = d.toLocaleDateString('en-GB', { month: 'short' });
+  return `${day} ${d.getDate()} ${month}`;
+}
+
 export function shortDate(date: string): string {
   const d = new Date(`${date}T00:00:00`);
   if (Number.isNaN(d.getTime())) return date;

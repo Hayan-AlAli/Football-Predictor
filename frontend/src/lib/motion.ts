@@ -1,7 +1,7 @@
 import { Variants } from 'motion/react';
 
 /**
- * Shared motion presets — The Matchday Almanack
+ * Shared motion presets — Touchline
  * Print registers: rules draw, stamps press, folios tick, pages turn.
  */
 

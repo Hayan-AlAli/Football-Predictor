@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import PageTurnNav from '../components/PageTurnNav';
-import LedgerRow from '../components/LedgerRow';
+import FixtureCard from '../components/FixtureCard';
+import RecordPanel from '../components/RecordPanel';
 import Press from '../components/Press';
 import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
@@ -9,12 +9,13 @@ import { useData } from '../lib/data-context';
 import { useBook } from '../lib/book';
 import { useThisWeek } from '../lib/gameweek';
 import { resultEntries } from '../lib/data-utils';
-import { sortMatchesByDate } from '../lib/format';
+import { gameweekLabel, kickoffDay, sortMatchesByDate } from '../lib/format';
 import { staggerContainer, getReducedMotionVariants } from '../lib/motion';
+import type { ResultEntry } from '../types';
 
-/** The matchday page: this matchweek's ledger, printed by the model. */
+/** The matchday page: this matchweek's fixtures as cards, with the model's record alongside. */
 export default function MatchdayPage() {
-  const { status, matches, gameweeks, season, reload } = useData();
+  const { status, matches, gameweeks, reload } = useData();
   const reduce = useReducedMotion();
   const { selectedGameweek: selected, setSelectedGameweek: setSelected } = useBook();
 
@@ -26,9 +27,11 @@ export default function MatchdayPage() {
     () => sortMatchesByDate(matches.filter((m) => m.gameweek === view)),
     [matches, view]
   );
+  const weekDates = useMemo(() => [...new Set(weekMatches.map((m) => m.date))], [weekMatches]);
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const verdicts = useMemo(() => resultEntries(weekMatches, today), [weekMatches, today]);
   const verdictsLoading = false;
+  const verdictByMatch = useMemo(() => new Map<string, ResultEntry>(verdicts.map((v) => [v.match.id, v])), [verdicts]);
 
   const correct = verdicts.filter((v) => v.status === 'CORRECT').length;
   const incorrect = verdicts.filter((v) => v.status === 'INCORRECT').length;
@@ -38,116 +41,129 @@ export default function MatchdayPage() {
 
   const staggerV = reduce ? getReducedMotionVariants(staggerContainer) : staggerContainer;
 
-  return (
-    <div className="mx-auto max-w-5xl px-4 pb-4">
-      {/* Title band */}
-      <div className="pt-8">
-        <div className="flex items-end justify-between gap-4">
-          <h1 className="font-sans text-2xl sm:text-3xl font-extrabold uppercase tracking-caps text-ink">
-            The Matchday Almanack
-          </h1>
-          {season && <span className="chip hidden sm:inline-block">Season {season}</span>}
-        </div>
-        <p className="mt-1.5 font-serif text-sm italic text-ink-soft sm:text-base">
-          Printed by the model: every fixture of this matchweek, set as the season's ledger.
-        </p>
-      </div>
+  const index = view != null ? gameweeks.indexOf(view) : -1;
+  const prev = index > 0 ? gameweeks[index - 1] : null;
+  const next = index >= 0 && index < gameweeks.length - 1 ? gameweeks[index + 1] : null;
+  const firstDate = weekDates[0];
+  const lastDate = weekDates[weekDates.length - 1];
+  const dateRange = firstDate
+    ? firstDate === lastDate
+      ? kickoffDay(firstDate)
+      : `${kickoffDay(firstDate)} – ${kickoffDay(lastDate)}`
+    : null;
 
+  return (
+    <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
       {status === 'loading' && <Press />}
       {status === 'offline' && (
         <OfflineSlate
-          message="The backend could not be reached, so the ledger cannot be set. Check that the press (FastAPI) is running."
+          message="The backend could not be reached, so the fixtures cannot be loaded. Check that the FastAPI server is running."
           onRetry={reload}
         />
       )}
 
       {status === 'online' && gameweeks.length > 0 && view != null && (
-        <>
-          <PageTurnNav
-            gameweeks={gameweeks}
-            selected={view}
-            fixtureCount={weekMatches.length}
-            onSelect={setSelected}
-          />
-          {view === thisWeekFromHook && thisWeekFromHook != null && (
-            <div className="flex justify-center pb-2">
-              <span className="stamp" style={{ background: 'var(--rubric)' }}>
-                This week
-              </span>
-            </div>
-          )}
-
-          {/* The record of this matchweek */}
-          <div className="rule-draw flex flex-wrap items-center justify-between gap-2 py-3" aria-live="polite">
-            <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">
-              The record of this matchweek
-            </span>
-            {verdicts.length > 0 ? (
-              <span
-                className={`flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[0.6875rem] uppercase tracking-wider-caps ${
-                  verdictsLoading ? 'opacity-60' : ''
-                }`}
-              >
-                <span className="text-ledger">✓ {correct} correct</span>
-                <span className="text-rubric">✗ {incorrect} incorrect</span>
-                {pending > 0 && <span className="text-ink-faint">{pending} pending</span>}
-                {accuracy != null && <span className="chip">{decided} decided · {accuracy}%</span>}
-                {verdictsLoading && (
-                  <>
-                    <span className="text-ink-faint" aria-hidden="true">·</span>
-                    <span className="text-rubric">setting…</span>
-                  </>
+        <div className="grid gap-8 pt-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="flex min-w-0 flex-col gap-5">
+            {/* Title + matchweek nav */}
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="flex flex-col gap-1.5">
+                <span className="font-mono text-xs uppercase tracking-[0.1em] text-chalk-faint">
+                  {weekMatches.length} fixture{weekMatches.length === 1 ? '' : 's'}
+                  {dateRange ? ` · ${dateRange}` : ''}
+                </span>
+                <h1 key={view} className="rise-in font-display text-[3.5rem] font-black uppercase leading-[0.85] text-chalk sm:text-[4.5rem]">
+                  Matchweek {gameweekLabel(view)}
+                </h1>
+              </div>
+              <nav aria-label="Matchweeks" className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className="btn-turn font-mono text-xs tracking-[0.08em]"
+                  onClick={() => prev != null && setSelected(prev)}
+                  disabled={prev == null}
+                  aria-label={prev != null ? `Previous matchweek, ${prev}` : 'No previous matchweek'}
+                >
+                  ‹ {prev != null ? `GW${prev}` : ''}
+                </button>
+                {thisWeekFromHook != null && view !== thisWeekFromHook && (
+                  <button
+                    type="button"
+                    className="btn-turn font-mono text-xs tracking-[0.08em]"
+                    onClick={() => setSelected(thisWeekFromHook)}
+                  >
+                    This week
+                  </button>
                 )}
+                <button
+                  type="button"
+                  className="btn-turn font-mono text-xs tracking-[0.08em]"
+                  onClick={() => next != null && setSelected(next)}
+                  disabled={next == null}
+                  aria-label={next != null ? `Next matchweek, ${next}` : 'No next matchweek'}
+                >
+                  {next != null ? `GW${next}` : ''} ›
+                </button>
+              </nav>
+            </div>
+
+            {/* This matchweek's record */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-y border-line py-2.5" aria-live="polite">
+              <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">
+                This matchweek's record
               </span>
-            ) : verdictsLoading ? (
-              <span className="font-serif text-xs italic text-ink-faint" role="status">
-                Comparing the evening's results…
-              </span>
+              {verdicts.length > 0 ? (
+                <span
+                  className={`flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[0.6875rem] uppercase tracking-wider-caps ${
+                    verdictsLoading ? 'opacity-60' : ''
+                  }`}
+                >
+                  <span className="text-chalk">✓ {correct} right</span>
+                  <span className="text-chalk-faint">✗ {incorrect} wrong</span>
+                  {pending > 0 && <span className="text-chalk-faint">{pending} pending</span>}
+                  {accuracy != null && <span className="chip">{decided} decided · {accuracy}%</span>}
+                </span>
+              ) : verdictsLoading ? (
+                <span className="text-xs italic text-chalk-faint" role="status">
+                  Checking results…
+                </span>
+              ) : (
+                <span className="text-xs italic text-chalk-faint">
+                  No results yet — verdicts appear after the evening job compares predictions with results.
+                </span>
+              )}
+            </div>
+
+            {weekMatches.length === 0 ? (
+              <EmptyState
+                title="No fixtures for this matchweek"
+                note="Nothing has been predicted for this matchweek yet."
+              />
             ) : (
-              <span className="font-serif text-xs italic text-ink-faint">
-                No verdicts recorded yet — the evening press compares these predictions against results.
-              </span>
+              <motion.div
+                variants={staggerV}
+                initial="hidden"
+                animate="show"
+                key={view}
+                className="grid gap-5 sm:grid-cols-2"
+              >
+                {weekMatches.map((m) => (
+                  <FixtureCard key={m.id} match={m} verdict={verdictByMatch.get(m.id)} />
+                ))}
+              </motion.div>
             )}
           </div>
 
-          {weekMatches.length === 0 ? (
-            <EmptyState
-              title="No fixtures set for this matchweek"
-              note="The press has nothing printed on this page of the ledger."
-            />
-          ) : (
-            <motion.div
-              variants={staggerV}
-              initial="hidden"
-              animate="show"
-              key={view}
-              className="rule-double page-turn-in pb-8"
-            >
-              {/* Column heads */}
-              <div className="hidden sm:grid grid-cols-[2.75rem_1fr_10rem_1fr_auto] gap-x-3 px-2 pb-1 pt-3">
-                <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Time</span>
-                <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Home</span>
-                <span className="text-center font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
-                  The line · score
-                </span>
-                <span className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Away</span>
-                <span className="text-right font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">Call</span>
-              </div>
-
-              <div className="pb-6">
-                {weekMatches.map((m, i) => (
-                  <LedgerRow key={m.id} match={m} index={i} />
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </>
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <RecordPanel />
+          </div>
+        </div>
       )}
 
       {status === 'online' && gameweeks.length === 0 && (
         <EmptyState
-          title="The ledger is empty"
-          note="No matchweeks have been printed yet. Run the morning press to generate predictions."
+          title="No matchweeks yet"
+          note="No predictions have been generated yet. Run the morning job to generate them."
         />
       )}
     </div>

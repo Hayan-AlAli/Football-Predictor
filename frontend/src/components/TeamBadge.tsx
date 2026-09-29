@@ -48,7 +48,7 @@ export default function TeamBadge({ team, info, size = 'md', className = '' }: T
   const ink = teamInk(subject);
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-sm border border-paper-line font-sans text-[10px] font-bold tracking-widest ${cls} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-sm border border-line font-sans text-[10px] font-bold tracking-widest ${cls} ${className}`}
       style={{ backgroundColor: ink, color: clubTextColor(ink) }}
       aria-hidden="true"
     >

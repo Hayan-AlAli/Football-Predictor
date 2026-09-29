@@ -28,10 +28,10 @@ export default function CalibrationPage() {
     return () => { cancelled = true; };
   }, [reloadKey]);
 
-  if (state.status === 'loading') return <div className="mx-auto max-w-5xl px-4 pb-4"><Press /></div>;
+  if (state.status === 'loading') return <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-4"><Press /></div>;
   if (state.status === 'error') {
     return (
-      <div className="mx-auto max-w-5xl px-4 pb-4">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-4">
         <OfflineSlate
           message="The calibration ledger could not be read. Check that the press (FastAPI) is running."
           onRetry={() => {
@@ -46,12 +46,12 @@ export default function CalibrationPage() {
   const { data } = state;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pb-4">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-4">
       <motion.div variants={headV} initial="hidden" animate="show" className="pt-8">
-        <h1 className="font-sans text-2xl sm:text-3xl font-extrabold uppercase tracking-caps text-ink">
+        <h1 className="font-display text-[2.75rem] sm:text-[3.5rem] font-black uppercase leading-[0.9] text-chalk">
           Calibration &amp; the record
         </h1>
-        <p className="mt-1.5 font-serif text-sm italic text-ink-soft sm:text-base">
+        <p className="mt-1.5 font-sans text-sm italic text-chalk-soft sm:text-base">
           When the model says 60%, does it win six in ten? The record, kept honestly — misses included.
         </p>
       </motion.div>
@@ -67,22 +67,22 @@ export default function CalibrationPage() {
         <>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             <div className="plate p-4">
-              <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">Overall accuracy</h3>
-              <p className="mt-1 font-mono text-3xl font-semibold text-ink tnum">
-                {data.accuracy != null ? percent(data.accuracy) : '—'}
+              <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Overall accuracy</h3>
+              <p className="mt-1 font-mono text-3xl font-semibold text-chalk tnum">
+                {data.accuracy != null ? `${percent(data.accuracy, 1)}%` : '—'}
               </p>
-              <p className="mt-1 font-serif text-xs italic text-ink-faint">{data.entries} decided verdicts</p>
+              <p className="mt-1 font-sans text-xs italic text-chalk-faint">{data.entries} decided verdicts</p>
             </div>
             <div className="plate p-4">
-              <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">Brier score</h3>
-              <p className="mt-1 font-mono text-3xl font-semibold text-ink tnum">
+              <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Brier score</h3>
+              <p className="mt-1 font-mono text-3xl font-semibold text-chalk tnum">
                 {data.brier != null ? data.brier.toFixed(3) : '—'}
               </p>
-              <p className="mt-1 font-serif text-xs italic text-ink-faint">lower is better; a perfect forecaster scores 0</p>
+              <p className="mt-1 font-sans text-xs italic text-chalk-faint">lower is better; a perfect forecaster scores 0</p>
             </div>
             <div className="plate p-4">
-              <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">Honesty note</h3>
-              <p className="mt-1 font-serif text-sm italic text-ink-soft">
+              <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Honesty note</h3>
+              <p className="mt-1 font-sans text-sm italic text-chalk-soft">
                 This ledger shows every miss. A prediction is only as credible as its record of being wrong.
               </p>
             </div>
@@ -91,21 +91,21 @@ export default function CalibrationPage() {
           {data.bins.length > 0 && (
             <section className="rule-double mt-10 pt-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-mono text-xl font-semibold text-rubric">Calibration curve</h2>
-                <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">
+                <h2 className="font-display text-[1.75rem] font-extrabold uppercase leading-none text-chalk">Calibration curve</h2>
+                <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">
                   predicted probability vs actual win rate
                 </span>
               </div>
               <div className="mt-4">
                 <CalibrationCurve bins={data.bins} />
               </div>
-              <p className="mt-2 font-serif text-xs italic text-ink-faint">
+              <p className="mt-2 font-sans text-xs italic text-chalk-faint">
                 The dashed line is perfect calibration — on it, 60% predicted wins exactly six in ten.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {data.bins.map((b) => (
-                  <span key={b.label} className="font-mono text-[0.625rem] uppercase tracking-widest text-ink-soft">
-                    {b.label} · n={b.count} · {percent(b.predicted)} → {percent(b.actual)}
+                  <span key={b.label} className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-soft">
+                    {b.label} · n={b.count} · {percent(b.predicted)}% → {percent(b.actual)}%
                   </span>
                 ))}
               </div>
@@ -115,21 +115,21 @@ export default function CalibrationPage() {
           {data.rolling.length > 0 && (
             <section className="rule-double mt-10 pt-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-mono text-xl font-semibold text-rubric">By matchweek</h2>
-                <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-ink-faint">
-                  decided verdicts per matchweek, rolling
+                <h2 className="font-display text-[1.75rem] font-extrabold uppercase leading-none text-chalk">Recent calls</h2>
+                <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">
+                  hit rate per block of 10 decided calls, oldest first
                 </span>
               </div>
               <div className="mt-4">
                 <SvgLineChart
-                  points={data.rolling.map((r) => ({ x: `GW ${r.gameweek}`, y: r.accuracy ?? 0 }))}
+                  points={data.rolling.map((r) => ({ x: `#${r.gameweek}`, y: r.accuracy ?? 0 }))}
                 />
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {data.rolling.map((r) => (
                   <span key={r.gameweek} className="chip">
-                    GW {r.gameweek} · {r.correct}/{r.decided}
-                    {r.accuracy != null ? ` · ${percent(r.accuracy)}` : ''}
+                    #{r.gameweek} · {r.correct}/{r.decided}
+                    {r.accuracy != null ? ` · ${percent(r.accuracy)}%` : ''}
                   </span>
                 ))}
               </div>

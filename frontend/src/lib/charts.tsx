@@ -1,9 +1,9 @@
 export function MeterBar({ value, tone = 'ink' }: { value: number; tone?: 'ink' | 'rubric' }) {
   const pct = Math.min(100, Math.max(0, value * 100));
   return (
-    <span className="inline-block h-2 flex-1 bg-paper-white border border-paper-line overflow-hidden" aria-hidden="true">
+    <span className="inline-block h-2 flex-1 bg-raised border border-line overflow-hidden" aria-hidden="true">
       <span
-        className={`block h-full ${tone === 'rubric' ? 'bg-rubric' : 'bg-ink'}`}
+        className={`block h-full ${tone === 'rubric' ? 'bg-amber' : 'bg-chalk'}`}
         style={{ width: `${pct}%` }}
       />
     </span>
@@ -14,7 +14,7 @@ export function SvgLineChart({
   points,
   width = 520,
   height = 160,
-  strokeClass = 'stroke-rubric',
+  strokeClass = 'stroke-signal',
 }: {
   points: Array<{ x: string; y: number }>;
   width?: number;
@@ -40,14 +40,25 @@ export function SvgLineChart({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full"
+      preserveAspectRatio="none"
+      className="h-40 w-full overflow-visible"
       role="img"
       aria-label="Trend chart"
     >
-      <line x1={0} y1={first.y} x2={width} y2={first.y} className="stroke-paper-line" strokeWidth={1} />
-      <line x1={0} y1={last.y} x2={width} y2={last.y} className="stroke-paper-line" strokeWidth={1} />
+      <line x1={0} y1={first.y} x2={width} y2={first.y} className="stroke-line" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+      <line x1={0} y1={last.y} x2={width} y2={last.y} className="stroke-line" strokeWidth={1} vectorEffect="non-scaling-stroke" />
       <path d={line} fill="none" className={strokeClass} strokeWidth={2} vectorEffect="non-scaling-stroke" />
-      <circle cx={last.x} cy={last.y} r={3} className="fill-rubric" />
+      {/* A zero-length round-capped stroke: stays a circle under the non-uniform stretch */}
+      <line
+        x1={last.x}
+        y1={last.y}
+        x2={last.x}
+        y2={last.y}
+        className="stroke-chalk"
+        strokeWidth={7}
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   );
 }
@@ -70,22 +81,32 @@ export function CalibrationCurve({
   const line = bins
     .map((b, i) => `${i === 0 ? 'M' : 'L'}${x(b.predicted).toFixed(1)},${y(b.actual).toFixed(1)}`)
     .join(' ');
+  const axis = 'font-mono text-[0.625rem] text-chalk-faint tnum';
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="w-full"
-      role="img"
-      aria-label="Calibration curve: predicted probability versus actual win rate"
-    >
-      <path d={diagonal} fill="none" className="stroke-paper-line" strokeWidth={1} strokeDasharray="3 3" />
-      <path d={line} fill="none" className="stroke-rubric" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-      {bins.map((b) => (
-        <circle key={b.label} cx={x(b.predicted)} cy={y(b.actual)} r={3.5} className="fill-ink" />
-      ))}
-      <text x={padX} y={height - 4} className="fill-ink-faint font-mono text-[9px]">0%</text>
-      <text x={x(1) - 10} y={height - 4} className="fill-ink-faint font-mono text-[9px]">100%</text>
-      <text x={2} y={y(0) + 3} className="fill-ink-faint font-mono text-[9px]">0%</text>
-      <text x={2} y={y(1) - 2} className="fill-ink-faint font-mono text-[9px]">100%</text>
-    </svg>
+    <figure className="flex gap-2">
+      {/* Axis labels live in HTML so they stay one size however wide the chart is drawn */}
+      <div className={`flex flex-col justify-between pb-6 ${axis}`} aria-hidden="true">
+        <span>100%</span>
+        <span>0%</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="block w-full"
+          role="img"
+          aria-label="Calibration curve: predicted probability versus actual win rate"
+        >
+          <path d={diagonal} fill="none" className="stroke-line-strong" strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+          <path d={line} fill="none" className="stroke-amber" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+          {bins.map((b) => (
+            <circle key={b.label} cx={x(b.predicted)} cy={y(b.actual)} r={3.5} className="fill-chalk" />
+          ))}
+        </svg>
+        <div className={`mt-1 flex justify-between ${axis}`} aria-hidden="true">
+          <span>0% predicted</span>
+          <span>100%</span>
+        </div>
+      </div>
+    </figure>
   );
 }

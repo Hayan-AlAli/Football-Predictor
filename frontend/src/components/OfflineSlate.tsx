@@ -5,7 +5,7 @@ interface OfflineSlateProps {
   onRetry: () => void;
 }
 
-/** The press is unreachable — an honest binding miss, with a retry. */
+/** The backend is unreachable — say so plainly, with a retry. */
 export default function OfflineSlate({ message, onRetry }: OfflineSlateProps) {
   const reduce = useReducedMotion();
 
@@ -18,13 +18,13 @@ export default function OfflineSlate({ message, onRetry }: OfflineSlateProps) {
       className="mt-10"
     >
       <div className="plate p-6 sm:p-8 text-center">
-        <p className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-rubric">Binding miss</p>
-        <h2 className="mt-2 font-sans text-xl font-bold uppercase tracking-caps text-ink">
-          The press is offline
+        <p className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Connection lost</p>
+        <h2 className="mt-2 font-display text-2xl font-extrabold uppercase text-chalk">
+          The desk is offline
         </h2>
-        <p className="mx-auto mt-2 max-w-md font-serif text-sm italic text-ink-soft">{message}</p>
+        <p className="mx-auto mt-2 max-w-md font-sans text-sm italic text-chalk-soft">{message}</p>
         <button type="button" onClick={onRetry} className="btn-print mt-6">
-          Retry the press
+          Try again
         </button>
       </div>
     </motion.div>
