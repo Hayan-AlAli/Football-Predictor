@@ -2,12 +2,15 @@
   "buildCommand": "cd frontend && npm install && npm run build && cp -r dist ../public",
   "installCommand": "pip install --break-system-packages -r requirements.txt",
   "ignoreCommand": "bash vercel-ignore.sh",
+  "functions": {
+    "api/index.py": { "maxDuration": 60 }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/jobs/morning", "schedule": "0 6 * * *" },
-    { "path": "/api/jobs/evening", "schedule": "30 22 * * *" }
+    { "path": "/api/jobs/sync", "schedule": "0 6 * * *" },
+    { "path": "/api/jobs/sync", "schedule": "30 22 * * *" }
   ]
 }

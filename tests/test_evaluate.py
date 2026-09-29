@@ -47,7 +47,8 @@ def test_score_test_returns_metrics_dict(monkeypatch):
 
 
 def test_run_all_returns_rows():
-    rows = evaluate.run_all()
+    import os
+    rows = evaluate.run_all(os.path.join(os.path.dirname(__file__), "_mini.pkl"))
     assert isinstance(rows, list)
     assert len(rows) >= 1
     assert all({"spec", "brier", "log_loss", "accuracy", "n_matches"} <= set(r) for r in rows)

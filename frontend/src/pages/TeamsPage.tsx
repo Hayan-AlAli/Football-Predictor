@@ -6,21 +6,19 @@ import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
 import TeamBadge from '../components/TeamBadge';
 import { useData } from '../lib/data-context';
-import { teamsFromMatches } from '../lib/data-utils';
+import { teamPath, teamsFromMatches } from '../lib/data-utils';
 import { teamShort, teamInk } from '../lib/teams';
 import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
 import type { Match } from '../types';
+import type { TeamMeta } from '../lib/data-context';
 
-interface ClubRow {
-  name: string;
-  short_name: string;
-  badge_url: string | null;
+interface ClubRow extends TeamMeta {
   fixtures: number;
   expFor: number | null;
   elo: number | null;
 }
 
-function clubStats(matches: Match[], name: string): Omit<ClubRow, 'name' | 'short_name' | 'badge_url'> {
+function clubStats(matches: Match[], name: string): Pick<ClubRow, 'fixtures' | 'expFor' | 'elo'> {
   let fixtures = 0;
   let expSum = 0;
   let expN = 0;
@@ -126,7 +124,7 @@ export default function TeamsPage() {
                   <h2 className="rule-double pt-3 font-mono text-xl font-semibold text-rubric">{letter}</h2>
                   <motion.div variants={staggerV} initial="hidden" animate="show">
                     {list.map((club) => {
-                      const ink = teamInk(club.name);
+                      const ink = teamInk(club);
                       const short = club.short_name || teamShort(club.name);
                       return (
                         <motion.div
@@ -137,7 +135,7 @@ export default function TeamsPage() {
                           className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 border-t border-paper-line py-3.5"
                         >
                           <Link
-                            to={`/teams/${encodeURIComponent(club.name)}`}
+                            to={teamPath(club)}
                             className="col-span-2 flex min-w-0 items-center gap-3 no-underline"
                           >
                           <TeamBadge team={club.name} info={club} size="md" />

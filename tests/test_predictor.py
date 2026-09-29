@@ -127,3 +127,62 @@ def test_safe_elo():
     assert utils.safe_elo(0) == 1500.0
     assert utils.safe_elo(1900) == 1900.0
     assert utils.safe_elo(1850.7) == 1850.7
+
+def test_batch_matches_single_predictions():
+    fixtures = [
+        {"home_team": "Arsenal", "away_team": "Chelsea", "home_elo": 1714, "away_elo": 1499},
+        {"home_team": "Hull", "away_team": "Liverpool", "home_elo": 1394, "away_elo": 1576,
+         "date": "2026-10-03"},
+        {"home_team": "Nowhere Rovers", "away_team": "Arsenal"},
+    ]
+    batch = predictor.predict_matches(fixtures)
+    assert len(batch) == 3
+    for f, b in zip(fixtures, batch):
+        single = predictor.predict_match(f)
+        assert b["model_version"] == single["model_version"] == predictor.MODEL_VERSION
+        for key in ("prob_home", "prob_draw", "prob_away", "home_goals", "away_goals", "score", "winner"):
+            assert b[key] == single[key], key
+    assert predictor.predict_matches([]) == []
+
+
+def test_bad_row_falls_back_without_sinking_the_batch(monkeypatch):
+    real = predictor._match_features
+
+    def flaky(m, state, form_of):
+        if m["home_team"] == "Chelsea":
+            raise ValueError("boom")
+        return real(m, state, form_of)
+
+    monkeypatch.setattr(predictor, "_match_features", flaky)
+    out = predictor.predict_matches([
+        {"home_team": "Arsenal", "away_team": "Everton"},
+        {"home_team": "Chelsea", "away_team": "Everton"},
+    ])
+    assert out[0]["model_version"] == predictor.MODEL_VERSION
+    assert out[1]["model_version"] == predictor.FALLBACK_VERSION
+
+
+def test_read_endpoints_do_not_load_the_model():
+    """Read endpoints, team pages included, never unpickle the forests."""
+    import subprocess
+    import sys
+    code = (
+        "import sys, backend.server as s\n"
+        "from fastapi.testclient import TestClient\n"
+        "c = TestClient(s.app)\n"
+        "for p in ('/api/matches', '/api/teams', '/api/calibration', '/api/health',\n"
+        "          '/api/teams/arsenal', '/api/teams/arsenal/h2h?vs=chelsea'):\n"
+        "    assert c.get(p).status_code == 200, p\n"
+        "assert 'sklearn' not in sys.modules, 'scikit-learn was imported'\n"
+        "assert s.predictor._models is None, 'models were loaded'\n"
+        "assert c.get('/api/predict?home=arsenal&away=chelsea').status_code == 200\n"
+        "assert s.predictor._models is not None\n"
+    )
+    import os
+    import tempfile
+    env = {**os.environ, "DATABASE_URL": f"sqlite:///{tempfile.mkdtemp()}/cold.db"}
+    env.pop("POSTGRES_URL", None)
+    result = subprocess.run([sys.executable, "-W", "ignore", "-c", code], env=env,
+                            capture_output=True, text=True,
+                            cwd=os.path.join(os.path.dirname(__file__), ".."))
+    assert result.returncode == 0, result.stderr[-2000:]

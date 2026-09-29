@@ -50,7 +50,8 @@ public/
 # Git worktrees (isolated implementation workspaces)
 .worktrees/
 
-# Runtime data (Postgres in prod, local files in dev)
+# Local database (Postgres in prod, SQLite in dev) and pre-2.0 file store
+data/football.db*
 data/predictions/
 data/results/
 data/forecast/

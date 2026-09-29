@@ -1,7 +1,14 @@
+/** A club as the API describes it (backend/teams.py + data/teams.json). */
 export interface Team {
   name: string;
+  slug?: string;
+  full_name?: string;
   short_name?: string;
   badge_url?: string | null;
+  /** Second source tried when badge_url fails to load. */
+  badge_fallback_url?: string | null;
+  /** Club colour as #RRGGBB. */
+  color?: string | null;
 }
 
 export interface Prediction {
@@ -14,32 +21,48 @@ export interface Prediction {
   away_goals?: number;
   home_elo?: number;
   away_elo?: number;
-  features?: PredictionFeatures;
+  features?: PredictionFeatures | null;
+  model_version?: string | null;
+  created_at?: string | null;
 }
 
+export type MatchStatus = 'scheduled' | 'in_progress' | 'finished' | 'postponed';
+export type Verdict = 'CORRECT' | 'INCORRECT' | 'PENDING';
+
+export interface ActualResult {
+  home_goals: number;
+  away_goals: number;
+  score?: string;
+  winner?: string;
+}
+
+/** One fixture of a season: schedule, the model's call, and the result. */
 export interface Match {
   id: string;
+  season?: number;
   date: string;
-  time?: string;
-  gameweek?: number;
+  time?: string | null;
+  /** ISO kickoff in UTC; null while the slot is unconfirmed. */
+  kickoff?: string | null;
+  gameweek?: number | null;
   home_team: string | Team;
   away_team: string | Team;
   home_team_info?: Team;
   away_team_info?: Team;
-  prediction?: Prediction;
-  status?: string;
-  score?: string;
+  status?: MatchStatus;
+  home_goals?: number | null;
+  away_goals?: number | null;
+  prediction?: Prediction | null;
+  actual?: ActualResult | null;
+  /** Judgement of the prediction; null when the match was never predicted. */
+  verdict?: Verdict | null;
 }
 
-/** One entry of a recorded results file (written by the evening job). */
+/** A predicted match as the records print it. */
 export interface ResultEntry {
   match: Match;
-  actual?: {
-    home_goals: number;
-    away_goals: number;
-    score?: string;
-  } | null;
-  status: 'CORRECT' | 'INCORRECT' | 'PENDING';
+  actual?: ActualResult | null;
+  status: Verdict;
 }
 
 export interface PredictionFeatures {

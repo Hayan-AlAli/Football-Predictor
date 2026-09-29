@@ -1,94 +1,115 @@
 # Football Match Predictor
 
-A full-stack application that predicts Premier League match outcomes using Machine Learning (Random Forest) and advanced metrics. Features a FastAPI backend, React frontend, and automated prediction pipeline.
+Premier League match predictions: a FastAPI backend, a React frontend, and one
+scheduled sync job that keeps everything current.
 
-## Features
+## How it fits together
 
-- **ML-powered predictions**: Random Forest regressors trained on 5 seasons of historical data
-- **Advanced feature engineering**: ELO ratings, rolling form (goals + xG), team encoding
-- **Live data pipeline**: Fetches fixtures and results from ESPN/Understat/ClubElo via `soccerdata`
-- **Automated daily jobs**: Morning prediction generation + evening result comparison
-- **PostgreSQL persistence**: Optional database for teams, predictions, and historical tracking
-- **REST API**: FastAPI backend consumed by the React frontend
-- **Vercel-ready**: Serverless-friendly `api/index.py` entry point
+```
+ESPN scoreboard API ──┐                         ┌── GET /api/matches   (one call per page)
+football-data.co.uk ──┤→ backend/sync.py → DB ──┼── GET /api/teams, /api/forecast, ...
+ (fallback results)   │  (cron, idempotent)     └── React frontend
+data/teams.json ──────┘
+```
+
+- **One source of match truth.** `backend/sources/espn.py` reads ESPN's public
+  scoreboard JSON: a season's fixtures, kickoffs, statuses, scores and club
+  crests in one pass, no scraping library. If ESPN is down, results still come
+  in from football-data.co.uk.
+- **Matches, not days.** The `matches` table has one row per fixture, keyed
+  `season-home-away` (e.g. `2026-arsenal-chelsea`). In a double round-robin
+  each ordered pairing meets once a season, so the key survives reschedules
+  and feed renames. The fixture, the model's call and the result all live on
+  the same row, so there are no stale duplicates and no name matching to pair
+  a result with its prediction.
+- **Frozen calls.** Predictions refresh daily until kickoff, then never
+  change. That frozen call is what the Records page judges.
+- **One team registry.** `data/teams.json` holds every club's canonical name,
+  aliases, URL slug, ESPN id, Premier League id and colour. Badges are 500px
+  ESPN crests with the Premier League crest as fallback, then initials. Crest
+  URLs synced from the feed are stored in the `teams` table. A newly promoted
+  club gets its crest automatically, even before it is added to the registry.
+- **One storage layer.** `backend/db.py` (SQLAlchemy Core) runs on Postgres in
+  production and SQLite everywhere else. No parallel JSON-file mode.
 
 ## Setup
 
-1. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Train models**
-   ```bash
-   python -m backend.train_model
-   ```
-   Fetches 5 seasons of Premier League data, engineers features, and saves model artifacts (`model_home.pkl`, `model_away.pkl`, `team_encoder.pkl`, `training_data.pkl`).
-
-3. **Run the development server**
-   ```bash
-   python -m backend.server
-   ```
-   Starts the FastAPI server on port 8000. Frontend available at `http://localhost:5173`.
-
-## Automation
-
-Run the morning job to generate predictions:
 ```bash
-python -m backend.automation morning
+pip install -r requirements-dev.txt        # runtime + pytest
+python -m backend.sync                     # pull the season, predict, forecast
+python -m backend.server                   # API on :8000
+cd frontend && npm install && npm run dev  # UI on :5173
 ```
 
-Run the evening job to compare predictions with actual results:
-```bash
-python -m backend.automation evening
-```
-
-## Project Structure
-
-```
-├── api/
-│   └── index.py              # Vercel serverless entry point
-├── backend/
-│   ├── server.py              # FastAPI app (REST API endpoints)
-│   ├── predictor.py           # ML prediction engine (Random Forest + Poisson)
-│   ├── data_manager.py        # Fetches fixtures/results from soccerdata
-│   ├── database.py            # PostgreSQL persistence layer
-│   ├── features.py            # Rolling stats feature engineering
-│   ├── utils.py               # Team name normalization
-│   ├── utils_data.py          # JSON file I/O + prediction file management
-│   ├── config.py              # Environment configuration
-│   ├── train_model.py         # Model training pipeline
-│   ├── automation.py          # Cron-style daily jobs (morning/evening)
-│   └── scripts/               # CLI utility scripts
-│       ├── predict_matchweek.py
-│       ├── fetch_and_save_matches.py
-│       ├── migrate_to_db.py
-│       ├── regenerate_predictions.py
-├── data/
-│   ├── teams.json             # Premier League team metadata + badge URLs
-│   ├── predictions/           # Generated predictions (JSON)
-│   └── results/               # Comparison results (JSON)
-├── frontend/                  # React + Vite + Tailwind CSS frontend
-├── requirements.txt
-├── vercel.json
-└── .env                       # POSTGRES_URL (optional)
-```
-
-## API Endpoints
-
-| Endpoint | Description |
-|---|---|
-| `GET /` | Health check |
-| `GET /api/teams` | Premier League teams with badge URLs |
-| `GET /api/matches/upcoming` | Upcoming fixtures with ELO ratings |
-| `GET /api/matches/predictions?date=` | Predictions for a specific date |
-| `POST /api/matches/predictions/generate` | Generate predictions on-demand |
-| `GET /api/matches/all` | All matches with predictions + gameweeks |
-| `GET /api/matches/results?date=` | Result comparisons |
-| `POST /api/predict?home_team=&away_team=` | Predict a single match |
-| `GET /api/dates/available` | Available prediction dates |
+Without `POSTGRES_URL` the app uses SQLite at `data/football.db`.
 
 ## Configuration
 
-- `POSTGRES_URL` env var enables PostgreSQL persistence (optional, falls back to JSON files)
-- Models are stored as `.pkl` files in the project root (re-trained via `backend.train_model`)
+| Variable | Purpose |
+|---|---|
+| `POSTGRES_URL` / `DATABASE_URL` | Postgres connection (Vercel sets `POSTGRES_URL`). Unset → SQLite. |
+| `CRON_SECRET` | Bearer token required by `/api/jobs/sync` (Vercel Cron sends it). |
+| `CORS_ORIGINS` | Comma-separated origins for local cross-origin dev (default: localhost:5173, :3000). |
+
+## API
+
+All reads are served from the database and cached at the edge
+(`s-maxage=300, stale-while-revalidate`); data only changes when the sync runs.
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/health` | Status, database dialect, last sync run |
+| `GET /api/matches?season=&team=` | Every match of a season: fixture, prediction, result, verdict, matchweek, team info |
+| `GET /api/teams?season=` | The season's clubs with slug, crest and colour |
+| `GET /api/teams/{slug-or-name}` | Club profile, form, Elo history, upcoming fixtures |
+| `GET /api/teams/{team}/h2h?vs=` | Head-to-head record |
+| `GET /api/forecast` | Latest Monte Carlo season forecast |
+| `GET /api/calibration` | Accuracy, Brier score and calibration bins over settled calls |
+| `GET /api/predict?home=&away=` | Ad-hoc prediction for any pairing (not stored) |
+| `GET/POST /api/jobs/sync?forecast=true` | Run the sync (cron secret required) |
+
+## The sync job
+
+`python -m backend.sync` (or the cron hitting `/api/jobs/sync` at 06:00 and
+22:30 UTC):
+
+1. pulls the current season from ESPN and upserts clubs and matches;
+2. drops unplayed fixtures the feed no longer lists (only after a complete pull);
+3. predicts every unplayed match kicking off in the next 28 days;
+4. rebuilds the season forecast on Mondays, when new results arrived, or on `?forecast=true`.
+
+It is idempotent: a missed run is caught up by the next one. Each run is
+logged in `job_runs` and reported by `/api/health`.
+
+## Model
+
+Random Forest goal regressors (Elo, Elo gap, multi-window form and xG) feed a
+Poisson scoreline model. If the model files are missing or fail, predictions
+fall back to an Elo-only Poisson model, tagged `model_version = "elo-poisson"`.
+Elo is computed in-house (`backend/elo.py`) from every result since 1995/96.
+
+Retraining is offline and needs the extra training dependencies:
+
+```bash
+pip install -r requirements-train.txt
+python -m backend.train_model
+```
+
+`scikit-learn` is pinned to the version the bundled pickles were saved with.
+Retrain before bumping it.
+
+## Upgrading from the pre-2.0 schema
+
+Nothing to run by hand. On first start against a database holding the old
+`predictions` / `results` / `fixtures` / `forecast_cache` tables, the app copies
+them into the new schema: stale twins collapse, and each result attaches to
+the prediction it settles. The old `teams` table gets its new columns. The old
+tables are otherwise left in place and can be dropped once you are happy.
+
+## Tests
+
+```bash
+python -m pytest                                           # SQLite
+TEST_DATABASE_URL=postgresql://... python -m pytest        # against a throwaway Postgres (schema is wiped!)
+cd frontend && npm test
+```

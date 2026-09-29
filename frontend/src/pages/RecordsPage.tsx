@@ -5,42 +5,11 @@ import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
 import TeamBadge from '../components/TeamBadge';
 import { useData } from '../lib/data-context';
-import { getResultEntries, getResultDates } from '../api/matches';
+import { resultEntries } from '../lib/data-utils';
+import type { ResultEntry } from '../types';
 import { teamName, teamShort } from '../lib/teams';
 import { scoreline } from '../lib/format';
 import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer, stampVariants } from '../lib/motion';
-import type { ResultEntry } from '../types';
-
-function useAllVerdicts(dates: string[], reloadKey: number) {
-  const [state, setState] = useState<{ key: string; entries: ResultEntry[]; settled: number; failed: number }>({ key: '', entries: [], settled: 0, failed: 0 });
-  const datesKey = dates.join(',');
-  useEffect(() => {
-    let cancelled = false;
-    if (!datesKey) return;
-    const snapshot = datesKey;
-    // Resolve each date independently so one slow page never holds the
-    // ledger hostage; sections print as their dates arrive.
-    const settle = (fn: (s: { key: string; entries: ResultEntry[]; settled: number; failed: number }) => { key: string; entries: ResultEntry[]; settled: number; failed: number }) => {
-      if (cancelled) return;
-      setState((s) => {
-        const base = s.key === snapshot ? s : { key: snapshot, entries: [], settled: 0, failed: 0 };
-        return fn(base);
-      });
-    };
-    for (const d of dates) {
-      getResultEntries(d).then(
-        (value) => settle((s) => ({ ...s, entries: [...s.entries, ...value], settled: s.settled + 1 })),
-        () => settle((s) => ({ ...s, settled: s.settled + 1, failed: s.failed + 1 })),
-      );
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [datesKey, dates, reloadKey]);
-  const fresh = state.key === datesKey;
-  const loading = fresh ? state.settled < dates.length : true;
-  return { entries: fresh ? state.entries : [], failed: fresh ? state.failed : 0, loading };
-}
 
 /** The Records — every verdict kept against the actual result, hits and misses alike. */
 export default function RecordsPage() {
@@ -51,35 +20,6 @@ export default function RecordsPage() {
   const rowV = reduce ? getReducedMotionVariants(ledgerVariants) : ledgerVariants;
   const stampV = reduce ? getReducedMotionVariants(stampVariants) : stampVariants;
 
-  const [resultDates, setResultDates] = useState<string[]>([]);
-  const [resultDatesLoading, setResultDatesLoading] = useState(true);
-  const [resultDatesError, setResultDatesError] = useState(false);
-  const [ledgerReloadKey, setLedgerReloadKey] = useState(0);
-  const retryLedger = () => {
-    setResultDatesError(false);
-    setResultDatesLoading(true);
-    setLedgerReloadKey((k) => k + 1);
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const dates = await getResultDates();
-        if (!cancelled) {
-          setResultDates(dates);
-          setResultDatesLoading(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setResultDatesError(true);
-          setResultDatesLoading(false);
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [ledgerReloadKey]);
-
   const dateToGw = useMemo(() => {
     const byDate = new Map<string, number>();
     for (const m of matches) {
@@ -88,11 +28,8 @@ export default function RecordsPage() {
     return byDate;
   }, [matches]);
 
-  const candidateDates = useMemo(() => {
-    return resultDates;
-  }, [resultDates]);
-
-  const { entries, failed: failedDates, loading } = useAllVerdicts(candidateDates, ledgerReloadKey);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const entries = useMemo(() => resultEntries(matches, today), [matches, today]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, { gw: number | null; date: string; list: ResultEntry[] }>();
@@ -118,15 +55,11 @@ export default function RecordsPage() {
   const accuracy = decided > 0 ? Math.round((correct / decided) * 100) : null;
 
   const ledgerStatus =
-    loading || resultDatesLoading
+    status === 'loading'
       ? 'Consulting the record…'
-      : resultDatesError
-        ? 'The record could not be fetched.'
-        : entries.length === 0
-          ? 'No verdicts recorded yet.'
-          : failedDates > 0
-            ? `The record is printed with ${failedDates} of ${candidateDates.length} pages unavailable.`
-            : `The record is printed: ${correct} correct, ${incorrect} incorrect.`;
+      : entries.length === 0
+        ? 'No verdicts recorded yet.'
+        : `The record is printed: ${correct} correct, ${incorrect} incorrect.`;
 
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -175,16 +108,7 @@ export default function RecordsPage() {
 
       {status === 'online' && (
         <>
-          {loading || resultDatesLoading ? (
-            <Press phase={1} />
-          ) : resultDatesError ? (
-            <div className="mt-6">
-              <OfflineSlate
-                message="The record could not be fetched. The pages may still be intact — try again."
-                onRetry={retryLedger}
-              />
-            </div>
-          ) : entries.length === 0 ? (
+          {entries.length === 0 ? (
             <div className="mt-6">
               <EmptyState
                 title="No verdicts recorded yet"
@@ -229,19 +153,6 @@ export default function RecordsPage() {
                   {accuracy != null && <span className="chip" title="Pending verdicts excluded">{decided} decided · {accuracy}%</span>}
                 </span>
               </div>
-              {failedDates > 0 && (
-                <p className="mt-2 font-serif text-xs italic text-ink-faint">
-                  {failedDates} of {candidateDates.length} pages unavailable — totals partial.{' '}
-                  <button
-                    type="button"
-                    onClick={retryLedger}
-                    className="font-mono text-[0.625rem] uppercase tracking-widest text-rubric underline underline-offset-2"
-                  >
-                    Retry
-                  </button>
-                </p>
-              )}
-
               {/* The verdict ledger */}
               {grouped.map((group) => {
                 const sectionId = group.gw != null ? `gw-${group.gw}` : `date-${group.date}`;

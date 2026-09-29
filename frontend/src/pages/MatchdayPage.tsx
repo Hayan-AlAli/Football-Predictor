@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import PageTurnNav from '../components/PageTurnNav';
 import LedgerRow from '../components/LedgerRow';
@@ -8,39 +8,9 @@ import EmptyState from '../components/EmptyState';
 import { useData } from '../lib/data-context';
 import { useBook } from '../lib/book';
 import { useThisWeek } from '../lib/gameweek';
-import { getResultEntries } from '../api/matches';
+import { resultEntries } from '../lib/data-utils';
 import { sortMatchesByDate } from '../lib/format';
 import { staggerContainer, getReducedMotionVariants } from '../lib/motion';
-import type { ResultEntry } from '../types';
-
-function useVerdicts(dates: string[]) {
-  const [state, setState] = useState<{ key: string; entries: ResultEntry[] }>({
-    key: '',
-    entries: [],
-  });
-  const key = dates.join(',');
-  useEffect(() => {
-    let cancelled = false;
-    if (!key) return;
-    (async () => {
-      const res = await Promise.allSettled(dates.map((d) => getResultEntries(d)));
-      if (cancelled) return;
-      setState({
-        key,
-        entries: res
-          .filter((r) => r.status === 'fulfilled')
-          .flatMap((r) => r.value),
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [key, dates]);
-  return {
-    entries: state.entries,
-    loading: key ? state.key !== key : false,
-  };
-}
 
 /** The matchday page: this matchweek's ledger, printed by the model. */
 export default function MatchdayPage() {
@@ -56,8 +26,9 @@ export default function MatchdayPage() {
     () => sortMatchesByDate(matches.filter((m) => m.gameweek === view)),
     [matches, view]
   );
-  const weekDates = useMemo(() => [...new Set(weekMatches.map((m) => m.date))], [weekMatches]);
-  const { entries: verdicts, loading: verdictsLoading } = useVerdicts(weekDates);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const verdicts = useMemo(() => resultEntries(weekMatches, today), [weekMatches, today]);
+  const verdictsLoading = false;
 
   const correct = verdicts.filter((v) => v.status === 'CORRECT').length;
   const incorrect = verdicts.filter((v) => v.status === 'INCORRECT').length;

@@ -1,7 +1,6 @@
 import joblib
 import pandas as pd
 import os
-import random
 import re
 from backend import elo
 from backend import utils
@@ -49,31 +48,72 @@ def _resolve_elo(lookup, team_name):
     return best[1]
 
 
-model_home = None
-model_away = None
-encoder = None
-training_df = None
-
-try:
-    if os.path.exists(MODEL_PATH_HOME):
-        model_home = joblib.load(MODEL_PATH_HOME)
-    if os.path.exists(MODEL_PATH_AWAY):
-        model_away = joblib.load(MODEL_PATH_AWAY)
-    if os.path.exists(ENCODER_PATH):
-        encoder = joblib.load(ENCODER_PATH)
-    if os.path.exists(TRAINING_DATA_PATH):
-        training_df = joblib.load(TRAINING_DATA_PATH)
-except Exception as e:
-    print(f"Error loading models: {e}")
+_DATA_KEYS = ('training_df', 'ELO_RANGE')
+_MODEL_KEYS = ('model_home', 'model_away', 'encoder', 'UNKNOWN_TEAM_CODE')
+_data = None
+_models = None
 
 
-if training_df is not None and not training_df.empty:
-    # The bundled frame predates consistent normalization (it stores e.g.
-    # 'Newcastle United' / 'Wolves' / 'Ipswich'). Normalize once so every
-    # lookup below compares like with like.
-    for _col in ("home_team", "away_team"):
-        if _col in training_df.columns:
-            training_df[_col] = training_df[_col].apply(utils.normalize_team_name)
+def _load_data():
+    """The training frame, loaded on first use.
+
+    Team pages and head-to-heads only need this, and it is quick to load:
+    keeping it apart from the forests means they never import scikit-learn.
+    """
+    global _data
+    if _data is not None:
+        return _data
+    df = None
+    try:
+        if os.path.exists(TRAINING_DATA_PATH):
+            df = joblib.load(TRAINING_DATA_PATH)
+    except Exception as e:
+        print(f"Error loading {TRAINING_DATA_PATH}: {e}")
+    if df is not None and not df.empty:
+        # The bundled frame predates consistent normalization (it stores e.g.
+        # 'Newcastle United' / 'Wolves' / 'Ipswich'). Normalize once so every
+        # lookup compares like with like.
+        for col in ("home_team", "away_team"):
+            if col in df.columns:
+                df[col] = utils.normalize_column(df[col])
+    _data = {'training_df': df, 'ELO_RANGE': _elo_range(df)}
+    return _data
+
+
+def _load_models():
+    """The forests and team encoder, loaded on first prediction.
+
+    Unpickling them imports scikit-learn (~1s), which only prediction and
+    the sync job need; read-only requests never pay for it.
+    """
+    global _models
+    if _models is not None:
+        return _models
+    m = dict.fromkeys(_MODEL_KEYS)
+    for key, path in (('model_home', MODEL_PATH_HOME), ('model_away', MODEL_PATH_AWAY),
+                      ('encoder', ENCODER_PATH)):
+        try:
+            if os.path.exists(path):
+                m[key] = joblib.load(path)
+        except Exception as e:
+            print(f"Error loading {path}: {e}")
+    m['UNKNOWN_TEAM_CODE'] = _neutral_team_code(m['encoder'])
+    _models = m
+    return _models
+
+
+def _load():
+    """Everything prediction needs: training frame plus models."""
+    return {**_load_data(), **_load_models()}
+
+
+def __getattr__(name):
+    """predictor.model_home, predictor.training_df, ... load on first access."""
+    if name in _DATA_KEYS:
+        return _load_data()[name]
+    if name in _MODEL_KEYS:
+        return _load_models()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 _FORM_CACHE_TTL = 3600
@@ -89,6 +129,7 @@ def form_frame():
     "recent form" is months old and promoted sides have none at all.
     """
     global _form_cache, _form_cache_ts
+    training_df = _load_data()['training_df']
     if training_df is None or training_df.empty:
         return training_df
     import time
@@ -104,7 +145,7 @@ def form_frame():
             extra = extra.dropna(subset=['home_goals', 'away_goals'])
             extra['date'] = pd.to_datetime(extra['date'])
             for col in ('home_team', 'away_team'):
-                extra[col] = extra[col].apply(utils.normalize_team_name)
+                extra[col] = utils.normalize_column(extra[col])
             extra = extra.drop_duplicates(subset=['date', 'home_team', 'away_team'], keep='last')
             frame = pd.concat([training_df, extra], ignore_index=True).sort_values('date', kind='stable')
     except Exception as e:
@@ -113,7 +154,7 @@ def form_frame():
     return frame
 
 
-def _elo_range():
+def _elo_range(training_df):
     """Elo span the models were trained on: inputs outside it land in
     sparse forest leaves and produce wild goal estimates."""
     try:
@@ -123,10 +164,8 @@ def _elo_range():
         return None
 
 
-ELO_RANGE = _elo_range()
 
-
-def _neutral_team_code():
+def _neutral_team_code(encoder):
     """In-distribution fallback code for teams the encoder never saw.
 
     Unknown teams must NOT map to 0 (Arsenal's code): that made every
@@ -141,8 +180,6 @@ def _neutral_team_code():
     return int(statistics.median(range(n)))
 
 
-UNKNOWN_TEAM_CODE = _neutral_team_code()
-
 
 def _team_code(team_name):
     """Trained code for a team, robust to spelling variants.
@@ -151,8 +188,10 @@ def _team_code(team_name):
     the same value (e.g. query 'Newcastle' -> stored 'Newcastle United').
     Unseen teams get UNKNOWN_TEAM_CODE, never another club's identity.
     """
+    state = _load_models()
+    encoder, unknown = state['encoder'], state['UNKNOWN_TEAM_CODE']
     if encoder is None:
-        return UNKNOWN_TEAM_CODE
+        return unknown
     norm = utils.normalize_team_name(team_name)
     try:
         return int(encoder.transform([norm])[0])
@@ -164,18 +203,18 @@ def _team_code(team_name):
                 return int(encoder.transform([cls])[0])
     except Exception:
         pass
-    return UNKNOWN_TEAM_CODE
+    return unknown
 
 
 def team_has_history(team_name, df=None):
     """Whether a (possibly un-normalized) team appears anywhere in df."""
-    frame = training_df if df is None else df
+    frame = _load_data()['training_df'] if df is None else df
     if frame is None or frame.empty:
         return False
     norm = utils.normalize_team_name(team_name)
     try:
-        home = frame["home_team"].apply(utils.normalize_team_name) == norm
-        away = frame["away_team"].apply(utils.normalize_team_name) == norm
+        home = utils.normalize_column(frame["home_team"]) == norm
+        away = utils.normalize_column(frame["away_team"]) == norm
         return bool((home | away).any())
     except Exception:
         return False
@@ -183,8 +222,8 @@ def team_has_history(team_name, df=None):
 
 def get_latest_stats(team_name, df, window=5):
     norm = utils.normalize_team_name(team_name)
-    home_matches = df[df['home_team'].apply(utils.normalize_team_name) == norm]
-    away_matches = df[df['away_team'].apply(utils.normalize_team_name) == norm]
+    home_matches = df[utils.normalize_column(df['home_team']) == norm]
+    away_matches = df[utils.normalize_column(df['away_team']) == norm]
 
     all_matches = pd.concat([home_matches, away_matches]).sort_values(by='date')
 
@@ -258,24 +297,57 @@ def calculate_probabilities(home_avg, away_avg, max_goals=10):
     return prob_home_win, prob_draw, prob_away_win, best_home, best_draw, best_away, max_home, max_draw, max_away
 
 
-def random_prediction(home_team, away_team):
-    home_score = random.randint(0, 3)
-    away_score = random.randint(0, 3)
-    if home_score > away_score:
-        winner = home_team
-    elif away_score > home_score:
-        winner = away_team
-    else:
-        winner = "Draw"
+MODEL_VERSION = "rf-multiwindow"
+FALLBACK_VERSION = "elo-poisson"
+LEAGUE_GOALS_PER_MATCH = 2.75
 
+
+def elo_goal_expectations(home_elo, away_elo, total=LEAGUE_GOALS_PER_MATCH):
+    """Poisson means whose outcome odds match the Elo expected score.
+
+    Keeps total goals at the league average and solves (by bisection) for
+    the home/away split where P(home win) + P(draw) / 2 equals Elo's
+    expected home score, home advantage included.
+    """
+    target = elo.expected_home(home_elo, away_elo)
+    lo, hi = 0.02, total - 0.02
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        ph, pd_, _pa, *_ = calculate_probabilities(mid, total - mid)
+        if ph + pd_ / 2 < target:
+            lo = mid
+        else:
+            hi = mid
+    home = (lo + hi) / 2
+    return home, total - home
+
+
+def elo_prediction(home_team, away_team, home_elo=None, away_elo=None):
+    """Model-free prediction from Elo alone.
+
+    Used when the trained models are missing or fail, instead of the old
+    random 33/34/33 guess: it is a weaker call, but a real one, and it is
+    labelled with its own model_version so the record can tell them apart.
+    """
+    ratings = None
+    if home_elo is None or away_elo is None:
+        ratings = elo.current_ratings()
+    home_elo = utils.safe_elo(home_elo if home_elo is not None else _resolve_elo(ratings, home_team))
+    away_elo = utils.safe_elo(away_elo if away_elo is not None else _resolve_elo(ratings, away_team))
+    hg, ag = elo_goal_expectations(home_elo, away_elo)
+    ph, pd_, pa, bh, bd, ba, *_ = calculate_probabilities(hg, ag)
+    winner, (sh, sa) = _select_winner(home_team, away_team, ph, pd_, pa, bh, bd, ba)
     return {
-        "winner": winner,
-        "score": f"{home_score}-{away_score}",
-        "home_goals": home_score,
-        "away_goals": away_score,
-        "prob_home": 0.33,
-        "prob_draw": 0.34,
-        "prob_away": 0.33
+        'winner': winner,
+        'score': f"{sh}-{sa}",
+        'home_goals': hg,
+        'away_goals': ag,
+        'home_elo': int(home_elo),
+        'away_elo': int(away_elo),
+        'prob_home': ph,
+        'prob_draw': pd_,
+        'prob_away': pa,
+        'model_version': FALLBACK_VERSION,
     }
 
 
@@ -296,121 +368,147 @@ def _select_winner(home_team, away_team, prob_home, prob_draw, prob_away,
 
 
 def predict_match(match_data):
-    home_team = match_data['home_team']
-    away_team = match_data['away_team']
+    """One prediction; see predict_matches."""
+    return predict_matches([match_data])[0]
 
-    if model_home and model_away and encoder and training_df is not None:
-        try:
-            home_team_norm = utils.normalize_team_name(home_team)
-            away_team_norm = utils.normalize_team_name(away_team)
 
-            home_code = _team_code(home_team_norm)
-            away_code = _team_code(away_team_norm)
+def _match_features(m, state, form_of):
+    """Model input row and display extras for one fixture."""
+    training_df = state['training_df']
+    home_norm = utils.normalize_team_name(m['home_team'])
+    away_norm = utils.normalize_team_name(m['away_team'])
 
-            home_elo = match_data.get('home_elo')
-            away_elo = match_data.get('away_elo')
-            if home_elo is None or away_elo is None:
-                ratings = elo.current_ratings()
-                if home_elo is None:
-                    home_elo = _resolve_elo(ratings, home_team_norm)
-                if away_elo is None:
-                    away_elo = _resolve_elo(ratings, away_team_norm)
-            # Sanitize AFTER the lookup: None/NaN/inf/garbage all become
-            # 1500.0. (`x or 1500` missed NaN since NaN is truthy, and the
-            # resulting int(NaN) ValueError produced random 33/33/34 odds.)
-            home_elo = utils.safe_elo(home_elo)
-            away_elo = utils.safe_elo(away_elo)
-            if ELO_RANGE:
-                lo, hi = ELO_RANGE
-                model_home_elo = min(max(home_elo, lo), hi)
-                model_away_elo = min(max(away_elo, lo), hi)
+    home_elo, away_elo = m.get('home_elo'), m.get('away_elo')
+    if home_elo is None or away_elo is None:
+        ratings = elo.current_ratings()
+        if home_elo is None:
+            home_elo = _resolve_elo(ratings, home_norm)
+        if away_elo is None:
+            away_elo = _resolve_elo(ratings, away_norm)
+    # Sanitize AFTER the lookup: None/NaN/inf/garbage all become 1500.0.
+    # (`x or 1500` missed NaN since NaN is truthy.)
+    home_elo, away_elo = utils.safe_elo(home_elo), utils.safe_elo(away_elo)
+    if state['ELO_RANGE']:
+        lo, hi = state['ELO_RANGE']
+        model_home_elo, model_away_elo = min(max(home_elo, lo), hi), min(max(away_elo, lo), hi)
+    else:
+        model_home_elo, model_away_elo = home_elo, away_elo
+
+    h_g, h_xg = form_of('latest', home_norm, None)
+    a_g, a_xg = form_of('latest', away_norm, None)
+    if h_g == 0.0 and h_xg == 0.0:
+        h_g, h_xg = training_df['home_rolling_goals'].mean(), training_df['home_rolling_xg'].mean()
+    if a_g == 0.0 and a_xg == 0.0:
+        a_g, a_xg = training_df['away_rolling_goals'].mean(), training_df['away_rolling_xg'].mean()
+
+    row = {
+        'home_team_code': _team_code(home_norm),
+        'away_team_code': _team_code(away_norm),
+        'home_elo': model_home_elo,
+        'away_elo': model_away_elo,
+        'home_rolling_goals': h_g,
+        'away_rolling_goals': a_g,
+        'home_rolling_xg': h_xg,
+        'away_rolling_xg': a_xg,
+    }
+    # Multi-window form through the exact builder training uses, scoped to
+    # matches before the fixture (never the future). Teams with no history
+    # get league-average form: all-zero vectors made the forest extrapolate
+    # to ~3.4 goals.
+    for window in features.MULTI_WINDOWS:
+        for side, team in (("home", home_norm), ("away", away_norm)):
+            form = form_of(window, team, m.get('date'))
+            for metric in ("scored", "conceded", "xg_for", "xg_against"):
+                row[f"{side}_form_{window}_{metric}"] = form[metric]
+    extras = {'home_elo': home_elo, 'away_elo': away_elo,
+              'h_g': h_g, 'a_g': a_g, 'h_xg': h_xg, 'a_xg': a_xg}
+    return row, extras
+
+
+def predict_matches(matches):
+    """Predictions for many fixtures with one model call per side.
+
+    Form is computed once per (team, window, date) across the batch, and the
+    forests score every row together: predicting a season's remaining 310
+    fixtures goes from seconds to well under one. A fixture whose features
+    fail (or every fixture, if the models are missing) falls back to the
+    Elo-only model rather than a guess.
+    """
+    matches = list(matches)
+    if not matches:
+        return []
+    state = _load()
+    training_df = state['training_df']
+    if not (state['model_home'] and state['model_away'] and state['encoder']
+            and training_df is not None):
+        return [elo_prediction(m['home_team'], m['away_team'], m.get('home_elo'), m.get('away_elo'))
+                for m in matches]
+
+    history = form_frame()
+    league_avg_goals = float(training_df['home_rolling_goals'].mean())
+    league_avg_xg = float(training_df['home_rolling_xg'].mean())
+    neutral = {"scored": league_avg_goals, "conceded": league_avg_goals,
+               "xg_for": league_avg_xg, "xg_against": league_avg_xg}
+    has_history, memo = {}, {}
+
+    def form_of(window, team, before):
+        day = None if before is None else pd.Timestamp(before).strftime('%Y-%m-%d')
+        key = (window, team, day)
+        if key not in memo:
+            if window == 'latest':
+                memo[key] = get_latest_stats(team, history)
             else:
-                model_home_elo, model_away_elo = home_elo, away_elo
-            history = form_frame()
+                if team not in has_history:
+                    has_history[team] = team_has_history(team, history)
+                memo[key] = (features.team_window_form(history, team, window, before=before)
+                             if has_history[team] else neutral)
+        return memo[key]
 
-            h_g, h_xg = get_latest_stats(home_team_norm, history)
-            a_g, a_xg = get_latest_stats(away_team_norm, history)
+    rows, extras, failed = [], [], {}
+    for i, m in enumerate(matches):
+        try:
+            row, extra = _match_features(m, state, form_of)
+            rows.append(row)
+            extras.append((i, extra))
+        except Exception as e:
+            print(f"predict_matches: features failed for {m.get('home_team')} vs {m.get('away_team')}: {e}")
+            failed[i] = True
 
-            if h_g == 0.0 and h_xg == 0.0:
-                h_g = training_df['home_rolling_goals'].mean()
-                h_xg = training_df['home_rolling_xg'].mean()
-            if a_g == 0.0 and a_xg == 0.0:
-                a_g = training_df['away_rolling_goals'].mean()
-                a_xg = training_df['away_rolling_xg'].mean()
-
-            features_dict = {
-                'home_team_code': home_code,
-                'away_team_code': away_code,
-                'home_elo': model_home_elo,
-                'away_elo': model_away_elo,
-                'home_rolling_goals': h_g,
-                'away_rolling_goals': a_g,
-                'home_rolling_xg': h_xg,
-                'away_rolling_xg': a_xg
-            }
-
-            # Multi-window form through the exact builder training uses,
-            # scoped to matches before the fixture (never the future).
-            # Teams with no history at all get league-average form: feeding
-            # all-zero vectors made the forest extrapolate to ~3.4 goals.
-            league_avg_goals = float(training_df['home_rolling_goals'].mean())
-            league_avg_xg = float(training_df['home_rolling_xg'].mean())
-            _neutral_form = {
-                "scored": league_avg_goals, "conceded": league_avg_goals,
-                "xg_for": league_avg_xg, "xg_against": league_avg_xg,
-            }
-            fixture_date = match_data.get('date')
-            for _window in features.MULTI_WINDOWS:
-                for _side, _team_norm in (("home", home_team_norm), ("away", away_team_norm)):
-                    if team_has_history(_team_norm, history):
-                        _form = features.team_window_form(history, _team_norm, _window, before=fixture_date)
-                    else:
-                        _form = _neutral_form
-                    for _metric in ("scored", "conceded", "xg_for", "xg_against"):
-                        features_dict[f"{_side}_form_{_window}_{_metric}"] = _form[_metric]
-
-            X_pred = features.add_elo_difference(pd.DataFrame([features_dict]))
-            X_pred = X_pred[features.PRODUCTION_FEATURE_COLUMNS]
-
-            pred_home_goals = model_home.predict(X_pred)[0]
-            pred_away_goals = model_away.predict(X_pred)[0]
-
-            pred_home_goals = max(0.0, pred_home_goals)
-            pred_away_goals = max(0.0, pred_away_goals)
-
-            prob_home, prob_draw, prob_away, best_home, best_draw, best_away, p_best_home, p_best_draw, p_best_away = calculate_probabilities(pred_home_goals, pred_away_goals)
-
-            winner, (score_home, score_away) = _select_winner(
-                home_team, away_team, prob_home, prob_draw, prob_away,
-                best_home, best_draw, best_away)
-
-            return {
+    out = [None] * len(matches)
+    if rows:
+        X = features.add_elo_difference(pd.DataFrame(rows))[features.PRODUCTION_FEATURE_COLUMNS]
+        home_goals = state['model_home'].predict(X)
+        away_goals = state['model_away'].predict(X)
+        for (i, ex), hg, ag in zip(extras, home_goals, away_goals):
+            m = matches[i]
+            hg, ag = max(0.0, float(hg)), max(0.0, float(ag))
+            ph, pd_, pa, bh, bd, ba, *_ = calculate_probabilities(hg, ag)
+            winner, (sh, sa) = _select_winner(m['home_team'], m['away_team'], ph, pd_, pa, bh, bd, ba)
+            home_elo, away_elo = ex['home_elo'], ex['away_elo']
+            out[i] = {
+                'model_version': MODEL_VERSION,
                 'winner': winner,
-                'score': f"{score_home}-{score_away}",
-                'home_goals': pred_home_goals,
-                'away_goals': pred_away_goals,
+                'score': f"{sh}-{sa}",
+                'home_goals': hg,
+                'away_goals': ag,
                 'home_elo': int(home_elo),
                 'away_elo': int(away_elo),
-                'prob_home': prob_home,
-                'prob_draw': prob_draw,
-                'prob_away': prob_away,
+                'prob_home': ph,
+                'prob_draw': pd_,
+                'prob_away': pa,
                 'features': {
                     'home_elo': int(home_elo),
                     'away_elo': int(away_elo),
                     'elo_gap': int(home_elo - away_elo),
-                    'home_rolling_goals': round(h_g, 3),
-                    'away_rolling_goals': round(a_g, 3),
-                    'home_rolling_xg': round(h_xg, 3),
-                    'away_rolling_xg': round(a_xg, 3),
+                    'home_rolling_goals': round(float(ex['h_g']), 3),
+                    'away_rolling_goals': round(float(ex['a_g']), 3),
+                    'home_rolling_xg': round(float(ex['h_xg']), 3),
+                    'away_rolling_xg': round(float(ex['a_xg']), 3),
                     'league_avg_goals': round(league_avg_goals, 3),
                     'league_avg_xg': round(league_avg_xg, 3),
-                }
+                },
             }
-
-        except Exception as e:
-            import traceback as _tb
-            print(f"predict_match failed for {home_team} vs {away_team}: {e}")
-            _tb.print_exc()
-            return random_prediction(home_team, away_team)
-    else:
-        return random_prediction(home_team, away_team)
+    for i in failed:
+        m = matches[i]
+        out[i] = elo_prediction(m['home_team'], m['away_team'], m.get('home_elo'), m.get('away_elo'))
+    return out

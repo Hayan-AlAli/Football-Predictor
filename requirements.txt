@@ -1,16 +1,12 @@
-requests
-python-dotenv
-scikit-learn
-pandas
-joblib
-beautifulsoup4
-lxml
+# Runtime (what Vercel installs). scikit-learn is pinned to the version the
+# bundled model pickles were saved with; retrain before bumping it.
 fastapi
 uvicorn[standard]
-soccerdata
-html5lib
-pytz
-typing_extensions
+requests
+python-dotenv
+pandas
+numpy
+scikit-learn==1.7.2
+joblib
+SQLAlchemy>=2.0
 psycopg2-binary
-pytest
-httpx
