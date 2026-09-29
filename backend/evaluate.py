@@ -1,4 +1,3 @@
-import random
 
 import numpy as np
 import pandas as pd
@@ -94,10 +93,10 @@ def score_test(train_df, test_df, spec_key):
 
     train = features.build_feature_columns(train, spec)
     test = features.build_feature_columns(test, spec)
-    train["home_team"] = train["home_team"].apply(utils.normalize_team_name)
-    train["away_team"] = train["away_team"].apply(utils.normalize_team_name)
-    test["home_team"] = test["home_team"].apply(utils.normalize_team_name)
-    test["away_team"] = test["away_team"].apply(utils.normalize_team_name)
+    train["home_team"] = utils.normalize_column(train["home_team"])
+    train["away_team"] = utils.normalize_column(train["away_team"])
+    test["home_team"] = utils.normalize_column(test["home_team"])
+    test["away_team"] = utils.normalize_column(test["away_team"])
 
     le = LabelEncoder()
     all_teams = pd.concat([train["home_team"], train["away_team"]]).unique()
@@ -143,9 +142,9 @@ def score_test(train_df, test_df, spec_key):
     }
 
 
-def run_all():
+def run_all(path="training_data.pkl"):
     import joblib
-    df = joblib.load("training_data.pkl")
+    df = joblib.load(path)
     train, test = split_by_season(df)
     out = []
     for spec_key in model_specs():

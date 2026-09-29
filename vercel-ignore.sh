@@ -15,7 +15,7 @@ if [ -z "$CHANGED" ] || [ "$CHANGED" = "__FULL_BUILD__" ]; then
 fi
 
 # Paths that never affect runtime behaviour
-IGNORE_RE='(^docs/|^\.impeccable/|^\.superpowers/|^\.worktrees/|^\.vercel/|^\.github/|\.md$|^tests/|^\.gitignore$|^frontend/\.gitignore$|^LICENSE$|generate_results\.py$)'
+IGNORE_RE='(^docs/|^\.impeccable/|^\.superpowers/|^\.worktrees/|^\.vercel/|^\.github/|\.md$|^tests/|^requirements-(dev|train)\.txt$|^\.gitignore$|^frontend/\.gitignore$|^LICENSE$|generate_results\.py$)'
 
 if echo "$CHANGED" | grep -qvE "$IGNORE_RE"; then
   # At least one runtime-relevant file changed -> build

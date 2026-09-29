@@ -1,12 +1,10 @@
-import os
 from datetime import datetime, timezone
 
+import numpy as np
 import pandas as pd
 
-from backend import utils_data
+from backend import predictor
 from backend import utils
-
-FORECAST_DIR = os.path.join(utils_data.DATA_DIR, "forecast")
 
 
 def season_year_of(ts):
@@ -20,8 +18,8 @@ def _season_col(df):
 def build_standings(training_df, season_year):
     df = training_df[_season_col(training_df) == season_year]
     df = df.copy()
-    df["home_team"] = df["home_team"].apply(utils.normalize_team_name)
-    df["away_team"] = df["away_team"].apply(utils.normalize_team_name)
+    df["home_team"] = utils.normalize_column(df["home_team"])
+    df["away_team"] = utils.normalize_column(df["away_team"])
     if df.empty:
         return []
     teams = sorted(set(df["home_team"]) | set(df["away_team"]))
@@ -70,8 +68,8 @@ def _season_matches(training_df, season_year, results=None):
     df = pd.concat(frames, ignore_index=True)
     df = df.dropna(subset=["home_goals", "away_goals"])
     df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_localize(None)
-    df["home_team"] = df["home_team"].apply(utils.normalize_team_name)
-    df["away_team"] = df["away_team"].apply(utils.normalize_team_name)
+    df["home_team"] = utils.normalize_column(df["home_team"])
+    df["away_team"] = utils.normalize_column(df["away_team"])
     df["_day"] = df["date"].dt.date
     df = df.drop_duplicates(subset=["_day", "home_team", "away_team"], keep="last")
     df = df.drop(columns="_day")
@@ -112,12 +110,6 @@ def complete_fixtures(fixtures, teams, played):
                             "home_elo": elo.rating(h, ratings),
                             "away_elo": elo.rating(a, ratings)})
     return out
-
-
-import numpy as np
-
-from backend import data_manager
-from backend import predictor
 
 
 def _poisson_sims(home_lambda, away_lambda, n_sims, seed):
@@ -196,137 +188,43 @@ def simulate_season(standings, fixture_rows, n_sims=10000, seed=42):
     return {"projected": projected, "n_sims": n_sims, "fixtures_remaining": len(rows)}
 
 
-def _safe_elo(value):
-    if pd.isna(value) or not value:
-        return 1500.0
-    return float(value)
+def generate_forecast(matches, n_sims=10000, seed=42):
+    """Monte Carlo forecast of a season from its stored matches.
 
-
-def _stored_season_results(season_year):
-    """This season's results from the local results files (dev mode)."""
-    rows = []
-    if not os.path.isdir(utils_data.RESULTS_DIR):
-        return rows
-    for fname in sorted(os.listdir(utils_data.RESULTS_DIR)):
-        if not fname.endswith(".json"):
-            continue
-        date_str = fname[:-5]
-        try:
-            if season_year_of(pd.Timestamp(date_str)) != season_year:
-                continue
-        except ValueError:
-            continue
-        for r in utils_data.load_json(os.path.join(utils_data.RESULTS_DIR, fname)) or []:
-            if "home_team" in r:
-                rows.append({"date": date_str, **r})
-    return rows
-
-
-def generate_forecast(n_sims=10000, seed=42, results=None):
-    """Monte Carlo season forecast.
-
-    results: this season's played matches ([{date, home_team, away_team,
-    home_goals, away_goals}]), e.g. from the DB. Defaults to the local
-    results files.
+    matches: one season's rows as db.load_matches returns them. Finished
+    ones make the current table; everything else is still to play (plus any
+    pairing the feed has not listed yet, see complete_fixtures).
     """
-    try:
-        today = datetime.now(timezone.utc)
-        today_str = today.strftime("%Y-%m-%d")
-        season_year = None
-        fixtures = []
-
-        try:
-            upcoming = data_manager.fetch_upcoming_matches()
-        except Exception:
-            upcoming = None
-
-        if upcoming is not None and not upcoming.empty:
-            season_year = season_year_of(upcoming.iloc[0]["date"])
-            for _, row in upcoming.iterrows():
-                date_str = row["date"].strftime("%Y-%m-%d")
-                if date_str >= today_str:
-                    fixtures.append({
-                        "home": row["home_team"],
-                        "away": row["away_team"],
-                        "home_elo": _safe_elo(row.get("home_elo")),
-                        "away_elo": _safe_elo(row.get("away_elo")),
-                    })
-
-        df = predictor.training_df
-        if season_year is None and df is not None and not df.empty:
-            season_year = season_year_of(df["date"].max())
-
-        standings = []
-        if season_year is not None:
-            if results is None:
-                results = _stored_season_results(season_year)
-            played = _season_matches(df, season_year, results)
-            standings = build_standings(played, season_year) if not played.empty else []
-            if fixtures:
-                fixtures = complete_fixtures(
-                    fixtures, {r["team"] for r in standings},
-                    zip(played["home_team"], played["away_team"]))
-
-        if not fixtures:
-            if standings:
-                return {
-                    "generated": today_str,
-                    "season_year": season_year,
-                    "n_sims": n_sims,
-                    "season_complete": True,
-                    "standings": standings,
-                    "projected": [],
-                    "fixtures_remaining": 0,
-                }
-            stale = _latest_forecast()
-            if stale:
-                stale["stale"] = stale.get("generated", "unknown")
-                return stale
-            return None
-
-        sim = simulate_season(standings, fixtures, n_sims=n_sims, seed=seed)
-        return {
-            "generated": today_str,
-            "season_year": season_year,
-            "n_sims": sim["n_sims"],
-            "season_complete": False,
-            "standings": standings,
-            "projected": sim["projected"],
-            "fixtures_remaining": sim["fixtures_remaining"],
-        }
-    except Exception:
-        stale = _latest_forecast()
-        if stale:
-            stale["stale"] = stale.get("generated", "unknown")
-            return stale
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if not matches:
         return None
+    season_year = matches[0]["season"]
+    played = pd.DataFrame(
+        [{"date": m["date"], "home_team": m["home_team"], "away_team": m["away_team"],
+          "home_goals": m["home_goals"], "away_goals": m["away_goals"]}
+         for m in matches if m["status"] == "finished"],
+        columns=["date", "home_team", "away_team", "home_goals", "away_goals"])
+    if not played.empty:
+        played["date"] = pd.to_datetime(played["date"])
+    standings = build_standings(played, season_year) if not played.empty else []
 
+    from backend import elo
+    ratings = elo.current_ratings()
+    fixtures = [{"home": m["home_team"], "away": m["away_team"],
+                 "home_elo": elo.rating(m["home_team"], ratings),
+                 "away_elo": elo.rating(m["away_team"], ratings)}
+                for m in matches if m["status"] != "finished"]
+    league = {r["team"] for r in standings} | {m["home_team"] for m in matches} | {m["away_team"] for m in matches}
+    fixtures = complete_fixtures(fixtures, league,
+                                 zip(played["home_team"], played["away_team"]))
 
-def _latest_forecast():
-    if not os.path.isdir(FORECAST_DIR):
-        return None
-    files = sorted(f for f in os.listdir(FORECAST_DIR) if f.endswith(".json"))
-    if not files:
-        return None
-    return utils_data.load_json(os.path.join(FORECAST_DIR, files[-1]))
-
-
-def _today_forecast():
-    today_file = os.path.join(FORECAST_DIR, f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.json")
-    if os.path.isfile(today_file):
-        return utils_data.load_json(today_file)
-    return _latest_forecast()
-
-
-def write_forecast_file(forecast=None, out_dir=None):
-    forecast = forecast or generate_forecast()
-    if not forecast:
-        return None
-    dir_path = out_dir or FORECAST_DIR
-    os.makedirs(dir_path, exist_ok=True)
-    path = os.path.join(dir_path, f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.json")
-    utils_data.save_json(forecast, path)
-    return path
+    base = {"generated": today_str, "season_year": season_year, "standings": standings}
+    if not fixtures:
+        return {**base, "n_sims": n_sims, "season_complete": True,
+                "projected": [], "fixtures_remaining": 0}
+    sim = simulate_season(standings, fixtures, n_sims=n_sims, seed=seed)
+    return {**base, "n_sims": sim["n_sims"], "season_complete": False,
+            "projected": sim["projected"], "fixtures_remaining": sim["fixtures_remaining"]}
 
 
 BIN_EDGES = [(0.0, 0.35), (0.35, 0.45), (0.45, 0.55), (0.55, 0.65), (0.65, 0.75), (0.75, 1.01)]
@@ -344,92 +242,34 @@ def _called_probability(pred, home_team, away_team):
     return float(max(probs))
 
 
-def _norm_pair(home_team, away_team):
-    return (utils.normalize_team_name(home_team), utils.normalize_team_name(away_team))
+def verdict(match):
+    """CORRECT / INCORRECT once a predicted match is finished, else PENDING
+    (None when there is no prediction to judge)."""
+    pred = match.get("prediction")
+    if not pred:
+        return None
+    if match.get("status") != "finished" or match.get("home_goals") is None:
+        return "PENDING"
+    hg, ag = match["home_goals"], match["away_goals"]
+    actual = match["home_team"] if hg > ag else match["away_team"] if ag > hg else "Draw"
+    called = pred.get("winner")
+    if called and called != "Draw":
+        called = utils.normalize_team_name(called)
+    return "CORRECT" if called == actual else "INCORRECT"
 
 
-def compute_calibration_from_records(predictions, results_by_date):
-    """Core pairing over in-memory records.
-
-    predictions: list of prediction dicts (each with date/home_team/away_team/prediction).
-    results_by_date: {date_str: [raw result dicts]}.
-    Returns the same CalibrationData dict as compute_calibration.
-    """
-    pred_by_date = {}
-    for pred in predictions or []:
-        d = pred.get("date")
-        if d is None:
-            continue
-        pred_by_date.setdefault(d, []).append(pred)
-
+def compute_calibration(matches):
+    """Calibration of the model's calls over every settled, predicted match."""
     entries = []
-    for date_str in sorted(results_by_date or {}):
-        raw_results = results_by_date[date_str] or []
-        predictions_for_date = pred_by_date.get(date_str, [])
-
-        results_map = {}
-        for res in raw_results:
-            # Accept both the raw results format
-            # {"home_team", "away_team", "home_goals", "away_goals"}
-            # and the wrapped verdict format
-            # {"match": {...}, "actual": {"home_goals", "away_goals"}, ...}.
-            if "actual" in res and isinstance(res.get("actual"), dict):
-                match = res.get("match") or {}
-                actual = res["actual"]
-                try:
-                    key = (match["home_team"], match["away_team"])
-                except KeyError:
-                    continue
-                results_map[_norm_pair(*key)] = {
-                    'home_goals': actual['home_goals'],
-                    'away_goals': actual['away_goals'],
-                }
-                continue
-            try:
-                key = (res['home_team'], res['away_team'])
-            except KeyError:
-                continue
-            results_map[_norm_pair(*key)] = {
-                'home_goals': res['home_goals'],
-                'away_goals': res['away_goals'],
-            }
-
-        def find_result(pred_home, pred_away):
-            key = _norm_pair(pred_home, pred_away)
-            if key in results_map:
-                return results_map[key]
-            for (r_home, r_away), val in results_map.items():
-                if (pred_home in r_home or r_home in pred_home) and (pred_away in r_away or r_away in pred_away):
-                    return val
-            return None
-
-        for pred in predictions_for_date:
-            actual = find_result(pred.get('home_team', ''), pred.get('away_team', ''))
-            if actual is None:
-                continue
-
-            hg = actual['home_goals']
-            ag = actual['away_goals']
-            if hg > ag:
-                actual_winner = pred.get('home_team', '')
-            elif ag > hg:
-                actual_winner = pred.get('away_team', '')
-            else:
-                actual_winner = "Draw"
-
-            predicted_winner = (pred.get('prediction') or {}).get('winner')
-            is_correct = predicted_winner == actual_winner
-
-            pred_data = pred.get('prediction') or {}
-            if not pred_data.get('prob_home'):
-                continue
-
-            p = _called_probability(pred_data, pred.get('home_team', ''), pred.get('away_team', ''))
-            entries.append({
-                "date": date_str,
-                "p": p,
-                "correct": is_correct,
-            })
+    for m in matches or []:
+        v = verdict(m)
+        if v not in ("CORRECT", "INCORRECT") or not m["prediction"].get("prob_home"):
+            continue
+        entries.append({
+            "date": m["date"],
+            "p": _called_probability(m["prediction"], m["home_team"], m["away_team"]),
+            "correct": v == "CORRECT",
+        })
 
     n = len(entries)
     if n == 0:
@@ -473,38 +313,11 @@ def compute_calibration_from_records(predictions, results_by_date):
     }
 
 
-def compute_calibration(predictions_dir=None, results_dir=None):
-    res_dir = results_dir or utils_data.RESULTS_DIR
-    pred_dir = predictions_dir or utils_data.PREDICTIONS_DIR
-
-    by_date = {}
-    all_preds = []
-    if os.path.isdir(res_dir):
-        for fname in sorted(os.listdir(res_dir)):
-            if not fname.endswith(".json"):
-                continue
-            date_str = fname.replace(".json", "")
-            raw_results = utils_data.load_json(os.path.join(res_dir, fname)) or []
-            by_date[date_str] = raw_results
-
-            predictions = []
-            if os.path.isdir(pred_dir):
-                pred_path = os.path.join(pred_dir, fname)
-                if os.path.isfile(pred_path):
-                    predictions = utils_data.load_json(pred_path) or []
-            for pred in predictions:
-                p = dict(pred)
-                p["date"] = date_str
-                all_preds.append(p)
-
-    return compute_calibration_from_records(all_preds, by_date)
-
-
 def _norm_df(df):
     out = df.copy()
     out["date"] = pd.to_datetime(out["date"])
-    out["home_team"] = out["home_team"].apply(utils.normalize_team_name)
-    out["away_team"] = out["away_team"].apply(utils.normalize_team_name)
+    out["home_team"] = utils.normalize_column(out["home_team"])
+    out["away_team"] = utils.normalize_column(out["away_team"])
     out["season_year"] = _season_col(out)
     return out
 
@@ -535,7 +348,8 @@ def _empty_h2h(df, a, b):
     }
 
 
-def team_profile(training_df, team_name):
+def team_profile(training_df, team_name, current_elo=None):
+    """current_elo: today's rating, appended as the chart's latest point."""
     if training_df is None:
         return None
     df = _norm_df(training_df)
@@ -597,9 +411,15 @@ def team_profile(training_df, team_name):
         d = r["date"].strftime("%Y-%m-%d")
         if d in seen:
             continue
+        elo = r.get("home_elo") if r["home_team"] == norm else r.get("away_elo")
+        if elo is None or pd.isna(elo):
+            continue  # stored live results carry no pre-match Elo
         seen.add(d)
-        elo = r["home_elo"] if r["home_team"] == norm else r["away_elo"]
         elo_history.append({"date": d, "elo": int(float(elo))})
+    if current_elo is not None:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if today not in seen:
+            elo_history.append({"date": today, "elo": int(current_elo)})
 
     return {"team": name, "seasons": seasons, "form": form, "elo_history": elo_history}
 
@@ -666,38 +486,8 @@ def head_to_head(training_df, team_a, team_b):
 
 
 def upcoming_fixtures(team_name):
-    from backend import database as db
-    norm = utils.normalize_team_name(team_name)
+    """A team's unplayed fixtures with their predictions, from the DB."""
+    from backend import db
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    if db.DATABASE_URL:
-        fixtures = db.load_fixtures(today, team=norm)
-        preds_by_id = {}
-        seen_dates = set()
-        for f in fixtures:
-            if f["date"] in seen_dates:
-                continue
-            seen_dates.add(f["date"])
-            for p in db.load_predictions(f["date"]) or []:
-                preds_by_id[p["id"]] = p.get("prediction")
-    else:
-        fixtures = utils_data.load_fixtures_file(today, team=norm)
-        preds_by_id = {}
-        seen_dates = set()
-        for f in fixtures:
-            if f["date"] in seen_dates:
-                continue
-            seen_dates.add(f["date"])
-            pred_path = os.path.join(utils_data.PREDICTIONS_DIR, f"{f['date']}.json")
-            for p in utils_data.load_json(pred_path) or []:
-                preds_by_id[p["id"]] = p.get("prediction")
-    out = []
-    for f in fixtures:
-        out.append({
-            "id": f["id"],
-            "date": f["date"],
-            "time": f.get("time") or "TBD",
-            "home_team": f["home_team"],
-            "away_team": f["away_team"],
-            "prediction": preds_by_id.get(f["id"]),
-        })
-    return out
+    return [m for m in db.load_matches(team=team_name, since=today)
+            if m["status"] in ("scheduled", "postponed", "in_progress")]

@@ -63,8 +63,8 @@ def _results_frame(results):
     df = df[cols + ['season']]
     df = df.dropna(subset=['home_goals', 'away_goals'])
     df['date'] = pd.to_datetime(df['date'], utc=True).dt.tz_localize(None)
-    df['home_team'] = df['home_team'].apply(utils.normalize_team_name)
-    df['away_team'] = df['away_team'].apply(utils.normalize_team_name)
+    df['home_team'] = utils.normalize_column(df['home_team'])
+    df['away_team'] = utils.normalize_column(df['away_team'])
     df['_day'] = df['date'].dt.date
     df = df.drop_duplicates(subset=['_day', 'home_team', 'away_team'], keep='last')
     df = df.sort_values('date', kind='stable').reset_index(drop=True)
@@ -146,21 +146,9 @@ def ratings_from_results(results):
 
 
 def stored_results_since(as_of):
-    """Stored results played after as_of (DB when configured, else files)."""
-    from backend import database as db
-    if db.DATABASE_URL:
-        return db.load_results_since(as_of)
-    from backend import utils_data
-    rows = []
-    if os.path.isdir(utils_data.RESULTS_DIR):
-        for fname in sorted(os.listdir(utils_data.RESULTS_DIR)):
-            date_str = fname[:-5]
-            if not fname.endswith('.json') or date_str <= as_of:
-                continue
-            for r in utils_data.load_json(os.path.join(utils_data.RESULTS_DIR, fname)) or []:
-                if 'home_team' in r:
-                    rows.append({'date': date_str, **r})
-    return rows
+    """Finished matches played after as_of, from the database."""
+    from backend import db
+    return db.results_since(as_of)
 
 
 def current_ratings(results=None):

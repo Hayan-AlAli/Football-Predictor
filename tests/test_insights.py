@@ -68,8 +68,8 @@ def test_build_standings_normalizes_team_names():
     assert by_name["Manchester United"]["ga"] == 1
 
 
-from backend.insights import generate_forecast, simulate_season, write_forecast_file
-from backend import utils_data
+from backend.insights import generate_forecast, simulate_season
+from conftest import match
 
 STANDINGS = [
     {"team": "Arsenal", "played": 0, "wins": 0, "draws": 0, "losses": 0, "gf": 0, "ga": 0, "gd": 0, "points": 0},
@@ -117,119 +117,72 @@ def test_simulate_season_odds_and_percentiles_sane():
     assert by["Arsenal"]["title_odds"] >= by["Chelsea"]["title_odds"]
 
 
-def test_generate_forecast_returns_payload(monkeypatch):
-    import pandas as pd
-    from backend import data_manager
-    monkeypatch.setattr(data_manager, "fetch_upcoming_matches", pd.DataFrame)
-    res = generate_forecast()
-    assert res is not None
-    assert isinstance(res["standings"], list)
-    assert isinstance(res["projected"], list)
-    assert res["n_sims"] > 0
-
-
-def test_write_forecast_file_roundtrip(tmp_path):
-    payload = {"generated": "2026-08-15", "season_year": 2026, "n_sims": 10,
-               "season_complete": False, "standings": [], "projected": [],
-               "fixtures_remaining": 0}
-    path = write_forecast_file(forecast=payload, out_dir=str(tmp_path))
-    assert path is not None
-    loaded = utils_data.load_json(path)
-    assert loaded == payload
-
-
-from backend import data_manager
-from backend import predictor
-
-
-def test_generate_forecast_handles_nan_elo(monkeypatch):
-    from datetime import datetime, timedelta, timezone
-    future = (datetime.now(timezone.utc) + timedelta(days=30)).date()
-    train = pd.DataFrame([
-        {"date": pd.Timestamp("2025-08-16"), "home_team": "Arsenal", "away_team": "Chelsea",
-         "home_goals": 2, "away_goals": 1},
-    ])
-    monkeypatch.setattr(predictor, "training_df", train)
-    fixtures = pd.DataFrame([
-        {"date": pd.Timestamp(future), "home_team": "Arsenal", "away_team": "Chelsea",
-         "home_elo": float("nan"), "away_elo": float("nan")},
-    ])
-    monkeypatch.setattr(data_manager, "fetch_upcoming_matches", lambda: fixtures)
-    res = generate_forecast()
-    assert res is not None
-    assert isinstance(res["projected"], list)
+def test_generate_forecast_builds_table_and_simulates_the_rest():
+    matches = [
+        match("Arsenal", "Chelsea", "2026-08-16", "finished", (2, 0)),
+        match("Chelsea", "Arsenal", "2027-01-10"),
+    ]
+    res = generate_forecast(matches, n_sims=500)
+    assert res["season_year"] == 2026
+    assert {r["team"]: r["points"] for r in res["standings"]} == {"Arsenal": 3, "Chelsea": 0}
     assert res["fixtures_remaining"] == 1
+    assert not res["season_complete"]
+    assert {r["team"] for r in res["projected"]} == {"Arsenal", "Chelsea"}
 
 
-import json
-from backend.insights import compute_calibration
+def test_generate_forecast_season_complete():
+    res = generate_forecast([match("Arsenal", "Chelsea", "2026-08-16", "finished", (1, 1))])
+    assert res["season_complete"] and res["projected"] == [] and res["fixtures_remaining"] == 0
 
 
-def _write_cal_fixture(tmp_path, pred_dates, results_dates):
-    pred_dir = tmp_path / "predictions"
-    res_dir = tmp_path / "results"
-    pred_dir.mkdir()
-    res_dir.mkdir()
-    for d in pred_dates:
-        (pred_dir / f"{d}.json").write_text(json.dumps(pred_dates[d]))
-    for d in results_dates:
-        (res_dir / f"{d}.json").write_text(json.dumps(results_dates[d]))
-    return str(pred_dir), str(res_dir)
+def test_generate_forecast_empty():
+    assert generate_forecast([]) is None
 
 
-def test_calibration_hand_computed_brier(tmp_path):
-    pred_dates = {
-        "2026-01-03": [{"date": "2026-01-03", "home_team": "Arsenal", "away_team": "Chelsea",
-                        "prediction": {"prob_home": 0.8, "prob_draw": 0.1, "prob_away": 0.1, "winner": "Arsenal"}}],
-        "2026-01-17": [{"date": "2026-01-17", "home_team": "Liverpool", "away_team": "Everton",
-                        "prediction": {"prob_home": 0.6, "prob_draw": 0.2, "prob_away": 0.2, "winner": "Liverpool"}}],
-    }
-    results_dates = {
-        "2026-01-03": [{"match": pred_dates["2026-01-03"][0],
-                        "actual": {"home_goals": 2, "away_goals": 1, "winner": "Arsenal"},
-                        "status": "CORRECT"}],
-        "2026-01-17": [{"match": pred_dates["2026-01-17"][0],
-                        "actual": {"home_goals": 1, "away_goals": 1, "winner": "Draw"},
-                        "status": "INCORRECT"}],
-    }
-    pred_dir, res_dir = _write_cal_fixture(tmp_path, pred_dates, results_dates)
-    res = compute_calibration(pred_dir, res_dir)
+from backend.insights import compute_calibration, verdict
+
+
+def _called(home, away, date, score, probs, winner):
+    ph, pd_, pa = probs
+    return match(home, away, date, "finished", score,
+                 {"prob_home": ph, "prob_draw": pd_, "prob_away": pa, "winner": winner})
+
+
+def test_calibration_hand_computed_brier():
+    matches = [
+        _called("Arsenal", "Chelsea", "2026-01-03", (2, 1), (0.8, 0.1, 0.1), "Arsenal"),
+        _called("Liverpool", "Everton", "2026-01-17", (1, 1), (0.6, 0.2, 0.2), "Liverpool"),
+        # unplayed and unpredicted matches are ignored
+        match("Arsenal", "Everton", "2026-05-01"),
+        match("Everton", "Chelsea", "2026-01-10", "finished", (0, 0)),
+    ]
+    res = compute_calibration(matches)
     assert res["entries"] == 2
     assert res["accuracy"] == 0.5
     assert abs(res["brier"] - (0.04 + 0.36) / 2) < 1e-9      # (1-0.8)^2 and 0.6^2
     assert len(res["bins"]) == 2
     bin_80 = next(b for b in res["bins"] if b["label"] == "0.75-1")
     assert bin_80["count"] == 1 and bin_80["predicted"] == 0.8 and bin_80["actual"] == 1.0
-    assert len(res["rolling"]) == 1
     assert res["rolling"][0] == {"gameweek": 1, "decided": 2, "correct": 1, "accuracy": 0.5}
 
 
-def test_calibration_empty(tmp_path):
-    pred_dir, res_dir = _write_cal_fixture(tmp_path, {}, {})
-    res = compute_calibration(pred_dir, res_dir)
+def test_calibration_empty():
+    res = compute_calibration([])
     assert res["entries"] == 0 and res["brier"] is None and res["accuracy"] is None
     assert res["bins"] == [] and res["rolling"] == []
 
 
-def test_calibration_from_records_pairs_db_rows():
-    from backend.insights import compute_calibration_from_records
-    predictions = [
-        {"date": "2026-01-03", "home_team": "Arsenal", "away_team": "Chelsea",
-         "prediction": {"prob_home": 0.8, "prob_draw": 0.1, "prob_away": 0.1, "winner": "Arsenal"}},
-    ]
-    results_by_date = {
-        "2026-01-03": [{"home_team": "Wolves", "away_team": "Chelsea",
-                        "home_goals": 0, "away_goals": 2}],
-    }
-    # Wolves != Arsenal: no pair -> zero entries, but must not crash
-    res = compute_calibration_from_records(predictions, results_by_date)
-    assert res["entries"] == 0
-    results_by_date["2026-01-03"][0]["home_team"] = "Arsenal"
-    res = compute_calibration_from_records(predictions, results_by_date)
-    # NOTE (Task 4): brief asserted accuracy == 1.0 here, but with the
-    # verbatim data (0-2 away win) vs predicted home winner "Arsenal" the
-    # preserved winner-comparison semantics yield INCORRECT -> 0.0.
-    assert res["entries"] == 1 and res["accuracy"] == 0.0
+def test_verdict_states():
+    pred = {"prob_home": 0.5, "prob_draw": 0.3, "prob_away": 0.2, "winner": "Arsenal"}
+    assert verdict(match("Arsenal", "Chelsea", "2026-09-01")) is None
+    assert verdict(match("Arsenal", "Chelsea", "2026-09-01", prediction=pred)) == "PENDING"
+    assert verdict(match("Arsenal", "Chelsea", "2026-09-01", "finished", (1, 0), pred)) == "CORRECT"
+    assert verdict(match("Arsenal", "Chelsea", "2026-09-01", "finished", (0, 0), pred)) == "INCORRECT"
+    # a legacy winner spelled differently from the canonical name still counts
+    legacy = {**pred, "winner": "Wolves"}
+    assert verdict(match("Wolverhampton", "Chelsea", "2026-09-01", "finished", (2, 1), legacy)) == "CORRECT"
+
+
 from backend.insights import head_to_head, team_profile
 
 H2H_DF = pd.DataFrame([
@@ -321,63 +274,25 @@ def test_profile_and_h2h_guard_missing_training_frame():
     assert head_to_head(None, "Arsenal", "Chelsea") is None
 
 
-def test_upcoming_fixtures_joins_predictions_no_live_call(monkeypatch):
-    from backend import database as db
+def test_upcoming_fixtures_reads_db_and_joins_predictions():
+    from backend import db
     from backend.insights import upcoming_fixtures
-    monkeypatch.setattr(db, "DATABASE_URL", "postgres://fake")
-    fixtures = [
-        {"id": "f1", "date": "2099-01-01", "time": "15:00",
-         "home_team": "Arsenal", "away_team": "Chelsea"},
-        {"id": "f2", "date": "2099-01-01", "time": "17:30",
-         "home_team": "Arsenal", "away_team": "Liverpool"},
-    ]
-    monkeypatch.setattr(db, "load_fixtures", lambda from_date, team=None: fixtures)
-    monkeypatch.setattr(db, "load_predictions",
-                        lambda d: [{"id": "f1", "prediction": {"winner": "Arsenal"}}])
-
-    def _no_live(*a, **k):
-        raise AssertionError("live fetch in upcoming_fixtures")
-    monkeypatch.setattr(data_manager, "fetch_upcoming_matches", _no_live)
-    monkeypatch.setattr(predictor, "predict_match", _no_live)
-
+    ids = db.upsert_matches([
+        {"home_team": "Arsenal", "away_team": "Chelsea", "match_date": "2099-01-01",
+         "kickoff": "2099-01-01T15:00:00Z", "status": "scheduled"},
+        {"home_team": "Liverpool", "away_team": "Arsenal", "match_date": "2099-01-08",
+         "status": "scheduled"},
+        {"home_team": "Everton", "away_team": "Chelsea", "match_date": "2099-01-01",
+         "status": "scheduled"},
+        {"home_team": "Arsenal", "away_team": "Everton", "match_date": "2020-01-01",
+         "status": "finished", "home_goals": 1, "away_goals": 0},
+    ])
+    db.upsert_predictions([{"match_id": ids[0], "prob_home": 0.5, "prob_draw": 0.3,
+                            "prob_away": 0.2, "winner": "Arsenal", "score": "1-0"}])
     out = upcoming_fixtures("Arsenal")
-    assert [r["id"] for r in out] == ["f1", "f2"]
-    assert out[0]["prediction"] == {"winner": "Arsenal"}
+    assert [m["id"] for m in out] == ids[:2]
+    assert out[0]["prediction"]["winner"] == "Arsenal"
     assert out[1]["prediction"] is None
-
-
-def test_upcoming_fixtures_file_mode(monkeypatch, tmp_path):
-    from backend import utils_data as ud
-    from backend.insights import upcoming_fixtures
-    from backend import database as db
-    monkeypatch.setattr(db, "DATABASE_URL", None)
-    monkeypatch.setattr(ud, "FIXTURES_FILE_PATH", str(tmp_path / "fixtures.json"))
-    monkeypatch.setattr(ud, "PREDICTIONS_DIR", str(tmp_path / "predictions"))
-    (tmp_path / "predictions").mkdir()
-    import json
-    (tmp_path / "fixtures.json").write_text(json.dumps([
-        {"id": "f1", "date": "2099-01-01", "time": "15:00",
-         "home_team": "Arsenal", "away_team": "Chelsea"},
-    ]))
-    (tmp_path / "predictions" / "2099-01-01.json").write_text(json.dumps([
-        {"id": "f1", "prediction": {"winner": "Draw"}},
-    ]))
-    out = upcoming_fixtures("Arsenal")
-    assert len(out) == 1
-    assert out[0]["prediction"] == {"winner": "Draw"}
-
-
-def test_upcoming_fixtures_tolerates_none_predictions(monkeypatch):
-    from backend import database as db
-    from backend.insights import upcoming_fixtures
-    monkeypatch.setattr(db, "DATABASE_URL", "postgres://fake")
-    monkeypatch.setattr(db, "load_fixtures",
-                        lambda from_date, team=None: [{"id": "f9", "date": "2099-01-01",
-                                                       "time": "15:00", "home_team": "Arsenal",
-                                                       "away_team": "Chelsea"}])
-    monkeypatch.setattr(db, "load_predictions", lambda d: None)
-    out = upcoming_fixtures("Arsenal")
-    assert out[0]["prediction"] is None
 
 
 def test_simulate_season_carries_current_points():
@@ -424,3 +339,9 @@ def test_complete_fixtures_waits_for_full_league():
     from backend.insights import complete_fixtures
     listed = [{"home": "A", "away": "B", "home_elo": 1500, "away_elo": 1500}]
     assert complete_fixtures(listed, {"A", "B", "C"}, []) == listed
+
+
+def test_team_profile_appends_current_elo_as_latest_point():
+    p = team_profile(H2H_DF, "Arsenal", current_elo=1987.4)
+    assert p["elo_history"][-1]["elo"] == 1987
+    assert p["elo_history"][-2]["elo"] == 1960

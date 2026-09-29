@@ -1,7 +1,6 @@
 import joblib
 import pandas as pd
 import os
-import random
 import re
 from backend import elo
 from backend import utils
@@ -73,7 +72,7 @@ if training_df is not None and not training_df.empty:
     # lookup below compares like with like.
     for _col in ("home_team", "away_team"):
         if _col in training_df.columns:
-            training_df[_col] = training_df[_col].apply(utils.normalize_team_name)
+            training_df[_col] = utils.normalize_column(training_df[_col])
 
 
 _FORM_CACHE_TTL = 3600
@@ -104,7 +103,7 @@ def form_frame():
             extra = extra.dropna(subset=['home_goals', 'away_goals'])
             extra['date'] = pd.to_datetime(extra['date'])
             for col in ('home_team', 'away_team'):
-                extra[col] = extra[col].apply(utils.normalize_team_name)
+                extra[col] = utils.normalize_column(extra[col])
             extra = extra.drop_duplicates(subset=['date', 'home_team', 'away_team'], keep='last')
             frame = pd.concat([training_df, extra], ignore_index=True).sort_values('date', kind='stable')
     except Exception as e:
@@ -174,8 +173,8 @@ def team_has_history(team_name, df=None):
         return False
     norm = utils.normalize_team_name(team_name)
     try:
-        home = frame["home_team"].apply(utils.normalize_team_name) == norm
-        away = frame["away_team"].apply(utils.normalize_team_name) == norm
+        home = utils.normalize_column(frame["home_team"]) == norm
+        away = utils.normalize_column(frame["away_team"]) == norm
         return bool((home | away).any())
     except Exception:
         return False
@@ -183,8 +182,8 @@ def team_has_history(team_name, df=None):
 
 def get_latest_stats(team_name, df, window=5):
     norm = utils.normalize_team_name(team_name)
-    home_matches = df[df['home_team'].apply(utils.normalize_team_name) == norm]
-    away_matches = df[df['away_team'].apply(utils.normalize_team_name) == norm]
+    home_matches = df[utils.normalize_column(df['home_team']) == norm]
+    away_matches = df[utils.normalize_column(df['away_team']) == norm]
 
     all_matches = pd.concat([home_matches, away_matches]).sort_values(by='date')
 
@@ -258,24 +257,57 @@ def calculate_probabilities(home_avg, away_avg, max_goals=10):
     return prob_home_win, prob_draw, prob_away_win, best_home, best_draw, best_away, max_home, max_draw, max_away
 
 
-def random_prediction(home_team, away_team):
-    home_score = random.randint(0, 3)
-    away_score = random.randint(0, 3)
-    if home_score > away_score:
-        winner = home_team
-    elif away_score > home_score:
-        winner = away_team
-    else:
-        winner = "Draw"
+MODEL_VERSION = "rf-multiwindow"
+FALLBACK_VERSION = "elo-poisson"
+LEAGUE_GOALS_PER_MATCH = 2.75
 
+
+def elo_goal_expectations(home_elo, away_elo, total=LEAGUE_GOALS_PER_MATCH):
+    """Poisson means whose outcome odds match the Elo expected score.
+
+    Keeps total goals at the league average and solves (by bisection) for
+    the home/away split where P(home win) + P(draw) / 2 equals Elo's
+    expected home score, home advantage included.
+    """
+    target = elo.expected_home(home_elo, away_elo)
+    lo, hi = 0.02, total - 0.02
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        ph, pd_, _pa, *_ = calculate_probabilities(mid, total - mid)
+        if ph + pd_ / 2 < target:
+            lo = mid
+        else:
+            hi = mid
+    home = (lo + hi) / 2
+    return home, total - home
+
+
+def elo_prediction(home_team, away_team, home_elo=None, away_elo=None):
+    """Model-free prediction from Elo alone.
+
+    Used when the trained models are missing or fail, instead of the old
+    random 33/34/33 guess: it is a weaker call, but a real one, and it is
+    labelled with its own model_version so the record can tell them apart.
+    """
+    ratings = None
+    if home_elo is None or away_elo is None:
+        ratings = elo.current_ratings()
+    home_elo = utils.safe_elo(home_elo if home_elo is not None else _resolve_elo(ratings, home_team))
+    away_elo = utils.safe_elo(away_elo if away_elo is not None else _resolve_elo(ratings, away_team))
+    hg, ag = elo_goal_expectations(home_elo, away_elo)
+    ph, pd_, pa, bh, bd, ba, *_ = calculate_probabilities(hg, ag)
+    winner, (sh, sa) = _select_winner(home_team, away_team, ph, pd_, pa, bh, bd, ba)
     return {
-        "winner": winner,
-        "score": f"{home_score}-{away_score}",
-        "home_goals": home_score,
-        "away_goals": away_score,
-        "prob_home": 0.33,
-        "prob_draw": 0.34,
-        "prob_away": 0.33
+        'winner': winner,
+        'score': f"{sh}-{sa}",
+        'home_goals': hg,
+        'away_goals': ag,
+        'home_elo': int(home_elo),
+        'away_elo': int(away_elo),
+        'prob_home': ph,
+        'prob_draw': pd_,
+        'prob_away': pa,
+        'model_version': FALLBACK_VERSION,
     }
 
 
@@ -385,6 +417,7 @@ def predict_match(match_data):
                 best_home, best_draw, best_away)
 
             return {
+                'model_version': MODEL_VERSION,
                 'winner': winner,
                 'score': f"{score_home}-{score_away}",
                 'home_goals': pred_home_goals,
@@ -411,6 +444,5 @@ def predict_match(match_data):
             import traceback as _tb
             print(f"predict_match failed for {home_team} vs {away_team}: {e}")
             _tb.print_exc()
-            return random_prediction(home_team, away_team)
-    else:
-        return random_prediction(home_team, away_team)
+    return elo_prediction(home_team, away_team,
+                          match_data.get('home_elo'), match_data.get('away_elo'))
