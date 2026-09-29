@@ -118,20 +118,13 @@ def _poisson_sims(home_lambda, away_lambda, n_sims, seed):
 
 
 def simulate_season(standings, fixture_rows, n_sims=10000, seed=42):
-    rows = []
-    for f in fixture_rows:
-        pred = predictor.predict_match({
-            "home_team": utils.normalize_team_name(f["home"]),
-            "away_team": utils.normalize_team_name(f["away"]),
-            "home_elo": f["home_elo"],
-            "away_elo": f["away_elo"],
-        })
-        rows.append((
-            utils.normalize_team_name(f["home"]),
-            utils.normalize_team_name(f["away"]),
-            max(float(pred.get("home_goals") or 0.0), 0.0),
-            max(float(pred.get("away_goals") or 0.0), 0.0),
-        ))
+    inputs = [{"home_team": utils.normalize_team_name(f["home"]),
+               "away_team": utils.normalize_team_name(f["away"]),
+               "home_elo": f["home_elo"], "away_elo": f["away_elo"]} for f in fixture_rows]
+    rows = [(m["home_team"], m["away_team"],
+             max(float(p.get("home_goals") or 0.0), 0.0),
+             max(float(p.get("away_goals") or 0.0), 0.0))
+            for m, p in zip(inputs, predictor.predict_matches(inputs))]
 
     team_names = sorted({r["team"] for r in standings}
                         | {h for h, _, _, _ in rows}

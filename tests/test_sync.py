@@ -20,9 +20,10 @@ def feed(monkeypatch):
 
     monkeypatch.setattr(espn, "_get", fake_get)
     # The Elo model keeps these tests fast; the RF path has its own tests.
-    monkeypatch.setattr(predictor, "predict_match",
-                        lambda m: predictor.elo_prediction(m["home_team"], m["away_team"],
-                                                           m.get("home_elo"), m.get("away_elo")))
+    monkeypatch.setattr(predictor, "predict_matches",
+                        lambda ms: [predictor.elo_prediction(m["home_team"], m["away_team"],
+                                                             m.get("home_elo"), m.get("away_elo"))
+                                    for m in ms])
     return events
 
 
@@ -56,8 +57,9 @@ def test_predictions_freeze_at_kickoff(feed, monkeypatch):
                 c["score"] = "1"
             e["status"] = e["competitions"][0]["status"] = {
                 "type": {"name": "STATUS_FULL_TIME", "state": "post", "completed": True}}
-    elo_call = predictor.predict_match
-    monkeypatch.setattr(predictor, "predict_match", lambda m: {**elo_call(m), "prob_home": 0.99})
+    elo_call = predictor.predict_matches
+    monkeypatch.setattr(predictor, "predict_matches",
+                        lambda ms: [{**p, "prob_home": 0.99} for p in elo_call(ms)])
     summary = sync.run_sync(now=later)
     assert summary["new_results"] == 10
     after = {m["id"]: m for m in db.load_matches()}
@@ -124,6 +126,19 @@ def test_failed_sync_is_logged_and_raised(monkeypatch):
     with pytest.raises(RuntimeError):
         sync.run_sync(now=NOW)
     assert db.last_runs()["sync"]["ok"] is False
+
+
+def test_sync_with_the_real_model(monkeypatch):
+    """No stub: the batched forest predicts the horizon and the forecast."""
+    events = season_events(played_rounds=7)
+    monkeypatch.setattr(espn, "_get", lambda params, attempts=3: {"events": [
+        e for e in events
+        if params["dates"][:8] <= e["date"][:10].replace("-", "") <= params["dates"][9:]]})
+    summary = sync.run_sync(now=NOW)
+    assert summary["predictions"] == 40 and summary["forecast"] == "regenerated"
+    assert summary["seconds"] < 30
+    versions = {m["prediction"]["model_version"] for m in db.load_matches() if m["prediction"]}
+    assert versions == {predictor.MODEL_VERSION}
 
 
 def test_forecast_due_policy():

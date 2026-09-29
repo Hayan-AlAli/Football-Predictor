@@ -59,19 +59,22 @@ def predict_upcoming(season, now=None):
     now = (now or datetime.now(timezone.utc)).replace(tzinfo=None)
     horizon = now + timedelta(days=PREDICTION_HORIZON_DAYS)
     ratings = elo.current_ratings()
-    rows = []
+    due, inputs = [], []
     for m in db.load_matches(season=season, since=now.date(), status='scheduled', with_predictions=False):
         kickoff = datetime.fromisoformat(m['kickoff'][:-1]) if m['kickoff'] else \
             datetime.fromisoformat(m['date'] + 'T23:59')
         if kickoff <= now or kickoff > horizon:
             continue
-        pred = predictor.predict_match({
+        due.append(m)
+        inputs.append({
             'home_team': m['home_team'],
             'away_team': m['away_team'],
             'date': kickoff,
             'home_elo': elo.rating(m['home_team'], ratings),
             'away_elo': elo.rating(m['away_team'], ratings),
         })
+    rows = []
+    for m, pred in zip(due, predictor.predict_matches(inputs)):
         winner = pred.get('winner')
         rows.append({
             'match_id': m['id'],
