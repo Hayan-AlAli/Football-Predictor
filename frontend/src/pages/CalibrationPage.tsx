@@ -69,7 +69,7 @@ export default function CalibrationPage() {
             <div className="plate p-4">
               <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Overall accuracy</h3>
               <p className="mt-1 font-mono text-3xl font-semibold text-chalk tnum">
-                {data.accuracy != null ? percent(data.accuracy) : '—'}
+                {data.accuracy != null ? `${percent(data.accuracy, 1)}%` : '—'}
               </p>
               <p className="mt-1 font-sans text-xs italic text-chalk-faint">{data.entries} decided verdicts</p>
             </div>
@@ -105,7 +105,7 @@ export default function CalibrationPage() {
               <div className="mt-4 flex flex-wrap gap-2">
                 {data.bins.map((b) => (
                   <span key={b.label} className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-soft">
-                    {b.label} · n={b.count} · {percent(b.predicted)} → {percent(b.actual)}
+                    {b.label} · n={b.count} · {percent(b.predicted)}% → {percent(b.actual)}%
                   </span>
                 ))}
               </div>
@@ -115,21 +115,21 @@ export default function CalibrationPage() {
           {data.rolling.length > 0 && (
             <section className="rule-double mt-10 pt-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-display text-[1.75rem] font-extrabold uppercase leading-none text-chalk">By matchweek</h2>
+                <h2 className="font-display text-[1.75rem] font-extrabold uppercase leading-none text-chalk">Recent calls</h2>
                 <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">
-                  decided verdicts per matchweek, rolling
+                  hit rate per block of 10 decided calls, oldest first
                 </span>
               </div>
               <div className="mt-4">
                 <SvgLineChart
-                  points={data.rolling.map((r) => ({ x: `GW ${r.gameweek}`, y: r.accuracy ?? 0 }))}
+                  points={data.rolling.map((r) => ({ x: `#${r.gameweek}`, y: r.accuracy ?? 0 }))}
                 />
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {data.rolling.map((r) => (
                   <span key={r.gameweek} className="chip">
-                    GW {r.gameweek} · {r.correct}/{r.decided}
-                    {r.accuracy != null ? ` · ${percent(r.accuracy)}` : ''}
+                    #{r.gameweek} · {r.correct}/{r.decided}
+                    {r.accuracy != null ? ` · ${percent(r.accuracy)}%` : ''}
                   </span>
                 ))}
               </div>
