@@ -98,6 +98,8 @@ def _team(competitor):
     logo = t.get('logo')
     if not logo and t.get('logos'):
         logo = t['logos'][0].get('href')
+    if not (isinstance(logo, str) and logo.startswith('https://')):
+        logo = None  # the page renders it as an image source: https only
     return canon, {
         'name': canon,
         'espn_id': str(t['id']) if t.get('id') else None,

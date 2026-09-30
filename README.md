@@ -23,7 +23,11 @@ data/teams.json ──────┘
   the same row, so there are no stale duplicates and no name matching to pair
   a result with its prediction.
 - **Frozen calls.** Predictions refresh daily until kickoff, then never
-  change. That frozen call is what the Records page judges.
+  change. That frozen call is what the Records page judges. The one
+  exception: a played match whose stored call is a flat 33/34/33 placeholder
+  (a bug before 24 Sep 2026 froze those onto matchweeks 4 and 5) is rebuilt
+  by the sync from pre-match Elo and form only, tagged `+rebuilt` and marked
+  on its card.
 - **One team registry.** `data/teams.json` holds every club's canonical name,
   aliases, URL slug, ESPN id, Premier League id and colour. Badges are 500px
   ESPN crests with the Premier League crest as fallback, then initials. Crest
@@ -50,6 +54,17 @@ Without `POSTGRES_URL` the app uses SQLite at `data/football.db`.
 | `POSTGRES_URL` / `DATABASE_URL` | Postgres connection (Vercel sets `POSTGRES_URL`). Unset → SQLite. |
 | `CRON_SECRET` | Bearer token required by `/api/jobs/sync` (Vercel Cron sends it). |
 | `CORS_ORIGINS` | Comma-separated origins for local cross-origin dev (default: localhost:5173, :3000). |
+
+## Security
+
+- The only write path is `/api/jobs/sync`, guarded by `CRON_SECRET`
+  (constant-time compare; no secret configured means no access).
+- Every other endpoint is a public, read-only view of public match data.
+  SQL goes through SQLAlchemy Core with bound parameters.
+- `vercel.json` sends a strict Content-Security-Policy (scripts from the
+  site only), HSTS, `nosniff`, no framing and a restrictive Permissions-Policy.
+- The bundled `*.pkl` models are loaded with joblib (pickle): only ever
+  replace them with files you trained yourself.
 
 ## API
 

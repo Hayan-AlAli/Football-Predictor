@@ -188,4 +188,5 @@ if __name__ == "__main__":
     import sys
     import uvicorn
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    uvicorn.run("backend.server:app", host="0.0.0.0", port=port, reload=True)
+    # Dev server with auto-reload: keep it on this machine, off the LAN.
+    uvicorn.run("backend.server:app", host="127.0.0.1", port=port, reload=True)
