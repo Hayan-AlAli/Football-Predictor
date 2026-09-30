@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import TeamBadge from './TeamBadge';
 import FeatureReveal from './FeatureReveal';
@@ -13,6 +13,13 @@ interface FixtureCardProps {
 }
 
 const OUTCOMES = ['H', 'D', 'A'] as const;
+
+/** Team names fit their column: sized by the card width over the longest
+ *  word (see .team-name), so a long name shrinks and a short one stays full. */
+function fitName(label: string): CSSProperties {
+  const longest = Math.max(...label.split(/\s+/).map((w) => w.length));
+  return { '--chars': longest } as CSSProperties;
+}
 
 /** One fixture as a desk card: the call, the expected score, the split and the model's inputs. */
 export default function FixtureCard({ match, verdict }: FixtureCardProps) {
@@ -58,6 +65,7 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
       className={`fixture-card flex flex-col ${open ? 'sm:col-span-2' : ''}`}
       aria-label={`${homeName} versus ${awayName}`}
     >
+      <h2 className="sr-only">{homeName} v {awayName}</h2>
       <div className="flex flex-col gap-3.5 px-4 pb-4 pt-4 sm:px-5">
         {/* Kickoff + the call */}
         <div className="flex items-center justify-between gap-3">
@@ -72,10 +80,10 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
         </div>
 
         {/* Teams + expected score */}
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-3 [container-type:inline-size]">
           <span className="flex min-w-0 flex-col items-start gap-2">
             <TeamBadge team={match.home_team} info={match.home_team_info} size="md" />
-            <span className="min-w-0 font-display text-[1.625rem] font-extrabold uppercase leading-[0.92] text-chalk [overflow-wrap:normal] sm:text-[1.75rem]">
+            <span className="team-name min-w-0 font-display font-extrabold uppercase leading-[0.92] text-chalk [--name-max:1.625rem] sm:[--name-max:1.75rem]" style={fitName(homeLabel)}>
               {homeLabel}
             </span>
           </span>
@@ -85,7 +93,7 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
           </span>
           <span className="flex min-w-0 flex-col items-end gap-2 text-right">
             <TeamBadge team={match.away_team} info={match.away_team_info} size="md" />
-            <span className="min-w-0 font-display text-[1.625rem] font-extrabold uppercase leading-[0.92] text-chalk [overflow-wrap:normal] sm:text-[1.75rem]">
+            <span className="team-name min-w-0 font-display font-extrabold uppercase leading-[0.92] text-chalk [--name-max:1.625rem] sm:[--name-max:1.75rem]" style={fitName(awayLabel)}>
               {awayLabel}
             </span>
           </span>
@@ -116,17 +124,17 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
           <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-y-1.5 border-t border-line pt-3 font-mono text-xs tnum">
             {homeElo != null && awayElo != null && (
               <>
-                <dt className="text-[0.625rem] tracking-[0.1em] text-chalk-faint">ELO</dt>
+                <dt className="text-micro tracking-[0.1em] text-chalk-faint">ELO</dt>
                 <dd>{Math.round(homeElo)}</dd>
                 <dd className="text-right">{Math.round(awayElo)}</dd>
               </>
             )}
             {features && (
               <>
-                <dt className="text-[0.625rem] tracking-[0.1em] text-chalk-faint">GOALS</dt>
+                <dt className="text-micro tracking-[0.1em] text-chalk-faint">GOALS</dt>
                 <dd>{features.home_rolling_goals.toFixed(2)}</dd>
                 <dd className="text-right">{features.away_rolling_goals.toFixed(2)}</dd>
-                <dt className="text-[0.625rem] tracking-[0.1em] text-chalk-faint">xG</dt>
+                <dt className="text-micro tracking-[0.1em] text-chalk-faint">xG</dt>
                 <dd>{features.home_rolling_xg.toFixed(2)}</dd>
                 <dd className="text-right">{features.away_rolling_xg.toFixed(2)}</dd>
               </>
@@ -187,7 +195,7 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
 
               <div className="grid gap-5 pt-4 sm:grid-cols-2">
                 <div>
-                  <h4 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Goal expectation</h4>
+                  <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Goal expectation</h3>
                   <p className="mt-1 flex items-baseline gap-3 font-mono text-3xl font-semibold text-chalk tnum">
                     <span>{pred.home_goals?.toFixed(1) ?? '—'}</span>
                     <span className="text-base text-chalk-faint">—</span>
@@ -197,7 +205,7 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
                 </div>
 
                 <div>
-                  <h4 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Outcome odds</h4>
+                  <h3 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">Outcome odds</h3>
                   <div className="mt-3 space-y-2">
                     {[
                       { key: 'H', label: `Home — ${teamShort(home)}`, v: pred.prob_home },
@@ -205,7 +213,7 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
                       { key: 'A', label: `Away — ${teamShort(away)}`, v: pred.prob_away },
                     ].map((row) => (
                       <div key={row.key} className="flex items-center gap-2">
-                        <span className="w-32 shrink-0 truncate font-mono text-[0.625rem] uppercase tracking-widest text-chalk-soft">
+                        <span className="w-32 shrink-0 truncate font-mono text-micro uppercase tracking-widest text-chalk-soft">
                           {row.label}
                         </span>
                         <span className="h-2 flex-1 overflow-hidden bg-raised">

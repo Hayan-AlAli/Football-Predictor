@@ -7,7 +7,7 @@ import EmptyState from '../components/EmptyState';
 import TeamBadge from '../components/TeamBadge';
 import { useData } from '../lib/data-context';
 import { teamPath, teamsFromMatches } from '../lib/data-utils';
-import { teamShort, teamInk } from '../lib/teams';
+import { teamShort, teamInk, readableInk } from '../lib/teams';
 import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
 import type { Match } from '../types';
 import type { TeamMeta } from '../lib/data-context';
@@ -112,7 +112,7 @@ export default function TeamsPage() {
                   <a
                     key={l}
                     href={`#letter-${l}`}
-                    className="flex h-7 w-7 items-center justify-center border border-line bg-raised font-mono text-xs text-chalk-soft no-underline transition-colors hover:border-chalk hover:text-chalk"
+                    className="flex h-7 w-7 items-center justify-center border [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 border-line bg-raised font-mono text-xs text-chalk-soft no-underline transition-colors hover:border-chalk hover:text-chalk"
                   >
                     {l}
                   </a>
@@ -145,13 +145,13 @@ export default function TeamsPage() {
                                 {club.name}
                               </span>
                               <span
-                                className="hidden sm:inline font-mono text-[0.625rem] uppercase tracking-widest"
-                                style={{ color: ink }}
+                                className="hidden sm:inline font-mono text-micro uppercase tracking-widest"
+                                style={{ color: readableInk(ink) }}
                               >
                                 {short}
                               </span>
                             </span>
-                            <span className="mt-0.5 block font-mono text-[0.625rem] uppercase tracking-wider-caps text-chalk-faint">
+                            <span className="mt-0.5 block font-mono text-micro uppercase tracking-wider-caps text-chalk-faint">
                               {club.fixtures} fixture{club.fixtures === 1 ? '' : 's'} in the ledger
                               {club.expFor != null && ` · expected gf ${club.expFor.toFixed(1)}`}
                               {club.elo != null && ` · club rating ${club.elo}`}

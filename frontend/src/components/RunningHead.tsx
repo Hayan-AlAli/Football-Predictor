@@ -64,7 +64,7 @@ export default function RunningHead({ gameweek, isCurrentWeek }: RunningHeadProp
             <NavLink to="/" className="group flex min-h-[56px] shrink-0 items-center gap-3 no-underline" aria-label="Touchline — matchday">
               <TouchlineMark size={30} />
               <span className="font-display text-[1.875rem] font-black leading-none text-chalk">TOUCHLINE</span>
-              <span className="hidden border border-line-strong px-1.5 py-0.5 font-mono text-[0.625rem] tracking-wider-caps text-chalk-faint xl:inline">
+              <span className="hidden border border-line-strong px-1.5 py-0.5 font-mono text-micro tracking-wider-caps text-chalk-faint xl:inline">
                 MATCHDAY DESK
               </span>
             </NavLink>
@@ -76,7 +76,7 @@ export default function RunningHead({ gameweek, isCurrentWeek }: RunningHeadProp
             {showThisWeek && <span className="chip ml-1">This week</span>}
           </span>
         </div>
-        <SectionLinks className="-mb-px flex items-center gap-6 overflow-x-auto lg:hidden" />
+        <SectionLinks className="scroll-fade -mb-px flex items-center gap-6 overflow-x-auto pr-8 lg:hidden" />
       </div>
       <div className="h-1 bg-amber" aria-hidden="true" />
     </motion.header>

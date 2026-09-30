@@ -109,11 +109,11 @@ export default function ForecastPage() {
           </div>
 
           <div className="hidden sm:grid grid-cols-[2.5rem_1fr_10rem_4.5rem_12rem] gap-x-3 px-2 pb-1 pt-3">
-            <span className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">#</span>
-            <span className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">Club</span>
-            <span className="text-center font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">Points P10–P90</span>
-            <span className="text-center font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">Median pos</span>
-            <span className="text-right font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">Title · Top-4 · Relegation</span>
+            <span className="font-mono text-micro uppercase tracking-widest text-chalk-faint">#</span>
+            <span className="font-mono text-micro uppercase tracking-widest text-chalk-faint">Club</span>
+            <span className="text-center font-mono text-micro uppercase tracking-widest text-chalk-faint">Points P10–P90</span>
+            <span className="text-center font-mono text-micro uppercase tracking-widest text-chalk-faint">Median pos</span>
+            <span className="text-right font-mono text-micro uppercase tracking-widest text-chalk-faint">Title · Top-4 · Relegation</span>
           </div>
 
           <motion.div variants={staggerV} initial="hidden" animate="show" className="pb-8">
@@ -132,35 +132,35 @@ export default function ForecastPage() {
                     <TeamBadge team={r.team} info={r.team_info} size="lg" />
                     <span className="truncate font-sans text-sm font-bold uppercase tracking-caps text-chalk" title={r.team}>{r.team}</span>
                     {current && (
-                      <span className="hidden sm:inline font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">
+                      <span className="hidden sm:inline font-mono text-micro uppercase tracking-widest text-chalk-faint">
                         {current.points} pts · {current.played} played
                       </span>
                     )}
                   </span>
                   <span className="flex w-24 items-center gap-1.5 sm:w-auto sm:flex-1" aria-label={`Points range ${r.points_p10} to ${r.points_p90}`}>
-                    <span className="font-mono text-[0.625rem] text-chalk-faint tnum">{Math.round(r.points_p10)}</span>
+                    <span className="font-mono text-micro text-chalk-faint tnum">{Math.round(r.points_p10)}</span>
                     <span className="relative h-2 flex-1 bg-raised border border-line overflow-hidden">
                       <span className="absolute inset-y-0 left-0 bg-chalk/25" style={{ width: `${(r.points_p50 / 90) * 100}%` }} aria-hidden="true" />
                       <span className="absolute top-1/2 h-full w-0.5 -translate-y-1/2 bg-amber" style={{ left: `${(r.points_p50 / 90) * 100}%` }} aria-hidden="true" />
                     </span>
-                    <span className="font-mono text-[0.625rem] text-chalk-faint tnum">{Math.round(r.points_p90)}</span>
+                    <span className="font-mono text-micro text-chalk-faint tnum">{Math.round(r.points_p90)}</span>
                   </span>
                   <span className="text-center font-mono text-sm text-chalk tnum">{r.median_position}</span>
                   <span className="hidden sm:block">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-16 truncate font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">title</span>
+                      <span className="w-16 truncate font-mono text-micro uppercase tracking-widest text-chalk-faint">title</span>
                       <MeterBar value={r.title_odds} tone={r.title_odds > 0.2 ? 'rubric' : 'ink'} />
-                      <span className="w-9 text-right font-mono text-[0.625rem] text-chalk tnum">{percent(r.title_odds)}</span>
+                      <span className="w-9 text-right font-mono text-micro text-chalk tnum">{percent(r.title_odds)}</span>
                     </span>
                     <span className="mt-1 flex items-center gap-1.5">
-                      <span className="w-16 truncate font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">top-4</span>
+                      <span className="w-16 truncate font-mono text-micro uppercase tracking-widest text-chalk-faint">top-4</span>
                       <MeterBar value={r.top4_odds} />
-                      <span className="w-9 text-right font-mono text-[0.625rem] text-chalk tnum">{percent(r.top4_odds)}</span>
+                      <span className="w-9 text-right font-mono text-micro text-chalk tnum">{percent(r.top4_odds)}</span>
                     </span>
                     <span className="mt-1 flex items-center gap-1.5">
-                      <span className="w-16 truncate font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">releg.</span>
+                      <span className="w-16 truncate font-mono text-micro uppercase tracking-widest text-chalk-faint">releg.</span>
                       <MeterBar value={r.relegation_odds} tone={r.relegation_odds > 0.2 ? 'rubric' : 'ink'} />
-                      <span className="w-9 text-right font-mono text-[0.625rem] text-chalk tnum">{percent(r.relegation_odds)}</span>
+                      <span className="w-9 text-right font-mono text-micro text-chalk tnum">{percent(r.relegation_odds)}</span>
                     </span>
                   </span>
                 </motion.div>

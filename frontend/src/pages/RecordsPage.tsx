@@ -117,11 +117,11 @@ export default function RecordsPage() {
             </div>
           ) : (
             <>
-              <p className="mt-4 font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">
+              <p className="mt-4 font-mono text-micro uppercase tracking-widest text-chalk-faint">
                 Called = the model&apos;s print · bold = what happened
               </p>
               <nav aria-label="Index of matchweeks" className="sticky top-[112px] z-10 -mx-4 border-y border-line bg-ground px-4 py-2">
-                <span className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">Index</span>
+                <span className="font-mono text-micro uppercase tracking-widest text-chalk-faint">Index</span>
                 <span className="ml-3 inline-flex max-w-full items-center gap-x-1 overflow-x-auto">
                   {grouped.map((group) => {
                     const id = group.gw != null ? `gw-${group.gw}` : `date-${group.date}`;
@@ -133,7 +133,7 @@ export default function RecordsPage() {
                         href={`#${id}`}
                         data-index-link={id}
                         aria-current={active ? 'true' : undefined}
-                        className={`inline-flex min-h-[44px] items-center whitespace-nowrap px-2 font-mono text-[0.625rem] uppercase tracking-widest hover:text-chalk ${active ? 'text-chalk font-semibold' : 'text-chalk-soft'}`}
+                        className={`inline-flex min-h-[44px] items-center whitespace-nowrap px-2 font-mono text-micro uppercase tracking-widest hover:text-chalk ${active ? 'text-chalk font-semibold' : 'text-chalk-soft'}`}
                       >
                         {label}
                       </a>
@@ -167,7 +167,7 @@ export default function RecordsPage() {
                       <span className="font-mono text-chalk">{group.date}</span>
                     )}
                     {(groupCorrect > 0 || groupIncorrect > 0) && (
-                      <span className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">
+                      <span className="font-mono text-micro uppercase tracking-widest text-chalk-faint">
                         {groupCorrect} correct · {groupIncorrect} incorrect
                       </span>
                     )}
@@ -203,11 +203,11 @@ export default function RecordsPage() {
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span className="flex items-center gap-2 font-mono text-xs text-chalk-soft tnum">
-                              <span className="uppercase tracking-wider-caps text-[0.625rem] text-chalk-faint">Called</span>
+                              <span className="uppercase tracking-wider-caps text-micro text-chalk-faint">Called</span>
                               {pred ? `${pred.winner === 'Draw' ? 'Draw' : teamShort(pred.winner ?? '')} ${scoreline(pred.score)}` : '—'}
                             </span>
                             <span className="flex items-center gap-2 font-mono text-xs font-semibold text-chalk tnum">
-                              <span className="uppercase tracking-wider-caps text-[0.625rem] font-normal text-chalk-faint">Actual</span>
+                              <span className="uppercase tracking-wider-caps text-micro font-normal text-chalk-faint">Actual</span>
                               {actualScore ?? <span className="text-chalk-faint">—</span>}
                             </span>
                             <span>

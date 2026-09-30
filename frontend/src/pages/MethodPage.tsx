@@ -34,7 +34,7 @@ export default function MethodPage() {
   const variants = reduce ? getReducedMotionVariants(headVariants) : headVariants;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 pb-4">
+    <div className="method-prose mx-auto max-w-3xl px-4 pb-4">
       <motion.div variants={variants} initial="hidden" animate="show" className="pt-8">
         <h1 className="mt-1 font-display text-[2.75rem] sm:text-[3.5rem] font-black uppercase leading-[0.9] text-chalk">
           The Method
@@ -147,7 +147,7 @@ export default function MethodPage() {
           <h2 className="rule-double pt-3 font-display text-2xl font-extrabold uppercase text-chalk">
             <span className="font-mono text-chalk-faint">IV.</span> The record
           </h2>
-          <div className="mt-4 border-l-[3px] border-signal bg-panel p-4 sm:p-5">
+          <div className="mt-4 border border-line-strong bg-panel p-4 sm:p-5">
             <p className="font-sans text-sm text-chalk-soft sm:text-base">
               Probabilities are <strong className="font-sans">model outputs, not bookmakers' odds</strong>. The press
               prints what the data supports and claims no edge. Every verdict is kept against the actual result in

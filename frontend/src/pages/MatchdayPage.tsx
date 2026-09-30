@@ -145,7 +145,7 @@ export default function MatchdayPage() {
                 initial="hidden"
                 animate="show"
                 key={view}
-                className="grid gap-5 sm:grid-cols-2"
+                className="grid grid-cols-1 gap-5 sm:grid-cols-2"
               >
                 {weekMatches.map((m) => (
                   <FixtureCard key={m.id} match={m} verdict={verdictByMatch.get(m.id)} />

@@ -30,22 +30,22 @@ export default function FeatureReveal({ match }: { match: Match }) {
   const away = typeof match.away_team === 'string' ? match.away_team : match.away_team?.name ?? '';
 
   return (
-    <section className="rule-double mt-5 pt-4" aria-label="Model inputs for this fixture">
+    <section className="rule-double mt-5 pt-4" aria-label={`Model inputs, ${home} v ${away}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">
+        <h3 className="font-mono text-micro uppercase tracking-wider-caps text-chalk-faint">
           Why the model says so · feature inputs
-        </h4>
-        <span className="font-sans text-[0.6875rem] italic text-chalk-faint">
+        </h3>
+        <span className="font-sans text-xs italic text-chalk-faint">
           live club rating and rolling form, against the league average
         </span>
       </div>
 
       <div className="mt-3 space-y-1.5">
         <div className="grid grid-cols-[1fr_auto] gap-x-3 sm:grid-cols-[8rem_1fr_1fr_1fr]">
-          <span className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">Club rating</span>
-          <span className="hidden sm:block text-right font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">{teamShort(home)}</span>
-          <span className="hidden sm:block text-center font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">gap</span>
-          <span className="hidden sm:block text-right font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">{teamShort(away)}</span>
+          <span className="font-mono text-micro uppercase tracking-widest text-chalk-faint">Club rating</span>
+          <span className="hidden sm:block text-right font-mono text-micro uppercase tracking-widest text-chalk-faint">{teamShort(home)}</span>
+          <span className="hidden sm:block text-center font-mono text-micro uppercase tracking-widest text-chalk-faint">gap</span>
+          <span className="hidden sm:block text-right font-mono text-micro uppercase tracking-widest text-chalk-faint">{teamShort(away)}</span>
         </div>
         <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 border-t border-line pt-1.5 sm:grid-cols-[8rem_1fr_1fr_1fr]">
           <span className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-soft">Elo</span>

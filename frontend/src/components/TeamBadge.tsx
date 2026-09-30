@@ -3,9 +3,10 @@ import { teamName, teamShort, teamInk, teamBadges, clubTextColor } from '../lib/
 import type { Team } from '../types';
 
 const SIZES = {
-  sm: { cls: 'w-6 h-6', px: 24 },
-  md: { cls: 'w-8 h-8', px: 32 },
-  lg: { cls: 'w-10 h-10', px: 40 },
+  // The 24px plate only fits three letters at 10px; the larger ones use the 11px floor.
+  sm: { cls: 'w-6 h-6 text-[10px] tracking-normal', px: 24 },
+  md: { cls: 'w-8 h-8 text-micro tracking-wide', px: 32 },
+  lg: { cls: 'w-10 h-10 text-micro tracking-widest', px: 40 },
 } as const;
 
 interface TeamBadgeProps {
@@ -48,7 +49,7 @@ export default function TeamBadge({ team, info, size = 'md', className = '' }: T
   const ink = teamInk(subject);
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-sm border border-line font-sans text-[10px] font-bold tracking-widest ${cls} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-sm border border-line font-sans font-bold ${cls} ${className}`}
       style={{ backgroundColor: ink, color: clubTextColor(ink) }}
       aria-hidden="true"
     >

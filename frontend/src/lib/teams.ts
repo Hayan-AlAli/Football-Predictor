@@ -25,15 +25,48 @@ export function teamInfo(team: string | Team): Team {
 
 export const DEFAULT_CLUB_INK = '#6A6355';
 
+const INK_DARK = '#2A2A29';
+const INK_PAPER = '#FBF7EC';
+// Pure black only wins on bright reds, where neither house ink reaches 4.5:1.
+const INK_BLACK = '#000000';
+const GROUND = '#0F1114';
+const CHALK = '#E9E6DF';
+
+function luminance(hex: string): number {
+  const h = hex.replace('#', '');
+  const lin = (i: number) => {
+    const c = parseInt(h.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4);
+}
+
+function contrast(a: string, b: string): number {
+  const [la, lb] = [luminance(a), luminance(b)];
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
 /** Ink on bright club inks, cream on dark ones — initials must never sink into the plate. */
 export function clubTextColor(hex: string): string {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16) / 255;
-  const g = parseInt(h.slice(2, 4), 16) / 255;
-  const b = parseInt(h.slice(4, 6), 16) / 255;
-  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const l = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  return l > 0.15 ? '#2A2A29' : '#FBF7EC';
+  return [INK_DARK, INK_PAPER, INK_BLACK].reduce((best, ink) => (contrast(ink, hex) > contrast(best, hex) ? ink : best));
+}
+
+/** A club colour made legible as text on the graphite ground: blended toward
+ *  chalk just far enough to clear 4.5:1, so navy stays navy-toned. */
+export function readableInk(hex: string, background = GROUND): string {
+  const mix = (t: number) => {
+    const channel = (i: number) => {
+      const a = parseInt(hex.replace('#', '').slice(i, i + 2), 16);
+      const b = parseInt(CHALK.slice(1 + i, 3 + i), 16);
+      return Math.round(a + (b - a) * t).toString(16).padStart(2, '0');
+    };
+    return `#${channel(0)}${channel(2)}${channel(4)}`;
+  };
+  for (let t = 0; t <= 1; t += 0.05) {
+    const ink = mix(t);
+    if (contrast(ink, background) >= 4.5) return ink;
+  }
+  return CHALK;
 }
 
 /** Names as fans say them — long official names don't fit a fixture card. */

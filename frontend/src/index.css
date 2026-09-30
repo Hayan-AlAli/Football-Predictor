@@ -9,27 +9,13 @@
    ============================================ */
 
 :root {
-  /* Graphite */
-  --ground: #0F1114;
-  --ground-deep: #0A0B0D;
-  --panel: #171A1F;
-  --raised: #1D2127;
-  --line: #262B33;
-  --line-strong: #3A404A;
-  --chalk: #E9E6DF;
-  --chalk-soft: #B5B8BE;
-  --chalk-faint: #8C919A;
-  --amber: #FFB547;
-  --amber-deep: #E89A2C;
-  --signal: #6FA8FF;
-  --draw: #4B515C;
-
+  /* Colours come from the palette in tailwind.config.js (--ground, --chalk, ...). */
   color-scheme: dark;
 
   /* Type */
   --font-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-display: 'Big Shoulders Display', Impact, 'Arial Narrow', sans-serif;
+  --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
 
   /* Transitions */
   --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -388,4 +374,30 @@ img {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* ---------- Fixture card team names ----------
+   Fit the column between the badge edge and the score box: half the card
+   (50cqi) minus half the score box and gaps, over the longest word at 0.48em
+   a capital (Big Shoulders Display's widest average, measured). Short names
+   keep the full size; the break rule is only a last resort. */
+.team-name {
+  font-size: var(--name-max);
+  font-size: clamp(0.9375rem, calc((50cqi - 2.875rem) / (var(--chars) * 0.48)), var(--name-max));
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Scrolling strips (section links, season stats) ----------
+   Fade the trailing edge so a clipped strip reads as scrollable. The fade
+   sits over the strip's end padding, so it is invisible when everything
+   fits and the last item still scrolls fully clear of it. */
+.scroll-fade {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+
+/* Method prose keeps a reading measure (~70 characters of Instrument Sans,
+   which runs narrower than the ch unit's zero) inside the wider column. */
+.method-prose p {
+  max-width: 58ch;
 }

@@ -47,13 +47,13 @@ export default function RecordPanel() {
                 const acc = w.accuracy ?? 0;
                 return (
                   <li key={w.gameweek} className="flex flex-1 flex-col items-center gap-1.5">
-                    <span className="font-mono text-[0.625rem] text-chalk-soft tnum">{w.correct}/{w.decided}</span>
+                    <span className="font-mono text-micro text-chalk-soft tnum">{w.correct}/{w.decided}</span>
                     <span
                       className={`w-full ${acc >= 0.5 ? 'bg-amber' : 'bg-line-strong'}`}
                       style={{ height: `${Math.max(4, acc * 64)}px` }}
                       aria-hidden="true"
                     />
-                    <span className="font-mono text-[0.625rem] text-chalk-faint">#{w.gameweek}</span>
+                    <span className="font-mono text-micro text-chalk-faint">#{w.gameweek}</span>
                   </li>
                 );
               })}

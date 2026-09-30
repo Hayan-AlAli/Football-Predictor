@@ -93,11 +93,12 @@ export default function TeamDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-4">
-      <motion.div variants={headV} initial="hidden" animate="show" className="pt-8">
-        <Link to="/teams" className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint no-underline hover:text-chalk">
+      <motion.div variants={headV} initial="hidden" animate="show" className="pt-4">
+        {/* 44px hit area; the padding above is trimmed so the text stays put. */}
+        <Link to="/teams" className="inline-flex min-h-[44px] items-center font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint no-underline hover:text-chalk">
           ← The Teams Index
         </Link>
-        <div className="mt-3 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <TeamBadge team={data.team} info={data.team_info} size="lg" />
           <div className="min-w-0">
             <h1 className="truncate font-display text-[2.75rem] sm:text-[3.5rem] font-black uppercase leading-[0.9] text-chalk">
@@ -116,7 +117,7 @@ export default function TeamDetailPage() {
         <section className="rule-double mt-8 pt-3">
           <h2 className="font-display text-[1.75rem] font-extrabold uppercase leading-none text-chalk">The ledger of the club</h2>
           <div className="mt-3">
-            <div className="hidden sm:grid grid-cols-[5rem_1fr_1fr_1fr_1fr_1fr_1fr_3rem] gap-x-2 px-2 pb-1 font-mono text-[0.625rem] uppercase tracking-widest text-chalk-faint">
+            <div className="hidden sm:grid grid-cols-[5rem_1fr_1fr_1fr_1fr_1fr_1fr_3rem] gap-x-2 px-2 pb-1 font-mono text-micro uppercase tracking-widest text-chalk-faint">
               <span>Season</span><span className="text-right">P</span><span className="text-right">W</span>
               <span className="text-right">D</span><span className="text-right">L</span>
               <span className="text-right">GF</span><span className="text-right">GA</span><span className="text-right">Pts</span>
@@ -213,7 +214,7 @@ export default function TeamDetailPage() {
             <select
               value={vs}
               onChange={onVsChange}
-              className="border border-line bg-raised px-2 py-1 font-mono text-xs uppercase tracking-wider-caps text-chalk"
+              className="border border-line bg-raised px-2 py-1 font-mono text-xs uppercase tracking-wider-caps text-chalk [@media(pointer:coarse)]:min-h-[44px]"
             >
               {vsList.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>

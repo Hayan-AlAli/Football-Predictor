@@ -104,7 +104,7 @@ export default function CalibrationPage() {
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {data.bins.map((b) => (
-                  <span key={b.label} className="font-mono text-[0.625rem] uppercase tracking-widest text-chalk-soft">
+                  <span key={b.label} className="font-mono text-micro uppercase tracking-widest text-chalk-soft">
                     {b.label} · n={b.count} · {percent(b.predicted)}% → {percent(b.actual)}%
                   </span>
                 ))}

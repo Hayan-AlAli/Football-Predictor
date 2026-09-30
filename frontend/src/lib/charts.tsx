@@ -81,7 +81,7 @@ export function CalibrationCurve({
   const line = bins
     .map((b, i) => `${i === 0 ? 'M' : 'L'}${x(b.predicted).toFixed(1)},${y(b.actual).toFixed(1)}`)
     .join(' ');
-  const axis = 'font-mono text-[0.625rem] text-chalk-faint tnum';
+  const axis = 'font-mono text-micro text-chalk-faint tnum';
   return (
     <figure className="flex gap-2">
       {/* Axis labels live in HTML so they stay one size however wide the chart is drawn */}
