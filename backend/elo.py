@@ -145,6 +145,47 @@ def ratings_from_results(results):
     return final
 
 
+def _undo_match(home_post, away_post, home_goals, away_goals):
+    """Ratings before a match, given the ratings after it.
+
+    The pair's sum never changes and the post-match gap is the pre-match gap
+    plus twice the (monotone) rating swing, so bisect on the gap.
+    """
+    total, gap_post = home_post + away_post, home_post - away_post
+    lo, hi = gap_post - 2 * K - 1, gap_post + 2 * K + 1
+    for _ in range(60):
+        gap = (lo + hi) / 2
+        if gap + 2 * match_delta((total + gap) / 2, (total - gap) / 2, home_goals, away_goals) < gap_post:
+            lo = gap
+        else:
+            hi = gap
+    gap = (lo + hi) / 2
+    return (total + gap) / 2, (total - gap) / 2
+
+
+def ratings_before(day, results):
+    """Ratings as they stood before the matches of `day` (YYYY-MM-DD).
+
+    results: stored results covering `day` up to now. After the seed date
+    this replays forward from the seed; on or before it, it rewinds the
+    seed through every result from `day` to the seed date, latest first.
+    """
+    as_of, ratings = load_seed()
+    day = str(day)[:10]
+    if day > as_of:
+        later = [r for r in results if as_of < str(r['date'])[:10] < day]
+        return replay(later, ratings=ratings)[0] if later else ratings
+    played = sorted((r for r in results if day <= str(r['date'])[:10] <= as_of),
+                    key=lambda r: str(r['date'])[:10], reverse=True)
+    for r in played:
+        if r.get('home_goals') is None or r.get('away_goals') is None:
+            continue
+        h, a = utils.normalize_team_name(r['home_team']), utils.normalize_team_name(r['away_team'])
+        if h in ratings and a in ratings:
+            ratings[h], ratings[a] = _undo_match(ratings[h], ratings[a], r['home_goals'], r['away_goals'])
+    return ratings
+
+
 def stored_results_since(as_of):
     """Finished matches played after as_of, from the database."""
     from backend import db

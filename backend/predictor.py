@@ -220,12 +220,16 @@ def team_has_history(team_name, df=None):
         return False
 
 
-def get_latest_stats(team_name, df, window=5):
+def get_latest_stats(team_name, df, window=5, before=None):
+    """Mean goals and xG over a team's last `window` matches, counting only
+    matches played strictly before `before` when it is given."""
     norm = utils.normalize_team_name(team_name)
     home_matches = df[utils.normalize_column(df['home_team']) == norm]
     away_matches = df[utils.normalize_column(df['away_team']) == norm]
 
     all_matches = pd.concat([home_matches, away_matches]).sort_values(by='date')
+    if before is not None:
+        all_matches = all_matches[features._naive_utc(all_matches['date']) < features._naive_utc(before)]
 
     if all_matches.empty:
         return 0.0, 0.0
@@ -394,8 +398,8 @@ def _match_features(m, state, form_of):
     else:
         model_home_elo, model_away_elo = home_elo, away_elo
 
-    h_g, h_xg = form_of('latest', home_norm, None)
-    a_g, a_xg = form_of('latest', away_norm, None)
+    h_g, h_xg = form_of('latest', home_norm, m.get('date'))
+    a_g, a_xg = form_of('latest', away_norm, m.get('date'))
     if h_g == 0.0 and h_xg == 0.0:
         h_g, h_xg = training_df['home_rolling_goals'].mean(), training_df['home_rolling_xg'].mean()
     if a_g == 0.0 and a_xg == 0.0:
@@ -456,7 +460,7 @@ def predict_matches(matches):
         key = (window, team, day)
         if key not in memo:
             if window == 'latest':
-                memo[key] = get_latest_stats(team, history)
+                memo[key] = get_latest_stats(team, history, before=before)
             else:
                 if team not in has_history:
                     has_history[team] = team_has_history(team, history)

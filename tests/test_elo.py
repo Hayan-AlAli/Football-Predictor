@@ -88,3 +88,23 @@ def test_duplicate_results_counted_once():
     rows = [_m("2026-09-26", "Arsenal", "Chelsea", 1, 0)] * 2
     once = elo.current_ratings(rows[:1])
     assert elo.current_ratings(rows) == once
+
+
+def test_ratings_before_rewinds_the_seed_and_replays_after_it(monkeypatch):
+    seed = {"Arsenal": 1600.0, "Chelsea": 1500.0, "Everton": 1450.0, "Fulham": 1480.0}
+    monkeypatch.setattr(elo, "load_seed", lambda: ("2026-09-20", dict(seed)))
+    results = [
+        {"date": "2026-09-13", "home_team": "Arsenal", "away_team": "Chelsea", "home_goals": 2, "away_goals": 0},
+        {"date": "2026-09-19", "home_team": "Chelsea", "away_team": "Arsenal", "home_goals": 1, "away_goals": 1},
+        {"date": "2026-09-27", "home_team": "Everton", "away_team": "Fulham", "home_goals": 0, "away_goals": 3},
+    ]
+    # Before the seed date: replaying the undone results lands back on the seed.
+    for day, undone in (("2026-09-13", results[:2]), ("2026-09-14", results[1:2])):
+        pre = elo.ratings_before(day, results)
+        final, _, _ = elo.replay(undone, ratings=pre)
+        assert all(abs(final[t] - seed[t]) < 1e-6 for t in seed)
+    before = elo.ratings_before("2026-09-13", results)
+    assert before["Arsenal"] < seed["Arsenal"] and before["Everton"] == seed["Everton"]
+    # After it: seed plus results strictly before the day, never the day itself.
+    assert elo.ratings_before("2026-09-27", results) == seed
+    assert elo.ratings_before("2026-09-28", results)["Fulham"] > seed["Fulham"]

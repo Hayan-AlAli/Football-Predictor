@@ -186,3 +186,16 @@ def test_read_endpoints_do_not_load_the_model():
                             capture_output=True, text=True,
                             cwd=os.path.join(os.path.dirname(__file__), ".."))
     assert result.returncode == 0, result.stderr[-2000:]
+
+
+def test_latest_stats_only_count_matches_before_the_cutoff():
+    import pandas as pd
+    df = pd.DataFrame([
+        {"date": pd.Timestamp("2026-09-05"), "home_team": "Arsenal", "away_team": "Chelsea",
+         "home_goals": 1, "away_goals": 0},
+        {"date": pd.Timestamp("2026-09-12"), "home_team": "Arsenal", "away_team": "Everton",
+         "home_goals": 5, "away_goals": 0},
+    ])
+    assert predictor.get_latest_stats("Arsenal", df)[0] == 3.0
+    # Midnight of match day: the 12 Sep result is not known yet.
+    assert predictor.get_latest_stats("Arsenal", df, before="2026-09-12")[0] == 1.0

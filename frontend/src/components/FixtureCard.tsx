@@ -44,6 +44,8 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
   const awayElo = features?.away_elo ?? pred?.away_elo;
   const probs = pred ? { H: pred.prob_home, D: pred.prob_draw, A: pred.prob_away } : null;
   const plateId = `plate-${match.id}`;
+  // Calls rebuilt after kickoff from pre-match data (sync replaced a placeholder).
+  const rebuilt = pred?.model_version?.endsWith('+rebuilt') ?? false;
 
   const actual = verdict?.actual?.score ?? (verdict?.actual ? `${verdict.actual.home_goals}-${verdict.actual.away_goals}` : null);
 
@@ -138,6 +140,11 @@ export default function FixtureCard({ match, verdict }: FixtureCardProps) {
             {verdict?.status === 'CORRECT' && <span className="stamp-right">Right ✓</span>}
             {verdict?.status === 'INCORRECT' && <span className="stamp-wrong">Wrong</span>}
             {verdict?.status === 'PENDING' && <span className="chip">Pending</span>}
+            {rebuilt && (
+              <span className="chip" title="Rebuilt after the match from pre-match Elo and form; the original call was lost to a bug.">
+                Rebuilt
+              </span>
+            )}
             {actual && (
               <span className="font-mono text-xs text-chalk-soft tnum">
                 FT {scoreline(actual).replace(/\s/g, '')}

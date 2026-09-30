@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend import db, predictor, sync
+from backend import db, elo, predictor, sync
 from backend.sources import espn, football_data
 from espn_fake import event, season_events
 
@@ -146,3 +146,35 @@ def test_forecast_due_policy():
     assert sync.forecast_due(True, True, weekday=3)
     assert sync.forecast_due(True, False, weekday=0)
     assert not sync.forecast_due(True, False, weekday=3)
+
+
+FLAT = {"prob_home": 0.33, "prob_draw": 0.34, "prob_away": 0.33, "exp_home_goals": 1.2,
+        "exp_away_goals": 1.2, "score": "1-1", "winner": "Draw", "model_version": "legacy-rf"}
+
+
+def test_placeholder_calls_on_played_matches_are_rebuilt(feed):
+    sync.run_sync(now=NOW)
+    played = {m["id"]: m for m in db.load_matches() if m["status"] == "finished"}
+    broken = [i for i, m in played.items() if m["date"] in ("2026-09-12", "2026-09-19")]
+    real = next(i for i, m in played.items() if m["date"] == "2026-09-05")
+    db.upsert_predictions([{"match_id": i, **FLAT} for i in broken]
+                          + [{"match_id": real, **FLAT, "prob_home": 0.6, "prob_away": 0.06}])
+
+    summary = sync.run_sync(now=NOW)
+    assert summary["repaired"] == len(broken) == 20
+    after = {m["id"]: m for m in db.load_matches()}
+    results = db.results_since("2026-09-11")
+    for i in broken:
+        pred, m = after[i]["prediction"], after[i]
+        assert not sync.is_placeholder(pred)
+        assert pred["model_version"] == "elo-poisson" + sync.REBUILT_SUFFIX
+        # Elo as it stood before that match day, not today's.
+        assert pred["home_elo"] == int(elo.ratings_before(m["date"], results)[m["home_team"]])
+    assert after[real]["prediction"]["prob_home"] == 0.6      # real calls stay frozen
+    assert sync.run_sync(now=NOW)["repaired"] == 0            # idempotent
+
+
+def test_placeholder_detection():
+    assert sync.is_placeholder(FLAT)
+    assert sync.is_placeholder({"prob_home": None, "prob_draw": None, "prob_away": None})
+    assert not sync.is_placeholder({"prob_home": 0.4, "prob_draw": 0.3, "prob_away": 0.3})
