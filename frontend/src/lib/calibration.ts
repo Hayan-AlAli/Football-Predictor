@@ -1,11 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useLoad, type LoadState } from './load';
 import { getCalibration } from '../api/matches';
 import type { CalibrationData } from '../types';
 
-export type CalibrationState =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; data: CalibrationData };
+export type CalibrationState = LoadState<CalibrationData>;
 
 // One request per page load: the stats strip and the record panel share it.
 let pending: Promise<CalibrationData> | null = null;
@@ -22,17 +19,7 @@ function loadCalibration(force = false): Promise<CalibrationData> {
 
 /** The model's season record (accuracy, Brier, per-matchweek hits), fetched once and shared. */
 export function useCalibration(): CalibrationState {
-  const [state, setState] = useState<CalibrationState>({ status: 'loading' });
-
-  useEffect(() => {
-    let cancelled = false;
-    loadCalibration()
-      .then((data) => { if (!cancelled) setState({ status: 'ready', data }); })
-      .catch(() => { if (!cancelled) setState({ status: 'error' }); });
-    return () => { cancelled = true; };
-  }, []);
-
-  return state;
+  return useLoad(loadCalibration, [])[0];
 }
 
 /** The most recent block of decided calls (the backend groups calls in tens). */

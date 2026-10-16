@@ -1,10 +1,10 @@
 import { useState, type CSSProperties } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import TeamBadge from './TeamBadge';
 import FeatureReveal from './FeatureReveal';
 import { displayName, teamName, teamShort } from '../lib/teams';
 import { percent, scoreline, printDate, kickoffDay, strongestCall } from '../lib/format';
-import { ledgerVariants, stampVariants, getReducedMotionVariants } from '../lib/motion';
+import { useMotionVariants } from '../lib/motion';
 import type { Match, ResultEntry } from '../types';
 
 interface FixtureCardProps {
@@ -24,9 +24,7 @@ function fitName(label: string): CSSProperties {
 /** One fixture as a desk card: the call, the expected score, the split and the model's inputs. */
 export default function FixtureCard({ match, verdict }: FixtureCardProps) {
   const [open, setOpen] = useState(false);
-  const reduce = useReducedMotion();
-  const variants = reduce ? getReducedMotionVariants(ledgerVariants) : ledgerVariants;
-  const stampV = reduce ? getReducedMotionVariants(stampVariants) : stampVariants;
+  const { ledger: variants, stamp: stampV } = useMotionVariants();
 
   const pred = match.prediction;
   const call = strongestCall(match);

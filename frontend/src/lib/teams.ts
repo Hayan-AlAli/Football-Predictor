@@ -16,14 +16,14 @@ export function registerTeams(teams: Team[]): void {
 }
 
 /** The fullest description known for a team: the given object merged over the registry entry. */
-export function teamInfo(team: string | Team): Team {
+function teamInfo(team: string | Team): Team {
   const name = typeof team === 'string' ? team : team.name;
   const known = registry.get(name);
   if (typeof team === 'string') return known ?? { name };
   return { ...known, ...Object.fromEntries(Object.entries(team).filter(([, v]) => v != null && v !== '')), name };
 }
 
-export const DEFAULT_CLUB_INK = '#6A6355';
+const DEFAULT_CLUB_INK = '#6A6355';
 
 const INK_DARK = '#2A2A29';
 const INK_PAPER = '#FBF7EC';
@@ -123,10 +123,4 @@ export function teamInk(team: string | Team): string {
 export function teamBadges(team: string | Team): string[] {
   const info = teamInfo(team);
   return [info.badge_url, info.badge_fallback_url].filter((u): u is string => !!u);
-}
-
-/** The team's short name for a fixture row (favours the backend's short_name). */
-export function fixtureTeamShort(team: string | Team, info?: Team): string {
-  if (info?.short_name) return info.short_name;
-  return teamShort(team);
 }

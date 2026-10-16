@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 import Press from '../components/Press';
 import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
@@ -8,7 +8,7 @@ import TeamBadge from '../components/TeamBadge';
 import { useData } from '../lib/data-context';
 import { teamPath, teamsFromMatches } from '../lib/data-utils';
 import { teamShort, teamInk, readableInk } from '../lib/teams';
-import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
+import { useMotionVariants } from '../lib/motion';
 import type { Match } from '../types';
 import type { TeamMeta } from '../lib/data-context';
 
@@ -55,10 +55,7 @@ function clubStats(matches: Match[], name: string): Pick<ClubRow, 'fixtures' | '
 /** The Teams Index — every club's page of the ledger. */
 export default function TeamsPage() {
   const { status, matches, teams, reload } = useData();
-  const reduce = useReducedMotion();
-  const headV = reduce ? getReducedMotionVariants(headVariants) : headVariants;
-  const staggerV = reduce ? getReducedMotionVariants(staggerContainer) : staggerContainer;
-  const rowV = reduce ? getReducedMotionVariants(ledgerVariants) : ledgerVariants;
+  const { head: headV, stagger: staggerV, ledger: rowV } = useMotionVariants();
 
   const clubs = useMemo(() => {
     const known = teams.length > 0 ? teams : teamsFromMatches(matches);

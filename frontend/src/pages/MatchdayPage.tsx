@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 import FixtureCard from '../components/FixtureCard';
 import RecordPanel from '../components/RecordPanel';
 import Press from '../components/Press';
@@ -10,13 +10,12 @@ import { useBook } from '../lib/book';
 import { useThisWeek } from '../lib/gameweek';
 import { resultEntries } from '../lib/data-utils';
 import { gameweekLabel, kickoffDay, sortMatchesByDate } from '../lib/format';
-import { staggerContainer, getReducedMotionVariants } from '../lib/motion';
+import { useMotionVariants } from '../lib/motion';
 import type { ResultEntry } from '../types';
 
 /** The matchday page: this matchweek's fixtures as cards, with the model's record alongside. */
 export default function MatchdayPage() {
   const { status, matches, gameweeks, reload } = useData();
-  const reduce = useReducedMotion();
   const { selectedGameweek: selected, setSelectedGameweek: setSelected } = useBook();
 
   const thisWeekFromHook = useThisWeek();
@@ -39,7 +38,7 @@ export default function MatchdayPage() {
   const decided = correct + incorrect;
   const accuracy = decided > 0 ? Math.round((correct / decided) * 100) : null;
 
-  const staggerV = reduce ? getReducedMotionVariants(staggerContainer) : staggerContainer;
+  const { stagger: staggerV } = useMotionVariants();
 
   const index = view != null ? gameweeks.indexOf(view) : -1;
   const prev = index > 0 ? gameweeks[index - 1] : null;
