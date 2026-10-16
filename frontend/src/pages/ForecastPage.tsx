@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { useMemo } from 'react';
+import { motion } from 'motion/react';
 import Press from '../components/Press';
 import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
@@ -7,29 +7,13 @@ import TeamBadge from '../components/TeamBadge';
 import { MeterBar } from '../lib/charts';
 import { getForecast } from '../api/matches';
 import { percent } from '../lib/format';
-import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer } from '../lib/motion';
+import { useLoad } from '../lib/load';
+import { useMotionVariants } from '../lib/motion';
 import type { ForecastData } from '../types';
 
-type LoadState =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; data: ForecastData };
-
 export default function ForecastPage() {
-  const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const [reloadKey, setReloadKey] = useState(0);
-  const reduce = useReducedMotion();
-  const headV = reduce ? getReducedMotionVariants(headVariants) : headVariants;
-  const staggerV = reduce ? getReducedMotionVariants(staggerContainer) : staggerContainer;
-  const rowV = reduce ? getReducedMotionVariants(ledgerVariants) : ledgerVariants;
-
-  useEffect(() => {
-    let cancelled = false;
-    getForecast()
-      .then((data) => { if (!cancelled) setState({ status: 'ready', data }); })
-      .catch(() => { if (!cancelled) setState({ status: 'error' }); });
-    return () => { cancelled = true; };
-  }, [reloadKey]);
+  const [state, reload] = useLoad(getForecast, []);
+  const { head: headV, stagger: staggerV, ledger: rowV } = useMotionVariants();
 
   const standingsByTeam = useMemo(() => {
     if (state.status !== 'ready') return new Map<string, ForecastData['standings'][number]>();
@@ -42,10 +26,7 @@ export default function ForecastPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-4">
         <OfflineSlate
           message="The forecast could not be computed. Check that the press (FastAPI) is running."
-          onRetry={() => {
-            setState({ status: 'loading' });
-            setReloadKey((k) => k + 1);
-          }}
+          onRetry={reload}
         />
       </div>
     );

@@ -39,15 +39,6 @@ export function kickoffDay(date: string): string {
   return `${day} ${d.getDate()} ${month}`;
 }
 
-export function shortDate(date: string): string {
-  const d = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return date;
-  return d.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-  });
-}
-
 export function sortMatchesByDate(matches: Match[]): Match[] {
   return [...matches].sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? ''));
 }

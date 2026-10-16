@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 import Press from '../components/Press';
 import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
@@ -11,29 +11,15 @@ import { getHeadToHead, getTeamProfile } from '../api/matches';
 import { useData } from '../lib/data-context';
 import { teamShort } from '../lib/teams';
 import { percent, printDate } from '../lib/format';
-import { getReducedMotionVariants, headVariants } from '../lib/motion';
-import type { Match, TeamProfileData } from '../types';
+import { useLoad } from '../lib/load';
+import { useMotionVariants } from '../lib/motion';
+import type { Match } from '../types';
 import type { H2HData } from '../types';
-
-type LoadState =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; data: TeamProfileData };
 
 export default function TeamDetailPage() {
   const { teamName = '' } = useParams();
-  const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const [reloadKey, setReloadKey] = useState(0);
-  const reduce = useReducedMotion();
-  const headV = reduce ? getReducedMotionVariants(headVariants) : headVariants;
-
-  useEffect(() => {
-    let cancelled = false;
-    getTeamProfile(teamName)
-      .then((data) => { if (!cancelled) setState({ status: 'ready', data }); })
-      .catch(() => { if (!cancelled) setState({ status: 'error' }); });
-    return () => { cancelled = true; };
-  }, [teamName, reloadKey]);
+  const [state, reload] = useLoad(() => getTeamProfile(teamName), [teamName]);
+  const { head: headV } = useMotionVariants();
 
   const { teams } = useData();
   const profileTeam = state.status === 'ready' ? state.data.team : null;
@@ -75,10 +61,7 @@ export default function TeamDetailPage() {
       <div className="mx-auto max-w-3xl px-4 pb-4">
         <OfflineSlate
           message="This club's page could not be set. Check that the press (FastAPI) is running."
-          onRetry={() => {
-            setState({ status: 'loading' });
-            setReloadKey((k) => k + 1);
-          }}
+          onRetry={reload}
         />
       </div>
     );

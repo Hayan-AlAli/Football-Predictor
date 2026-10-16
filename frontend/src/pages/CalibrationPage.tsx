@@ -1,32 +1,16 @@
-import { useEffect, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 import Press from '../components/Press';
 import OfflineSlate from '../components/OfflineSlate';
 import EmptyState from '../components/EmptyState';
 import { CalibrationCurve, SvgLineChart } from '../lib/charts';
 import { getCalibration } from '../api/matches';
 import { percent } from '../lib/format';
-import { getReducedMotionVariants, headVariants } from '../lib/motion';
-import type { CalibrationData } from '../types';
-
-type LoadState =
-  | { status: 'loading' }
-  | { status: 'error' }
-  | { status: 'ready'; data: CalibrationData };
+import { useLoad } from '../lib/load';
+import { useMotionVariants } from '../lib/motion';
 
 export default function CalibrationPage() {
-  const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const [reloadKey, setReloadKey] = useState(0);
-  const reduce = useReducedMotion();
-  const headV = reduce ? getReducedMotionVariants(headVariants) : headVariants;
-
-  useEffect(() => {
-    let cancelled = false;
-    getCalibration()
-      .then((data) => { if (!cancelled) setState({ status: 'ready', data }); })
-      .catch(() => { if (!cancelled) setState({ status: 'error' }); });
-    return () => { cancelled = true; };
-  }, [reloadKey]);
+  const [state, reload] = useLoad(getCalibration, []);
+  const { head: headV } = useMotionVariants();
 
   if (state.status === 'loading') return <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-4"><Press /></div>;
   if (state.status === 'error') {
@@ -34,10 +18,7 @@ export default function CalibrationPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-4">
         <OfflineSlate
           message="The calibration ledger could not be read. Check that the press (FastAPI) is running."
-          onRetry={() => {
-            setState({ status: 'loading' });
-            setReloadKey((k) => k + 1);
-          }}
+          onRetry={reload}
         />
       </div>
     );

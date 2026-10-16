@@ -1,7 +1,7 @@
 import type { Match, ResultEntry, Team } from '../types';
 
 /** Season of a "YYYY-MM-DD" date (August cut, as the backend computes it). */
-export function seasonOf(date: string): string {
+function seasonOf(date: string): string {
   const [y, m] = date.split('-').map(Number);
   if (!y || !m) return '';
   const start = m >= 8 ? y : y - 1;

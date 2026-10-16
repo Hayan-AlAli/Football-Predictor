@@ -1,6 +1,6 @@
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
 import { useData } from '../lib/data-context';
-import { getReducedMotionVariants, headVariants } from '../lib/motion';
+import { useMotionVariants } from '../lib/motion';
 
 const FEATURES = [
   {
@@ -30,8 +30,7 @@ const PIPELINE = ['Fixtures', 'Features', 'Regressors', 'Poisson', 'Probabilitie
 /** The Method — the model's section, honest about what it does and does not claim. */
 export default function MethodPage() {
   const { season } = useData();
-  const reduce = useReducedMotion();
-  const variants = reduce ? getReducedMotionVariants(headVariants) : headVariants;
+  const { head: variants } = useMotionVariants();
 
   return (
     <div className="method-prose mx-auto max-w-3xl px-4 pb-4">

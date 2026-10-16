@@ -1,4 +1,4 @@
-import { Variants } from 'motion/react';
+import { useReducedMotion, type Variants } from 'motion/react';
 
 /**
  * Shared motion presets — Touchline
@@ -6,27 +6,21 @@ import { Variants } from 'motion/react';
  */
 
 // The book's motion curve
-export const print = {
+const print = {
   duration: 0.42,
   ease: [0.22, 1, 0.36, 1] as const,
 };
 
 // The stamp's press curve
-export const press = {
+const press = {
   type: 'spring' as const,
   stiffness: 380,
   damping: 22,
   mass: 0.7,
 };
 
-// Fast interaction
-export const fast = {
-  duration: 0.16,
-  ease: 'easeOut' as const,
-};
-
 // A ledger row drawing itself in, staggered down the page
-export const ledgerVariants: Variants = {
+const ledgerVariants: Variants = {
   hidden: { opacity: 0, y: 10 },
   show: {
     opacity: 1,
@@ -39,23 +33,8 @@ export const ledgerVariants: Variants = {
   },
 };
 
-// The page-turn: the ledger sheet lifts and settles
-export const pageTurnVariants: Variants = {
-  hidden: { opacity: 0, rotateY: -4, transformPerspective: 1200, transformOrigin: 'left center' },
-  show: {
-    opacity: 1,
-    rotateY: 0,
-    transition: { ...print, duration: 0.45 },
-  },
-  exit: {
-    opacity: 0,
-    rotateY: 3,
-    transition: { duration: 0.2, ease: 'easeOut' },
-  },
-};
-
 // The rubric stamp pressing onto the page
-export const stampVariants: Variants = {
+const stampVariants: Variants = {
   hidden: { opacity: 0, scale: 0.82 },
   show: {
     opacity: 1,
@@ -64,17 +43,8 @@ export const stampVariants: Variants = {
   },
 };
 
-// Hairline rule growing across the page
-export const ruleVariants: Variants = {
-  hidden: { scaleX: 0 },
-  show: {
-    scaleX: 1,
-    transition: print,
-  },
-};
-
 // Running-head furniture
-export const headVariants: Variants = {
+const headVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -83,7 +53,7 @@ export const headVariants: Variants = {
 };
 
 // Stagger container for ledger rows (50ms, print-like)
-export const staggerContainer: Variants = {
+const staggerContainer: Variants = {
   hidden: {},
   show: {
     transition: {
@@ -99,7 +69,7 @@ export const staggerContainer: Variants = {
 // Reduced motion: the book stands still
 const reducedCache = new Map<Variants, Variants>();
 
-export const getReducedMotionVariants = (variants: Variants): Variants => {
+const getReducedMotionVariants = (variants: Variants): Variants => {
   const cached = reducedCache.get(variants);
   if (cached) return cached;
 
@@ -114,3 +84,15 @@ export const getReducedMotionVariants = (variants: Variants): Variants => {
   reducedCache.set(variants, reduced);
   return reduced;
 };
+
+/** The shared presets, stilled when the visitor prefers reduced motion. */
+export function useMotionVariants() {
+  const reduce = useReducedMotion();
+  const pick = (variants: Variants) => (reduce ? getReducedMotionVariants(variants) : variants);
+  return {
+    head: pick(headVariants),
+    ledger: pick(ledgerVariants),
+    stamp: pick(stampVariants),
+    stagger: pick(staggerContainer),
+  };
+}

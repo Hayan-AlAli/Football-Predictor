@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
-import { headVariants, getReducedMotionVariants } from '../lib/motion';
+import { motion } from 'motion/react';
+import { useMotionVariants } from '../lib/motion';
 import { gameweekLabel } from '../lib/format';
 import { useBook } from '../lib/book';
 import { useThisWeek } from '../lib/gameweek';
@@ -43,8 +43,7 @@ function SectionLinks({ className }: { className: string }) {
 
 /** The desk's masthead: mark, wordmark, sections, and the matchweek on view. */
 export default function RunningHead({ gameweek, isCurrentWeek }: RunningHeadProps) {
-  const reduce = useReducedMotion();
-  const variants = reduce ? getReducedMotionVariants(headVariants) : headVariants;
+  const { head: variants } = useMotionVariants();
   const location = useLocation();
   const { selectedGameweek } = useBook();
   const thisWeek = useThisWeek();

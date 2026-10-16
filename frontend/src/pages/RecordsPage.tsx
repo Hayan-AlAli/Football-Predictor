@@ -9,16 +9,13 @@ import { resultEntries } from '../lib/data-utils';
 import type { ResultEntry } from '../types';
 import { teamName, teamShort } from '../lib/teams';
 import { scoreline } from '../lib/format';
-import { getReducedMotionVariants, headVariants, ledgerVariants, staggerContainer, stampVariants } from '../lib/motion';
+import { useMotionVariants } from '../lib/motion';
 
 /** The Records — every verdict kept against the actual result, hits and misses alike. */
 export default function RecordsPage() {
   const { status, matches, reload } = useData();
   const reduce = useReducedMotion();
-  const headV = reduce ? getReducedMotionVariants(headVariants) : headVariants;
-  const staggerV = reduce ? getReducedMotionVariants(staggerContainer) : staggerContainer;
-  const rowV = reduce ? getReducedMotionVariants(ledgerVariants) : ledgerVariants;
-  const stampV = reduce ? getReducedMotionVariants(stampVariants) : stampVariants;
+  const { head: headV, stagger: staggerV, ledger: rowV, stamp: stampV } = useMotionVariants();
 
   const dateToGw = useMemo(() => {
     const byDate = new Map<string, number>();
