@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from backend import db, elo, insights, predictor
-from backend.sources import espn, football_data
+from backend.sources import espn, football_data, understat
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,20 @@ def forecast_due(has_forecast, results_changed, weekday=None):
 
 def _invalidate_caches():
     elo._cache = None
-    predictor._form_cache = None
+    predictor.reset_caches()
+
+
+def sync_xg(season):
+    """Store Understat xG on the season's played matches (and last season's,
+    so a missed run or a new season never leaves a gap). Returns how many
+    matches got xG; matches the fixture feed does not know are skipped."""
+    updated = 0
+    for s in (season - 1, season):
+        rows = [{'id': db.match_id(s, r['home_team'], r['away_team']),
+                 'home_xg': r['home_xg'], 'away_xg': r['away_xg']}
+                for r in understat.season_xg(s)]
+        updated += db.set_match_xg(rows)
+    return updated
 
 
 def pull_matches(season):
@@ -158,6 +171,11 @@ def run_sync(force_forecast=False, now=None):
         newly_finished = sum(1 for r, i in zip(rows, ids)
                              if r.get('status') == 'finished' and before.get(i) != 'finished')
         summary['new_results'] = newly_finished
+        try:
+            summary['xg'] = sync_xg(season)
+        except Exception as e:  # xG sharpens the model; results and calls still go ahead without it
+            logger.warning(f'xG sync skipped: {e}')
+            summary['xg'] = f'unavailable: {e}'
         _invalidate_caches()
 
         summary['predictions'] = predict_upcoming(season, now)

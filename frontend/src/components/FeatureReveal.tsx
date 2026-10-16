@@ -22,7 +22,7 @@ function Delta({ value, avg }: { value: number; avg: number }) {
   );
 }
 
-/** The model's inputs for one fixture: why it prints what it prints. */
+/** The form each side brings to a fixture: Elo and recent goals / xG against the league average. */
 export default function FeatureReveal({ match }: { match: Match }) {
   const f = match.prediction?.features;
   if (!f) return null;
@@ -30,13 +30,13 @@ export default function FeatureReveal({ match }: { match: Match }) {
   const away = typeof match.away_team === 'string' ? match.away_team : match.away_team?.name ?? '';
 
   return (
-    <section className="rule-double mt-5 pt-4" aria-label={`Model inputs, ${home} v ${away}`}>
+    <section className="rule-double mt-5 pt-4" aria-label={`Form going in, ${home} v ${away}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-mono text-micro uppercase tracking-wider-caps text-chalk-faint">
-          Why the model says so · feature inputs
+          Form going in · club rating and recent goals
         </h3>
         <span className="font-sans text-xs italic text-chalk-faint">
-          live club rating and rolling form, against the league average
+          context for the call, against the league average
         </span>
       </div>
 

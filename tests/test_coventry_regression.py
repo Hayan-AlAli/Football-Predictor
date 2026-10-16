@@ -2,9 +2,9 @@
 
 Covers the Coventry-2nd bug class:
 1. simulate_season must carry current standings points into the simulation.
-2. Unseen teams (no training history) must get neutral, not inflated, lambdas.
-3. Normalized names (Newcastle/Wolverhampton/Ipswich Town) must resolve to
-   their trained team codes and history, not fall back to Arsenal/zeros.
+2. Unseen teams (no history) must get below-average, not inflated, lambdas.
+3. Normalized names (Newcastle/Wolverhampton/Ipswich Town) must find their
+   history, not fall back to zeros.
 """
 import pandas as pd
 
@@ -59,31 +59,11 @@ def test_unknown_team_lambda_not_inflated():
         "home_team": "Arsenal", "away_team": "Coventry City",
         "home_elo": ars, "away_elo": cov,
     })
-    # Pre-fix this was 3.53: all-zero multi-window form extrapolated wildly.
+    # Pre-fix this was 3.53: all-zero form extrapolated wildly.
     assert cov_home["home_goals"] < 2.5
+    assert cov_home["model_version"] == predictor.MODEL_VERSION
     # The unknown side must not be rated above Arsenal's attack.
     assert cov_home["home_goals"] < ars_home["home_goals"]
-
-
-def test_team_code_resolves_normalized_names():
-    """Teams stored raw in training data must keep their own code."""
-    from backend import utils
-    normed = {
-        "Newcastle": "Newcastle United",
-        "Wolverhampton": "Wolves",
-        "Ipswich Town": "Ipswich",
-    }
-    for query, raw in normed.items():
-        assert utils.normalize_team_name(raw) == query
-        got = predictor._team_code(query)
-        want = predictor._team_code(raw)
-        assert got == want, f"{query} resolved to {got}, expected {want}"
-        assert got != predictor._team_code("Arsenal"), \
-            f"{query} fell back to Arsenal's code"
-
-
-def test_unknown_team_code_is_neutral():
-    assert predictor._team_code("Coventry City") != predictor._team_code("Arsenal")
 
 
 def test_latest_stats_find_normalized_names():
@@ -96,28 +76,13 @@ def test_latest_stats_find_normalized_names():
     assert goals == 2.0
 
 
-def test_team_window_form_accepts_tz_aware_before():
-    """ESPN fixture dates are tz-aware; training dates are naive.
-
-    Comparing them raised TypeError, which predict_match swallowed into a
-    random 0.33/0.34/0.33 prediction for every upcoming fixture.
-    """
-    from backend import features
-    df = pd.DataFrame([
-        {"date": pd.Timestamp("2026-01-01"), "home_team": "A", "away_team": "B",
-         "home_goals": 2, "away_goals": 0, "home_xg": 1.5, "away_xg": 0.4},
-    ])
-    form = features.team_window_form(df, "A", 3, before=pd.Timestamp("2026-10-10 14:00", tz="UTC"))
-    assert form["scored"] == 2.0
-
-
 def test_predict_match_with_tz_aware_date_is_not_fallback():
     pred = predictor.predict_match({
         "home_team": "Liverpool", "away_team": "Fulham",
         "home_elo": 1576, "away_elo": 1450,
         "date": pd.Timestamp("2026-10-10 14:00", tz="UTC"),
     })
-    assert "home_elo" in pred, "predict_match fell back to random_prediction"
+    assert pred["model_version"] == predictor.MODEL_VERSION, "fell back instead of predicting"
     assert pred["prob_home"] > pred["prob_away"]
 
 
@@ -151,9 +116,9 @@ def test_current_elo_ranks_big_clubs_above_promoted_sides():
 
 
 def test_form_uses_stored_results_after_training(monkeypatch):
-    """A promoted side with results this season is judged on them, not on
-    league-average form, and missing xG does not count as zero."""
-    from backend import elo, features
+    """A promoted side with results this season is judged on them: they
+    shape both its form figures and the model's strengths."""
+    from backend import elo
     stored = [
         {"date": f"2026-09-{d:02d}", "home_team": "Hull", "away_team": "Chelsea",
          "home_goals": 0, "away_goals": 3}
@@ -161,17 +126,9 @@ def test_form_uses_stored_results_after_training(monkeypatch):
     ]
     monkeypatch.setattr(elo, "stored_results_since", lambda as_of: stored)
     frame = predictor.form_frame()
-    assert predictor.team_has_history("Hull", frame)
-    form = features.team_window_form(frame, "Hull", 3)
-    assert form["scored"] == 0.0 and form["conceded"] == 3.0
-    assert form["xg_against"] == 3.0  # goals stand in for missing xG
-
-
-def test_out_of_range_elo_is_clamped():
-    lo, hi = predictor.ELO_RANGE
-    wild = predictor.predict_match({"home_team": "Coventry City", "away_team": "Arsenal",
-                                    "home_elo": lo - 400, "away_elo": hi + 400})
-    edge = predictor.predict_match({"home_team": "Coventry City", "away_team": "Arsenal",
-                                    "home_elo": lo, "away_elo": hi})
-    assert wild["home_goals"] == edge["home_goals"]
-    assert wild["home_elo"] == int(lo - 400)  # the reported rating is untouched
+    goals, xg = predictor.get_latest_stats("Hull", frame)
+    assert goals == 0.0 and xg == 0.0  # goals stand in for missing xG
+    model = predictor.model_as_of()
+    assert "Hull" in model.index
+    hull_attack, _ = model.strengths("Hull")
+    assert hull_attack < model.strengths("Chelsea")[0]

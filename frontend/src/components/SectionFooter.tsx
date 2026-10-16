@@ -14,7 +14,7 @@ export default function SectionFooter() {
             Touchline {season && `· Premier League ${season}`}
           </p>
           <p className="font-mono text-[0.6875rem] uppercase tracking-wider-caps text-chalk-faint">
-            Random Forest + Poisson · five seasons of data · live club Elo
+            Dixon-Coles · xG-weighted · refitted on every result
           </p>
         </div>
         <p className="text-xs italic text-chalk-faint">

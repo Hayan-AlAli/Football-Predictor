@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from backend import db, elo, predictor, sync
-from backend.sources import espn, football_data
+from backend.sources import espn, football_data, understat
 from espn_fake import event, season_events
 
 NOW = datetime(2026, 9, 29, 6, 0, tzinfo=timezone.utc)  # after 7 played rounds
@@ -19,6 +19,7 @@ def feed(monkeypatch):
         return {"events": [e for e in events if a <= e["date"][:10].replace("-", "") <= b]}
 
     monkeypatch.setattr(espn, "_get", fake_get)
+    monkeypatch.setattr(understat, "season_xg", lambda season: [])
     # The Elo model keeps these tests fast; the RF path has its own tests.
     monkeypatch.setattr(predictor, "predict_matches",
                         lambda ms: [predictor.elo_prediction(m["home_team"], m["away_team"],
@@ -131,6 +132,7 @@ def test_failed_sync_is_logged_and_raised(monkeypatch):
 def test_sync_with_the_real_model(monkeypatch):
     """No stub: the batched forest predicts the horizon and the forecast."""
     events = season_events(played_rounds=7)
+    monkeypatch.setattr(understat, "season_xg", lambda season: [])
     monkeypatch.setattr(espn, "_get", lambda params, attempts=3: {"events": [
         e for e in events
         if params["dates"][:8] <= e["date"][:10].replace("-", "") <= params["dates"][9:]]})
@@ -178,3 +180,27 @@ def test_placeholder_detection():
     assert sync.is_placeholder(FLAT)
     assert sync.is_placeholder({"prob_home": None, "prob_draw": None, "prob_away": None})
     assert not sync.is_placeholder({"prob_home": 0.4, "prob_draw": 0.3, "prob_away": 0.3})
+
+
+def test_sync_stores_understat_xg_on_played_matches(feed, monkeypatch):
+    played = [e for e in feed if e["status"]["type"]["state"] == "post"][:2]
+    rows = []
+    for e in played:
+        home, away = (c["team"]["displayName"] for c in e["competitions"][0]["competitors"])
+        rows.append({"home_team": home, "away_team": away, "match_date": None,
+                     "home_xg": 1.25, "away_xg": 0.5})
+    monkeypatch.setattr(understat, "season_xg", lambda season: rows if season == 2026 else [])
+    summary = sync.run_sync(now=NOW)
+    assert summary["xg"] == 2
+    with_xg = [r for r in db.results_since("2026-08-01") if r["home_xg"] is not None]
+    assert len(with_xg) == 2 and all(r["home_xg"] == 1.25 for r in with_xg)
+
+
+def test_understat_outage_does_not_stop_the_sync(feed, monkeypatch):
+    def down(season):
+        raise understat.FeedError("down")
+
+    monkeypatch.setattr(understat, "season_xg", down)
+    summary = sync.run_sync(now=NOW)
+    assert summary["xg"].startswith("unavailable")
+    assert summary["predictions"] == 40 and db.last_runs()["sync"]["ok"] is True

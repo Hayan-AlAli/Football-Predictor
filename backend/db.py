@@ -21,7 +21,7 @@ from functools import lru_cache
 
 from dotenv import load_dotenv
 from sqlalchemy import (JSON, Boolean, Column, Date, DateTime, Float, ForeignKey, Index, Integer,
-                        MetaData, String, Table, create_engine, inspect, select, text)
+                        MetaData, String, Table, bindparam, create_engine, inspect, select, text)
 from sqlalchemy.dialects.postgresql import JSONB
 
 from backend import teams as registry
@@ -52,6 +52,8 @@ matches = Table(
     Column('status', String, nullable=False, default='scheduled'),
     Column('home_goals', Integer),
     Column('away_goals', Integer),
+    Column('home_xg', Float),               # Understat expected goals; NULL until synced
+    Column('away_xg', Float),
     Column('espn_id', String),
     Column('updated_at', DateTime),
     Index('ix_matches_season_date', 'season', 'match_date'),
@@ -140,6 +142,7 @@ def init():
     metadata.create_all(engine())
     from backend import legacy_migration
     legacy_migration.upgrade_teams_table(engine())
+    legacy_migration.add_match_xg_columns(engine())
     legacy_migration.migrate_if_needed(engine())
     _ready = True
 
@@ -333,7 +336,8 @@ def results_since(since):
     """Finished matches strictly after `since` (YYYY-MM-DD), oldest first,
     in the flat shape the Elo and form code consume."""
     q = (select(matches.c.match_date, matches.c.home_team, matches.c.away_team,
-                matches.c.home_goals, matches.c.away_goals, matches.c.season)
+                matches.c.home_goals, matches.c.away_goals, matches.c.home_xg, matches.c.away_xg,
+                matches.c.season)
          .where(matches.c.status == 'finished')
          .where(matches.c.match_date > _as_date(since))
          .order_by(matches.c.match_date, matches.c.kickoff))
@@ -341,7 +345,20 @@ def results_since(since):
         rows = conn.execute(q).mappings().all()
     return [{'date': r['match_date'].isoformat(), 'home_team': r['home_team'],
              'away_team': r['away_team'], 'home_goals': r['home_goals'],
-             'away_goals': r['away_goals'], 'season': r['season']} for r in rows]
+             'away_goals': r['away_goals'], 'home_xg': r['home_xg'], 'away_xg': r['away_xg'],
+             'season': r['season']} for r in rows]
+
+
+def set_match_xg(rows):
+    """rows: [{id, home_xg, away_xg}]. Updates matches already stored (the
+    fixture feed owns which matches exist); returns how many it updated."""
+    if not rows:
+        return 0
+    stmt = (matches.update().where(matches.c.id == bindparam('match_id'))
+            .values(home_xg=bindparam('hxg'), away_xg=bindparam('axg')))
+    with _connect() as conn:
+        result = conn.execute(stmt, [{'match_id': r['id'], 'hxg': r['home_xg'], 'axg': r['away_xg']} for r in rows])
+    return result.rowcount
 
 
 def latest_season():

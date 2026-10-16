@@ -153,7 +153,7 @@ function OutcomeSplit({ pred, callKey }: { pred: Prediction; callKey?: OutcomeKe
   );
 }
 
-/** The model's inputs, home left · away right. */
+/** Each side's club rating and recent form, home left · away right. */
 function ModelInputs({ pred }: { pred: Prediction }) {
   const features = pred.features;
   const homeElo = features?.home_elo ?? pred.home_elo;
@@ -211,7 +211,7 @@ function VerdictRow({ verdict, pred, children }: { verdict?: ResultEntry; pred: 
   );
 }
 
-/** The fold-out: goal expectation, outcome odds and the feature inputs behind the call. */
+/** The fold-out: goal expectation, outcome odds and the form behind the call. */
 function WhyPlate({ id, match, pred, callKey }: { id: string; match: Match; pred: Prediction; callKey?: OutcomeKey }) {
   const kickoff = kickoffTime(match);
   const home = match.home_team_info ?? match.home_team;

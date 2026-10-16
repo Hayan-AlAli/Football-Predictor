@@ -54,6 +54,20 @@ def upgrade_teams_table(engine):
     return True
 
 
+def add_match_xg_columns(engine):
+    """Add the xG columns to a `matches` table created before they existed."""
+    if 'matches' not in inspect(engine).get_table_names():
+        return False
+    have = {c['name'] for c in inspect(engine).get_columns('matches')}
+    missing = [c for c in ('home_xg', 'away_xg') if c not in have]
+    if not missing:
+        return False
+    with engine.begin() as conn:
+        for col in missing:
+            conn.execute(text(f'ALTER TABLE matches ADD COLUMN {col} FLOAT'))
+    return True
+
+
 def migrate_if_needed(engine):
     from backend import db
     if not db.has_legacy_tables(engine):

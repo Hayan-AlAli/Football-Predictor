@@ -9,6 +9,7 @@ scheduled sync job that keeps everything current.
 ESPN scoreboard API ──┐                         ┌── GET /api/matches   (one call per page)
 football-data.co.uk ──┤→ backend/sync.py → DB ──┼── GET /api/teams, /api/forecast, ...
  (fallback results)   │  (cron, idempotent)     └── React frontend
+Understat (xG) ───────┤
 data/teams.json ──────┘
 ```
 
@@ -63,8 +64,8 @@ Without `POSTGRES_URL` the app uses SQLite at `data/football.db`.
   SQL goes through SQLAlchemy Core with bound parameters.
 - `vercel.json` sends a strict Content-Security-Policy (scripts from the
   site only), HSTS, `nosniff`, no framing and a restrictive Permissions-Policy.
-- The bundled `*.pkl` models are loaded with joblib (pickle): only ever
-  replace them with files you trained yourself.
+- The bundled `training_data.pkl` is loaded with joblib (pickle): only ever
+  replace it with a file you built yourself.
 
 ## API
 
@@ -98,20 +99,39 @@ logged in `job_runs` and reported by `/api/health`.
 
 ## Model
 
-Random Forest goal regressors (Elo, Elo gap, multi-window form and xG) feed a
-Poisson scoreline model. If the model files are missing or fail, predictions
-fall back to an Elo-only Poisson model, tagged `model_version = "elo-poisson"`.
-Elo is computed in-house (`backend/elo.py`) from every result since 1995/96.
+A time-weighted Dixon-Coles model (`backend/dixon_coles.py`): every club gets
+an attack and a defence strength, fitted by maximum likelihood to every result
+since 2020-21, with a match five months old counting half as much as one played
+this week. Each side's count is three parts xG to one part goals where xG is
+known: chance quality says more about a team than a few finishes. A fixture's
+expected goals feed a Poisson scoreline grid with the Dixon-Coles low-score
+correction, which gives the home / draw / away odds and the likeliest score.
 
-Retraining is offline and needs the extra training dependencies:
+xG comes from Understat (`backend/sources/understat.py`): the sync stores it
+next to each result; until it arrives the model uses the goals. The bundled
+`training_data.pkl` holds the 2020-21 to February 2026 history with xG. If the
+fit cannot run, predictions fall back to an Elo-only Poisson model, tagged
+`model_version = "elo-poisson"`. Elo is computed in-house (`backend/elo.py`)
+from every result since 1995/96.
+
+The model was chosen, and its two settings tuned, with a walk-forward
+backtest: every week is predicted from earlier matches only.
 
 ```bash
-pip install -r requirements-train.txt
-python -m backend.train_model
+python -m backend.backtest                       # 1,010 matches from Aug 2023
+python -m backend.backtest --xi 0.003 0.0045 0.006
 ```
 
-`scikit-learn` is pinned to the version the bundled pickles were saved with.
-Retrain before bumping it.
+| Model (Aug 2023 to Feb 2026) | RPS (lower is better) | Accuracy |
+|---|---|---|
+| Dixon-Coles, 75% xG (production) | 0.1967 | 54.6% |
+| Dixon-Coles, goals only | 0.1995 | 53.3% |
+| Elo only | 0.2006 | 54.6% |
+| Random forest + Poisson (previous model) | 0.2051 | 52.7% |
+| Base rates | 0.2336 | 43.6% |
+
+A call for a match already played (when the sync rebuilds a placeholder) is
+fitted only on results from before that match day.
 
 ## Upgrading from the pre-2.0 schema
 

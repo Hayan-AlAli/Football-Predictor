@@ -4,28 +4,28 @@ import { useMotionVariants } from '../lib/motion';
 
 const FEATURES = [
   {
-    name: 'Club Elo',
-    note: 'The live rating of each side at kickoff, taken from ClubElo.',
+    name: 'Attack strength',
+    note: 'How many goals each club creates, fitted from every result it has played.',
   },
   {
-    name: 'Rolling form — goals',
-    note: 'Average goals scored and conceded across each side’s last five matches.',
+    name: 'Defence strength',
+    note: 'How many goals each club concedes, fitted the same way.',
   },
   {
-    name: 'Rolling form — xG',
-    note: 'Average expected goals for and against across the last five matches.',
+    name: 'Expected goals (xG)',
+    note: 'Results count three parts xG to one part goals: chance quality says more about a side than a few finishes.',
   },
   {
-    name: 'Team encoding',
-    note: 'A fitted team code for the home and away sides, learned while training.',
+    name: 'Recency',
+    note: 'A match five months old counts half as much as one played this week.',
   },
   {
     name: 'Home advantage',
-    note: 'The structural edge of playing at home, carried by the home-side model.',
+    note: 'One league-wide boost to the home side’s scoring, fitted with the rest.',
   },
 ];
 
-const PIPELINE = ['Fixtures', 'Features', 'Regressors', 'Poisson', 'Probabilities', 'The ledger'];
+const PIPELINE = ['Results', 'Strengths', 'Expected goals', 'Scorelines', 'Probabilities', 'The ledger'];
 
 /** The Method — the model's section, honest about what it does and does not claim. */
 export default function MethodPage() {
@@ -39,8 +39,8 @@ export default function MethodPage() {
           The Method
         </h1>
         <p className="mt-2 font-sans text-sm italic text-chalk-soft sm:text-base">
-          How the predictions are made: the features, the regressors, and the distribution that turns expected
-          goals into verdicts.
+          How the predictions are made: the club strengths, the results they are fitted to, and the distribution
+          that turns expected goals into verdicts.
         </p>
       </motion.div>
 
@@ -51,11 +51,13 @@ export default function MethodPage() {
             <span className="font-mono text-chalk-faint">I.</span> The model
           </h2>
           <p className="mt-3">
-            Every prediction comes from two <strong>Random Forest regressors</strong> — one for the home side, one
-            for the away side — trained on five seasons of Premier League football. Each regressor estimates its
-            side's <strong>expected goals</strong> for a fixture from the features below. The two expectations are
-            then expanded into the full outcome line — home win, draw, away win, and the most likely scoreline —
-            with a <strong>Poisson distribution</strong> over goals.
+            Every prediction comes from a <strong>Dixon-Coles model</strong>: each club gets an attack and a
+            defence strength, fitted to every Premier League result since 2020 with recent matches counting most.
+            A fixture's <strong>expected goals</strong> follow from the two clubs' strengths and home advantage, and
+            a <strong>Poisson distribution</strong> over goals — corrected for how often low scores like 0-0 and
+            1-1 really happen — gives the full outcome line: home win, draw, away win and the likeliest scoreline.
+            Replayed week by week over two and a half seasons, it beat the random forest it replaced, goals-only
+            versions of itself and Elo alone.
           </p>
         </section>
 
@@ -64,7 +66,7 @@ export default function MethodPage() {
           <h2 className="rule-double pt-3 font-display text-2xl font-extrabold uppercase text-chalk">
             <span className="font-mono text-chalk-faint">II.</span> The features
           </h2>
-          <p className="mt-3">What each prediction is set from — five columns of fact:</p>
+          <p className="mt-3">What each prediction is set from:</p>
           <div className="plate mt-4 overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
@@ -90,10 +92,8 @@ export default function MethodPage() {
             </table>
           </div>
           <p className="mt-2 font-sans text-xs italic text-chalk-faint">
-            The trained artifacts are kept as <span className="font-mono not-italic">model_home.pkl</span>,{' '}
-            <span className="font-mono not-italic">model_away.pkl</span> and{' '}
-            <span className="font-mono not-italic">team_encoder.pkl</span>, retrained through{' '}
-            <span className="font-mono not-italic">backend.train_model</span>.
+            xG comes from Understat. The model refits whenever new results arrive; the comparison behind it reruns
+            with <span className="font-mono not-italic">python -m backend.backtest</span>.
           </p>
         </section>
 
@@ -102,7 +102,7 @@ export default function MethodPage() {
           <h2 className="rule-double pt-3 font-display text-2xl font-extrabold uppercase text-chalk">
             <span className="font-mono text-chalk-faint">III.</span> The press run
           </h2>
-          <p className="mt-3">Each morning the press sets the day's fixtures through six stations:</p>
+          <p className="mt-3">Twice a day the press sets the coming fixtures through six stations:</p>
           <ol className="mt-4 space-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-y-3 sm:gap-x-1 font-mono text-xs uppercase tracking-wider-caps">
             {PIPELINE.map((step, i) => (
               <li key={step} className="flex items-center gap-3">
@@ -118,18 +118,19 @@ export default function MethodPage() {
           </ol>
           <ul className="mt-4 space-y-1.5 font-sans text-sm text-chalk-soft">
             <li>
-              <strong className="font-sans">Fixtures</strong> — the day's fixtures are fetched from live match data.
+              <strong className="font-sans">Results</strong> — the latest scores come in from live match data, with
+              each match's xG from Understat.
             </li>
             <li>
-              <strong className="font-sans">Features</strong> — ELO ratings and the rolling form columns are computed
-              for both sides.
+              <strong className="font-sans">Strengths</strong> — every club's attack and defence are refitted.
             </li>
             <li>
-              <strong className="font-sans">Regressors</strong> — both forests estimate the expected goals for their
-              side.
+              <strong className="font-sans">Expected goals</strong> — each fixture's goals for both sides follow from
+              the two clubs' strengths.
             </li>
             <li>
-              <strong className="font-sans">Poisson</strong> — the goal distribution is expanded into match outcomes.
+              <strong className="font-sans">Scorelines</strong> — the goal distribution is expanded into every
+              scoreline, and from there into match outcomes.
             </li>
             <li>
               <strong className="font-sans">Probabilities</strong> — home, draw and away figures are set to paper.

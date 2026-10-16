@@ -6,20 +6,9 @@ __pycache__/
 .env
 .env.*
 
-# Machine Learning Models
+# Pickles, except the bundled match history the model is fitted on
 *.pkl
-training_data.pkl
-model_*.pkl
-elo_state.pkl
-team_encoder.pkl
-
-# The four model files Vercel needs to run predictions
-!model_home.pkl
-!model_away.pkl
-!team_encoder.pkl
 !training_data.pkl
-# Small fixture the evaluation tests load
-!tests/_mini.pkl
 
 # Virtual Environments
 venv/

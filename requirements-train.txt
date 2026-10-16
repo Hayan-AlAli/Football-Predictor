@@ -1,3 +1,0 @@
-# Offline model training only (python -m backend.train_model).
--r requirements.txt
-soccerdata

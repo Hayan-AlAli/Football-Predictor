@@ -67,7 +67,8 @@ def test_results_since_is_flat_and_strictly_after():
     ])
     rows = db.results_since("2026-09-20")
     assert rows == [{"date": "2026-09-21", "home_team": "Everton", "away_team": "Fulham",
-                     "home_goals": 2, "away_goals": 2, "season": 2026}]
+                     "home_goals": 2, "away_goals": 2, "home_xg": None, "away_xg": None,
+                     "season": 2026}]
 
 
 def test_delete_scheduled_except_never_touches_results():
@@ -152,3 +153,26 @@ def test_legacy_tables_migrate_once(tmp_path):
     # a second start must not migrate again
     db.reset_for_tests(f"sqlite:///{path}")
     assert len(db.load_matches()) == 3
+
+
+def test_set_match_xg_updates_only_stored_matches():
+    [mid] = db.upsert_matches([_fixture("Arsenal", "Chelsea", "2026-09-12", status="finished",
+                                        home_goals=2, away_goals=1)])
+    n = db.set_match_xg([{"id": mid, "home_xg": 1.9, "away_xg": 0.7},
+                         {"id": "2026-nowhere-rovers", "home_xg": 1.0, "away_xg": 1.0}])
+    assert n == 1
+    [r] = db.results_since("2026-09-01")
+    assert (r["home_xg"], r["away_xg"]) == (1.9, 0.7)
+    assert len(db.load_matches()) == 1  # the unknown id was not inserted
+
+
+def test_old_matches_table_gains_xg_columns(tmp_path):
+    from sqlalchemy import create_engine, inspect, text
+    from backend import legacy_migration
+    eng = create_engine(f"sqlite:///{tmp_path / 'old.db'}")
+    with eng.begin() as conn:
+        conn.execute(text("CREATE TABLE matches (id VARCHAR PRIMARY KEY, home_goals INTEGER)"))
+    assert legacy_migration.add_match_xg_columns(eng)
+    cols = {c["name"] for c in inspect(eng).get_columns("matches")}
+    assert {"home_xg", "away_xg"} <= cols
+    assert not legacy_migration.add_match_xg_columns(eng)  # idempotent

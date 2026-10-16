@@ -1,12 +1,11 @@
-# Runtime (what Vercel installs). scikit-learn is pinned to the version the
-# bundled model pickles were saved with; retrain before bumping it.
+# Runtime (what Vercel installs).
 fastapi
 uvicorn[standard]
 requests
 python-dotenv
 pandas
 numpy
-scikit-learn==1.7.2
+scipy
 joblib
 SQLAlchemy>=2.0
 psycopg2-binary

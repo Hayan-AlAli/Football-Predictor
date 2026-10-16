@@ -22,12 +22,6 @@ def test_select_winner_tie_breaks_home():
     assert winner == "Arsenal"
 
 
-def test_models_expect_production_features_including_elo_difference():
-    from backend import features as features_mod
-    assert predictor.model_home.n_features_in_ == len(features_mod.PRODUCTION_FEATURE_COLUMNS)
-    assert predictor.model_away.n_features_in_ == len(features_mod.PRODUCTION_FEATURE_COLUMNS)
-
-
 def test_predict_match_returns_features():
     pred = predictor.predict_match({
         "home_team": "Arsenal",
@@ -70,7 +64,7 @@ def test_predict_match_unknown_team_still_1500():
 
 
 def _assert_real_prediction(pred):
-    # Random fallback has no features and exact 0.33/0.34/0.33 probs.
+    # The Elo fallback has no features; the old random one was exactly 0.33/0.34/0.33.
     assert "features" in pred
     assert not (pred["prob_home"] == 0.33 and pred["prob_draw"] == 0.34
                 and pred["prob_away"] == 0.33)
@@ -146,14 +140,14 @@ def test_batch_matches_single_predictions():
 
 
 def test_bad_row_falls_back_without_sinking_the_batch(monkeypatch):
-    real = predictor._match_features
+    real = predictor._dixon_coles_prediction
 
-    def flaky(m, state, form_of):
+    def flaky(m, ratings, history):
         if m["home_team"] == "Chelsea":
             raise ValueError("boom")
-        return real(m, state, form_of)
+        return real(m, ratings, history)
 
-    monkeypatch.setattr(predictor, "_match_features", flaky)
+    monkeypatch.setattr(predictor, "_dixon_coles_prediction", flaky)
     out = predictor.predict_matches([
         {"home_team": "Arsenal", "away_team": "Everton"},
         {"home_team": "Chelsea", "away_team": "Everton"},
@@ -163,7 +157,8 @@ def test_bad_row_falls_back_without_sinking_the_batch(monkeypatch):
 
 
 def test_read_endpoints_do_not_load_the_model():
-    """Read endpoints, team pages included, never unpickle the forests."""
+    """Read endpoints, team pages included, never fit the model; nothing
+    imports scikit-learn any more."""
     import subprocess
     import sys
     code = (
@@ -173,10 +168,10 @@ def test_read_endpoints_do_not_load_the_model():
         "for p in ('/api/matches', '/api/teams', '/api/calibration', '/api/health',\n"
         "          '/api/teams/arsenal', '/api/teams/arsenal/h2h?vs=chelsea'):\n"
         "    assert c.get(p).status_code == 200, p\n"
-        "assert 'sklearn' not in sys.modules, 'scikit-learn was imported'\n"
-        "assert s.predictor._models is None, 'models were loaded'\n"
+        "assert s.predictor._model_cache == {}, 'the model was fitted'\n"
         "assert c.get('/api/predict?home=arsenal&away=chelsea').status_code == 200\n"
-        "assert s.predictor._models is not None\n"
+        "assert s.predictor._model_cache, 'predict did not fit the model'\n"
+        "assert 'sklearn' not in sys.modules, 'scikit-learn was imported'\n"
     )
     import os
     import tempfile

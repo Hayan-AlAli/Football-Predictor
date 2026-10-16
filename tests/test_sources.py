@@ -142,3 +142,32 @@ def test_fetch_season_requests_months_in_parallel(monkeypatch):
     assert len(rows) == 380 and complete
     assert peak[0] > 1                                   # months really overlap
     assert elapsed < 0.2 * len(espn.season_windows(2026)) / 2  # well under sequential
+
+
+def test_understat_parse_keeps_played_matches_with_xg_and_normalizes_names():
+    from backend.sources import understat
+    payload = {"dates": [
+        {"id": "1", "isResult": True, "datetime": "2026-08-22 14:00:00",
+         "h": {"title": "Wolverhampton Wanderers"}, "a": {"title": "Newcastle United"},
+         "goals": {"h": "1", "a": "2"}, "xG": {"h": "0.84", "a": "2.31"}},
+        {"id": "2", "isResult": False, "datetime": "2026-12-26 15:00:00",
+         "h": {"title": "Arsenal"}, "a": {"title": "Chelsea"},
+         "goals": {"h": None, "a": None}, "xG": {"h": None, "a": None}},
+        {"id": "3", "isResult": True, "datetime": "garbled",
+         "h": {"title": "Arsenal"}, "a": {"title": "Chelsea"}, "xG": {"h": "1", "a": "1"}},
+    ]}
+    [row] = understat.parse_matches(payload)
+    assert row == {"home_team": "Wolverhampton", "away_team": "Newcastle",
+                   "match_date": date(2026, 8, 22), "home_xg": 0.84, "away_xg": 2.31}
+
+
+def test_understat_errors_become_feed_errors(monkeypatch):
+    import requests
+    from backend.sources import understat
+
+    def boom(self, *a, **k):
+        raise requests.ConnectionError("down")
+
+    monkeypatch.setattr(requests.Session, "get", boom)
+    with pytest.raises(understat.FeedError):
+        understat.season_xg(2026)
